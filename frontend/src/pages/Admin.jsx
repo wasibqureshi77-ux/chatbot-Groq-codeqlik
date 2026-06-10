@@ -1,0 +1,1351 @@
+import { useEffect, useState } from "react";
+import React from "react";
+
+const API_BASE = "http://localhost:8000/api/admin";
+
+function Admin() {
+    const [activeTab, setActiveTab] = useState("dashboard");
+    const [loading, setLoading] = useState(false);
+    
+    // Search / Filter states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [extraFilter, setExtraFilter] = useState("");
+
+    // Data lists
+    const [dashboardData, setDashboardData] = useState({
+        counters: { chats: 0, threads: 0, leads: 0, support: 0, hiring: 0, knowledge: 0, active_sources: 0, disabled_sources: 0 },
+        recent_activity: [],
+        intent_breakdown: {}
+    });
+    const [chatsList, setChatsList] = useState([]); // Grouped threads
+    const [selectedThreadId, setSelectedThreadId] = useState("");
+    const [selectedThreadMessages, setSelectedThreadMessages] = useState([]);
+    const [selectedThreadProfile, setSelectedThreadProfile] = useState({});
+    
+    const [leads, setLeads] = useState([]);
+    const [tickets, setTickets] = useState([]);
+    const [candidates, setCandidates] = useState([]);
+    const [knowledgeSources, setKnowledgeSources] = useState([]);
+    const [syncStatus, setSyncStatus] = useState({
+        total_sources: 0,
+        active_sources: 0,
+        disabled_sources: 0,
+        total_chunks: 0,
+        last_updated: "N/A"
+    });
+    const [settings, setSettings] = useState({
+        company_name: "",
+        company_description: "",
+        contact_email: "",
+        contact_phone: "",
+        chatbot_greeting: "",
+        fallback_message: "",
+        support_email: "",
+        support_phone: ""
+    });
+
+    // Knowledge Creator states
+    const [sourceType, setSourceType] = useState("manual"); // manual, document, database, website
+    const [manualForm, setManualForm] = useState({ title: "", category: "Company Information", content: "" });
+    const [dbForm, setDbForm] = useState({ connection_name: "", db_type: "mongodb", connection_string: "", db_name: "", target_collection: "", category: "Company Information" });
+    const [webForm, setWebForm] = useState({ url: "", category: "Company Information" });
+    const [docFile, setDocFile] = useState(null);
+    const [docCategory, setDocCategory] = useState("Company Information");
+    
+    // Knowledge Editor Modal States
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingSourceId, setEditingSourceId] = useState(null);
+    const [editForm, setEditForm] = useState({ title: "", category: "Company Information", content: "" });
+
+    // Core Fetch Tab function
+    async function fetchData() {
+        try {
+            if (activeTab === "dashboard") {
+                const res = await fetch(`${API_BASE}/dashboard`);
+                if (res.ok) {
+                    setDashboardData(await res.json());
+                }
+            } else if (activeTab === "chats") {
+                const queryParams = new URLSearchParams();
+                if (searchQuery) queryParams.append("q", searchQuery);
+                if (extraFilter) queryParams.append("intent", extraFilter);
+                
+                const res = await fetch(`${API_BASE}/chats?${queryParams.toString()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setChatsList(data);
+                    
+                    // Maintain selected thread
+                    if (selectedThreadId) {
+                        fetchThreadMessages(selectedThreadId);
+                    } else if (data.length > 0) {
+                        setSelectedThreadId(data[0].thread_id);
+                        fetchThreadMessages(data[0].thread_id);
+                    }
+                }
+            } else if (activeTab === "leads") {
+                const queryParams = new URLSearchParams();
+                if (searchQuery) queryParams.append("q", searchQuery);
+                if (statusFilter) queryParams.append("status", statusFilter);
+                
+                const res = await fetch(`${API_BASE}/leads?${queryParams.toString()}`);
+                if (res.ok) {
+                    setLeads(await res.json());
+                }
+            } else if (activeTab === "support") {
+                const queryParams = new URLSearchParams();
+                if (searchQuery) queryParams.append("q", searchQuery);
+                if (statusFilter) queryParams.append("status", statusFilter);
+                if (extraFilter) queryParams.append("priority", extraFilter);
+                
+                const res = await fetch(`${API_BASE}/support?${queryParams.toString()}`);
+                if (res.ok) {
+                    setTickets(await res.json());
+                }
+            } else if (activeTab === "hiring") {
+                const queryParams = new URLSearchParams();
+                if (searchQuery) queryParams.append("q", searchQuery);
+                if (statusFilter) queryParams.append("status", statusFilter);
+                
+                const res = await fetch(`${API_BASE}/hiring?${queryParams.toString()}`);
+                if (res.ok) {
+                    setCandidates(await res.json());
+                }
+            } else if (activeTab === "knowledge") {
+                const queryParams = new URLSearchParams();
+                if (searchQuery) queryParams.append("q", searchQuery);
+                if (statusFilter) queryParams.append("type", statusFilter);
+                
+                const res = await fetch(`${API_BASE}/knowledge?${queryParams.toString()}`);
+                if (res.ok) {
+                    setKnowledgeSources(await res.json());
+                }
+                
+                // Fetch sync status details
+                const syncRes = await fetch(`${API_BASE}/knowledge/sync-status`);
+                if (syncRes.ok) {
+                    setSyncStatus(await syncRes.json());
+                }
+            } else if (activeTab === "settings") {
+                const res = await fetch(`http://localhost:8000/api/settings`);
+                if (res.ok) {
+                    setSettings(await res.json());
+                }
+            }
+        } catch (error) {
+            console.error("Connection error:", error);
+        }
+    }
+
+    async function fetchThreadMessages(threadId) {
+        try {
+            const res = await fetch(`${API_BASE}/chats/${threadId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && typeof data === "object" && !Array.isArray(data)) {
+                    setSelectedThreadMessages(data.messages || []);
+                    setSelectedThreadProfile(data.profile || {});
+                } else if (Array.isArray(data)) {
+                    setSelectedThreadMessages(data);
+                    setSelectedThreadProfile(data[data.length - 1]?.profile_snapshot || {});
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load thread details:", err);
+        }
+    }
+
+    // 1. Initial Fetch on Tab switch
+    useEffect(() => {
+        setSearchQuery("");
+        setStatusFilter("");
+        setExtraFilter("");
+        setSelectedThreadId("");
+        setSelectedThreadMessages([]);
+        setSelectedThreadProfile({});
+        
+        setLoading(true);
+        fetchData().finally(() => setLoading(false));
+    }, [activeTab]);
+
+    // 2. React to Search query changes (with debouncing)
+    useEffect(() => {
+        const delay = setTimeout(() => {
+            fetchData();
+        }, 300);
+        return () => clearTimeout(delay);
+    }, [searchQuery, statusFilter, extraFilter]);
+
+    // 3. REST API Polling (No WebSockets, no SSE)
+    useEffect(() => {
+        if (activeTab === "settings") return;
+
+        const delay = activeTab === "knowledge" ? 30000 : 5000;
+        const pollInterval = setInterval(() => {
+            fetchData();
+        }, delay);
+
+        return () => clearInterval(pollInterval);
+    }, [activeTab, searchQuery, statusFilter, extraFilter, selectedThreadId]);
+
+    // Handle Thread Selection click
+    function handleSelectThread(threadId) {
+        setSelectedThreadId(threadId);
+        fetchThreadMessages(threadId);
+    }
+
+    // Update statuses
+    async function handleLeadStatus(leadId, newStatus) {
+        try {
+            const res = await fetch(`${API_BASE}/leads/${leadId}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                setLeads(leads.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleSupportUpdate(ticketId, field, value) {
+        const payload = {};
+        payload[field] = value;
+        try {
+            const res = await fetch(`${API_BASE}/support/${ticketId}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                setTickets(tickets.map(t => t._id === ticketId ? { ...t, [field]: value } : t));
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleHiringStatus(candidateId, newStatus) {
+        try {
+            const res = await fetch(`${API_BASE}/hiring/${candidateId}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                setCandidates(candidates.map(c => c._id === candidateId ? { ...c, status: newStatus } : c));
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    // Save Brand configuration Settings
+    async function saveSettings(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/settings`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(settings)
+            });
+            if (res.ok) {
+                alert("Configurations saved!");
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    // Knowledge actions
+    async function handleToggleSource(sourceId, currentState) {
+        const url = currentState ? `${API_BASE}/knowledge/${sourceId}/disable` : `${API_BASE}/knowledge/${sourceId}/enable`;
+        try {
+            const res = await fetch(url, { method: "PUT" });
+            if (res.ok) {
+                setKnowledgeSources(knowledgeSources.map(s => s._id === sourceId ? { ...s, enabled: !currentState } : s));
+                fetchData(); // Sync metrics
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleReindexSource(sourceId) {
+        try {
+            const res = await fetch(`${API_BASE}/knowledge/${sourceId}/reindex`, { method: "POST" });
+            if (res.ok) {
+                alert("Source re-indexing successfully completed!");
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleDeleteSource(sourceId) {
+        if (!confirm("Are you sure you want to delete this source? This will remove all chunks and indexing parameters. The chatbot will immediately lose access to this context.")) return;
+        try {
+            const res = await fetch(`${API_BASE}/knowledge/${sourceId}`, { method: "DELETE" });
+            if (res.ok) {
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    // CREATE operations
+    async function handleCreateManual(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/knowledge`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(manualForm)
+            });
+            if (res.ok) {
+                setManualForm({ title: "", category: "Company Information", content: "" });
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleUploadDoc(e) {
+        e.preventDefault();
+        if (!docFile) return alert("Select a document file first");
+        const formData = new FormData();
+        formData.append("file", docFile);
+        formData.append("category", docCategory);
+        try {
+            const res = await fetch(`${API_BASE}/knowledge/upload`, {
+                method: "POST",
+                body: formData
+            });
+            if (res.ok) {
+                setDocFile(null);
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleConnectDb(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/sources/database`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dbForm)
+            });
+            if (res.ok) {
+                setDbForm({ connection_name: "", db_type: "mongodb", connection_string: "", db_name: "", target_collection: "", category: "Company Information" });
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function handleConnectWeb(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/sources/website`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(webForm)
+            });
+            if (res.ok) {
+                setWebForm({ url: "", category: "Company Information" });
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    function openEditModal(source) {
+        setEditingSourceId(source._id);
+        setEditForm({
+            title: source.title,
+            category: source.category,
+            content: source.content
+        });
+        setIsEditModalOpen(true);
+    }
+
+    async function handleSaveEdit(e) {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/knowledge/${editingSourceId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(editForm)
+            });
+            if (res.ok) {
+                setIsEditModalOpen(false);
+                fetchData();
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    function exportLeadsCSV() {
+        if (leads.length === 0) return;
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Name,Email/Phone,Company,Project Type,Budget,Timeline,Status,Updated\n";
+        leads.forEach((l) => {
+            const p = l.profile || {};
+            const row = [
+                `"${p.name || ''}"`,
+                `"${p.email_or_phone || ''}"`,
+                `"${p.company || ''}"`,
+                `"${p.project_type || ''}"`,
+                `"${p.budget || ''}"`,
+                `"${p.timeline || ''}"`,
+                `"${l.status || 'New'}"`,
+                `"${l.updated_at || ''}"`
+            ].join(",");
+            csvContent += row + "\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `client_leads_export_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    return (
+        <div className="adminPage">
+            <aside className="sidebar">
+                <div className="sidebarBrand">
+                    <h2>Platform Admin</h2>
+                    <p>Enterprise Management</p>
+                </div>
+                <nav className="sidebarMenu">
+                    <button className={`sidebarBtn ${activeTab === "dashboard" ? "active" : ""}`} onClick={() => setActiveTab("dashboard")}>
+                        📊 Dashboard
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "chats" ? "active" : ""}`} onClick={() => setActiveTab("chats")}>
+                        💬 Chats Log
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "leads" ? "active" : ""}`} onClick={() => setActiveTab("leads")}>
+                        🤝 Client Leads
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "support" ? "active" : ""}`} onClick={() => setActiveTab("support")}>
+                        🛠️ Support Tickets
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => setActiveTab("hiring")}>
+                        💼 Hiring Candidates
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => setActiveTab("knowledge")}>
+                        📚 Knowledge Sources
+                    </button>
+                    <button className={`sidebarBtn ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}>
+                        ⚙️ Settings
+                    </button>
+                </nav>
+            </aside>
+
+            <main className="adminContent">
+                <div className="adminHeader">
+                    <h1>{activeTab.toUpperCase()}</h1>
+                    <div className="adminHeaderRight">
+                        <button className="secondaryBtn" onClick={fetchData}>
+                            🔄 Refresh
+                        </button>
+                        {activeTab === "leads" && (
+                            <button className="primaryBtn" onClick={exportLeadsCSV}>
+                                📥 Export CSV
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {loading && <p>Loading data summary...</p>}
+
+                {/* ==========================================
+                    DASHBOARD TAB
+                    ========================================== */}
+                {!loading && activeTab === "dashboard" && (
+                    <div>
+                        <div className="statsGrid">
+                            <div className="statCard">
+                                <span className="statCardTitle">Total Chats</span>
+                                <span className="statCardValue">{dashboardData.counters.chats}</span>
+                                <span className="statCardFooter">Total logged user inputs</span>
+                            </div>
+                            <div className="statCard">
+                                <span className="statCardTitle">Active User Threads</span>
+                                <span className="statCardValue">{dashboardData.counters.threads}</span>
+                                <span className="statCardFooter">Unique conversation threads</span>
+                            </div>
+                            <div className="statCard">
+                                <span className="statCardTitle">Client Leads</span>
+                                <span className="statCardValue">{dashboardData.counters.leads}</span>
+                                <span className="statCardFooter">Qualified project records</span>
+                            </div>
+                            <div className="statCard">
+                                <span className="statCardTitle">Support Tickets</span>
+                                <span className="statCardValue">{dashboardData.counters.support}</span>
+                                <span className="statCardFooter">Logged customer tickets</span>
+                            </div>
+                            <div className="statCard">
+                                <span className="statCardTitle">Hiring Candidates</span>
+                                <span className="statCardValue">{dashboardData.counters.hiring}</span>
+                                <span className="statCardFooter">Submitted job application candidacies</span>
+                            </div>
+                            <div className="statCard">
+                                <span className="statCardTitle">Total Knowledge Sources</span>
+                                <span className="statCardValue">{dashboardData.counters.knowledge}</span>
+                                <span className="statCardFooter">
+                                    Active: <strong>{dashboardData.counters.active_sources}</strong> | Disabled: <strong>{dashboardData.counters.disabled_sources}</strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="dashboardSections">
+                            <div className="dashboardPanel">
+                                <h3>Enterprise Activity Stream</h3>
+                                <div className="timeline">
+                                    {dashboardData.recent_activity.length === 0 ? (
+                                        <p>No recent activity logged.</p>
+                                    ) : (
+                                        dashboardData.recent_activity.map((act, idx) => (
+                                            <div className="timelineItem" key={idx}>
+                                                <div className={`timelineIcon ${act.type}`}>
+                                                    {act.type === "chat" && "💬"}
+                                                    {act.type === "lead" && "🤝"}
+                                                    {act.type === "support" && "🛠️"}
+                                                    {act.type === "hiring" && "💼"}
+                                                </div>
+                                                <div className="timelineBody">
+                                                    <div className="timelineTitle">{act.title}</div>
+                                                    <div className="timelineDesc">{act.description}</div>
+                                                    <div className="timelineTime">{new Date(act.timestamp).toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="dashboardPanel">
+                                <h3>User Intent Analysis</h3>
+                                <div className="intentBreakdownList">
+                                    {Object.keys(dashboardData.intent_breakdown).length === 0 ? (
+                                        <p>No intent breakdown metrics registered.</p>
+                                    ) : (
+                                        Object.entries(dashboardData.intent_breakdown).map(([intent, count]) => {
+                                            const total = Object.values(dashboardData.intent_breakdown).reduce((a, b) => a + b, 0);
+                                            const pct = total > 0 ? (count / total) * 100 : 0;
+                                            return (
+                                                <div className="intentBarRow" key={intent}>
+                                                    <div className="intentBarLabels">
+                                                        <span style={{textTransform: "capitalize"}}>{intent.replace("_", " ")}</span>
+                                                        <span>{count} ({pct.toFixed(0)}%)</span>
+                                                    </div>
+                                                    <div className="intentBarBg">
+                                                        <div className="intentBarFill" style={{ width: `${pct}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ==========================================
+                    CHATS LOG REAL-TIME MONITOR TAB
+                    ========================================== */}
+                {!loading && activeTab === "chats" && (
+                    <div>
+                        <div className="filterRow">
+                            <div className="searchBox">
+                                <span className="searchBoxIcon">🔍</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search logs, thread ID, user inputs..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="filterControls">
+                                <select value={extraFilter} onChange={(e) => setExtraFilter(e.target.value)}>
+                                    <option value="">All Intents</option>
+                                    <option value="company_info">Company Info</option>
+                                    <option value="client_lead">Client Lead</option>
+                                    <option value="customer_support">Customer Support</option>
+                                    <option value="hiring_support">Hiring Support</option>
+                                    <option value="general_chat">General Chat</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {chatsList.length === 0 ? (
+                            <p>No conversation threads loaded.</p>
+                        ) : (
+                            <div className="chatsLayout">
+                                <div className="threadsPanel">
+                                    <div className="threadsHeader">
+                                        <h4>Conversations (Groups)</h4>
+                                        <span style={{fontSize: "12px", color: "var(--success)"}}>● Live Updates</span>
+                                    </div>
+                                    <div className="threadsList">
+                                        {chatsList.map((t) => (
+                                            <div 
+                                                key={t.thread_id}
+                                                className={`threadCard ${selectedThreadId === t.thread_id ? "active" : ""}`}
+                                                onClick={() => handleSelectThread(t.thread_id)}
+                                            >
+                                                <div className="threadCardHeader">
+                                                    <span className="threadCardName">{t.user_name}</span>
+                                                    <span className="threadCardTime">
+                                                        {new Date(t.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    </span>
+                                                </div>
+                                                <div className="threadCardMessage">{t.last_message}</div>
+                                                <div className="threadCardMeta">
+                                                    <span className="threadCardIntent">{t.intent}</span>
+                                                    <span className="threadCardCount">{t.total_messages} messages</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="conversationPanel">
+                                    {selectedThreadId && selectedThreadMessages.length > 0 ? (
+                                        <>
+                                            <div className="conversationHeader">
+                                                <h3>Conversation: {chatsList.find(t=>t.thread_id===selectedThreadId)?.user_name || "Anonymous User"}</h3>
+                                                <p>Thread ID: {selectedThreadId}</p>
+                                            </div>
+                                            <div className="conversationMessages">
+                                                {selectedThreadProfile && Object.keys(selectedThreadProfile).length > 0 && (
+                                                    <div className="extractedProfilePanel">
+                                                        <h5>Extracted Profile Details</h5>
+                                                        <div className="profileGrid">
+                                                            {Object.entries(selectedThreadProfile).map(([key, value]) => (
+                                                                <div className="profileGridItem" key={key}>
+                                                                    <span className="profileKey">{key.replace(/_/g, ' ')}</span>
+                                                                    <span className="profileValue">{String(value)}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                {selectedThreadMessages.map((m, idx) => (
+                                                    <div key={idx} style={{width: "100%"}}>
+                                                        <div className="messageRow userRow">
+                                                            <div className="messageBubble userBubble">
+                                                                <div>{m.user_message}</div>
+                                                                <div style={{fontSize: "10px", color: "rgba(255,255,255,0.7)", marginTop: "4px", textAlign: "right"}}>
+                                                                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="messageRow botRow" style={{marginTop: "12px"}}>
+                                                            <div className="messageBubble botBubble">
+                                                                <div>{m.bot_message}</div>
+                                                                <div style={{fontSize: "10px", color: "var(--text-muted)", marginTop: "4px"}}>
+                                                                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} | Intent: {m.intent}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="emptyConversation">
+                                            Select a conversation thread from the left log pane to monitor exchange.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    LEADS TAB
+                    ========================================== */}
+                {!loading && activeTab === "leads" && (
+                    <div>
+                        <div className="filterRow">
+                            <div className="searchBox">
+                                <span className="searchBoxIcon">🔍</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search name, company, timeline..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="filterControls">
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                    <option value="">All Statuses</option>
+                                    <option value="New">New</option>
+                                    <option value="Contacted">Contacted</option>
+                                    <option value="Qualified">Qualified</option>
+                                    <option value="Lost">Lost</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {leads.length === 0 ? (
+                            <p>No client leads saved.</p>
+                        ) : (
+                            <div className="tableContainer">
+                                <table className="customTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Client Name</th>
+                                            <th>Contact Details</th>
+                                            <th>Company Name</th>
+                                            <th>Project Type</th>
+                                            <th>Requirements details</th>
+                                            <th>Budget / Timeline</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {leads.map((l) => {
+                                            const name = l.name || l.profile?.name || "N/A";
+                                            const email_or_phone = l.email_or_phone || l.profile?.email_or_phone || "N/A";
+                                            const company = l.company || l.profile?.company || "N/A";
+                                            const project_type = l.project_type || l.profile?.project_type || "N/A";
+                                            const requirements = l.requirements || l.profile?.requirements || "N/A";
+                                            const budget = l.budget || l.profile?.budget || "N/A";
+                                            const timeline = l.timeline || l.profile?.timeline || "N/A";
+                                            const status = l.status || "New";
+                                            const id = l.id || l._id;
+                                            return (
+                                                <tr key={id}>
+                                                    <td><strong>{name}</strong></td>
+                                                    <td>{email_or_phone}</td>
+                                                    <td>{company}</td>
+                                                    <td>{project_type}</td>
+                                                    <td style={{maxWidth: "200px", wordBreak: "break-word"}}>{requirements}</td>
+                                                    <td>
+                                                        <div>Budget: {budget}</div>
+                                                        <div style={{fontSize: "12px", color: "var(--text-muted)"}}>Timeline: {timeline}</div>
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            className="tableSelect"
+                                                            value={status}
+                                                            onChange={(e) => handleLeadStatus(id, e.target.value)}
+                                                        >
+                                                            <option value="New">New</option>
+                                                            <option value="Contacted">Contacted</option>
+                                                            <option value="Qualified">Qualified</option>
+                                                            <option value="Lost">Lost</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    SUPPORT TICKETS TAB
+                    ========================================== */}
+                {!loading && activeTab === "support" && (
+                    <div>
+                        <div className="filterRow">
+                            <div className="searchBox">
+                                <span className="searchBoxIcon">🔍</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search tickets, name, issues..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="filterControls">
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                    <option value="">All Statuses</option>
+                                    <option value="Open">Open</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                </select>
+                                <select value={extraFilter} onChange={(e) => setExtraFilter(e.target.value)}>
+                                    <option value="">All Priorities</option>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {tickets.length === 0 ? (
+                            <p>No support tickets logged.</p>
+                        ) : (
+                            <div className="tableContainer">
+                                <table className="customTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Client Name</th>
+                                            <th>Contact Details</th>
+                                            <th>Issue Type</th>
+                                            <th>Description Details</th>
+                                            <th>Priority</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tickets.map((t) => {
+                                            const name = t.name || t.profile?.name || "N/A";
+                                            const email_or_phone = t.email_or_phone || t.profile?.email_or_phone || "N/A";
+                                            const issue_type = t.issue_type || t.profile?.issue_type || "N/A";
+                                            const issue_details = t.issue_details || t.profile?.issue_details || "N/A";
+                                            const priority = t.urgency || t.priority || "Medium";
+                                            const status = t.status || "Open";
+                                            const id = t.id || t._id;
+                                            return (
+                                                <tr key={id}>
+                                                    <td><strong>{name}</strong></td>
+                                                    <td>{email_or_phone}</td>
+                                                    <td><span className="threadCardIntent">{issue_type}</span></td>
+                                                    <td style={{maxWidth: "250px", wordBreak: "break-word"}}>{issue_details}</td>
+                                                    <td>
+                                                        <select
+                                                            className="tableSelect"
+                                                            value={priority}
+                                                            onChange={(e) => handleSupportUpdate(id, "priority", e.target.value)}
+                                                        >
+                                                            <option value="Low">Low</option>
+                                                            <option value="Medium">Medium</option>
+                                                            <option value="High">High</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            className="tableSelect"
+                                                            value={status}
+                                                            onChange={(e) => handleSupportUpdate(id, "status", e.target.value)}
+                                                        >
+                                                            <option value="Open">Open</option>
+                                                            <option value="In Progress">In Progress</option>
+                                                            <option value="Resolved">Resolved</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    HIRING CANDIDATES TAB
+                    ========================================== */}
+                {!loading && activeTab === "hiring" && (
+                    <div>
+                        <div className="filterRow">
+                            <div className="searchBox">
+                                <span className="searchBoxIcon">🔍</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search applicants, skill tags..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="filterControls">
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                    <option value="">All Statuses</option>
+                                    <option value="Applied">Applied</option>
+                                    <option value="Reviewed">Reviewed</option>
+                                    <option value="Interviewed">Interviewed</option>
+                                    <option value="Hired">Hired</option>
+                                    <option value="Rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {candidates.length === 0 ? (
+                            <p>No job applications received.</p>
+                        ) : (
+                            <div className="tableContainer">
+                                <table className="customTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Applicant Name</th>
+                                            <th>Email / Phone</th>
+                                            <th>Role Applied</th>
+                                            <th>Experience</th>
+                                            <th>Skills Snapshot</th>
+                                            <th>Resume</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {candidates.map((c) => {
+                                            const name = c.name || c.profile?.name || "N/A";
+                                            const email = c.email || c.profile?.email || "N/A";
+                                            const phone = c.phone || c.profile?.phone || "N/A";
+                                            const role = c.role || c.profile?.role || "N/A";
+                                            const experience = c.experience || c.profile?.experience || "N/A";
+                                            const skills = c.skills || c.profile?.skills || "N/A";
+                                            const resume_or_portfolio = c.resume_or_portfolio || c.profile?.resume_or_portfolio || "";
+                                            const status = c.status || "Applied";
+                                            const id = c.id || c._id;
+                                            return (
+                                                <tr key={id}>
+                                                    <td><strong>{name}</strong></td>
+                                                    <td>
+                                                        <div>{email}</div>
+                                                        <div style={{fontSize: "12px", color:"var(--text-muted)"}}>{phone}</div>
+                                                    </td>
+                                                    <td>{role}</td>
+                                                    <td>{experience}</td>
+                                                    <td style={{maxWidth: "200px"}}>{skills}</td>
+                                                    <td>
+                                                        {resume_or_portfolio ? (
+                                                            <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{color: "var(--accent)", fontWeight: "600"}}>
+                                                                Open Link
+                                                            </a>
+                                                        ) : "Not Provided"}
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            className="tableSelect"
+                                                            value={status}
+                                                            onChange={(e) => handleHiringStatus(id, e.target.value)}
+                                                        >
+                                                            <option value="Applied">Applied</option>
+                                                            <option value="Reviewed">Reviewed</option>
+                                                            <option value="Interviewed">Interviewed</option>
+                                                            <option value="Hired">Hired</option>
+                                                            <option value="Rejected">Rejected</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    KNOWLEDGE SOURCES MANAGEMENT PAGE
+                    ========================================== */}
+                {!loading && activeTab === "knowledge" && (
+                    <div>
+                        {/* 30-Second checking banner info */}
+                        <div className="extractedProfilePanel" style={{display: "flex", justifyContent:"space-between", alignItems:"center", marginBottom: "24px"}}>
+                            <div>
+                                📊 <strong>Retriever Sync Status:</strong> Active Sources: <strong>{syncStatus.active_sources}</strong> / Chunks: <strong>{syncStatus.total_chunks}</strong>
+                            </div>
+                            <span style={{fontSize: "12px", color: "var(--text-muted)"}}>
+                                Auto checking sync every 30s | Last sync: {syncStatus.last_updated}
+                            </span>
+                        </div>
+
+                        <div className="knowledgeTabs">
+                            <button className={`knowledgeTabBtn ${sourceType === "manual" ? "active" : ""}`} onClick={() => setSourceType("manual")}>✍️ Manual Knowledge</button>
+                            <button className={`knowledgeTabBtn ${sourceType === "document" ? "active" : ""}`} onClick={() => setSourceType("document")}>📂 Document Upload</button>
+                            <button className={`knowledgeTabBtn ${sourceType === "database" ? "active" : ""}`} onClick={() => setSourceType("database")}>💾 Database Connection</button>
+                            <button className={`knowledgeTabBtn ${sourceType === "website" ? "active" : ""}`} onClick={() => setSourceType("website")}>🌐 Website crawl</button>
+                        </div>
+
+                        {/* FORM: Manual Entry */}
+                        {sourceType === "manual" && (
+                            <form className="settingsForm" onSubmit={handleCreateManual} style={{marginBottom: "36px"}}>
+                                <h4>Add Manual Knowledge</h4>
+                                <div className="formGroup">
+                                    <label>Source Title</label>
+                                    <input 
+                                        type="text" 
+                                        value={manualForm.title} 
+                                        onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })} 
+                                        placeholder="e.g. Services: Web App Pricing" 
+                                        required 
+                                    />
+                                </div>
+                                <div className="formGroup">
+                                    <label>Category</label>
+                                    <select value={manualForm.category} onChange={(e) => setManualForm({ ...manualForm, category: e.target.value })}>
+                                        <option value="Company Information">Company Information</option>
+                                        <option value="Services">Services</option>
+                                        <option value="Pricing">Pricing</option>
+                                        <option value="Policies">Policies</option>
+                                        <option value="FAQs">FAQs</option>
+                                        <option value="Support Guides">Support Guides</option>
+                                        <option value="Hiring Information">Hiring Information</option>
+                                    </select>
+                                </div>
+                                <div className="formGroup">
+                                    <label>Content Description</label>
+                                    <textarea 
+                                        rows="5" 
+                                        value={manualForm.content} 
+                                        onChange={(e) => setManualForm({ ...manualForm, content: e.target.value })} 
+                                        placeholder="Detailed content details to index for retriever search..." 
+                                        required 
+                                    />
+                                </div>
+                                <button className="primaryBtn" type="submit">Index Manual Source</button>
+                            </form>
+                        )}
+
+                        {/* FORM: Document Upload */}
+                        {sourceType === "document" && (
+                            <form className="settingsForm" onSubmit={handleUploadDoc} style={{marginBottom: "36px"}}>
+                                <h4>Add Document Source (PDF, DOCX, TXT, CSV, JSON, MD, XLSX)</h4>
+                                <div className="formGroup">
+                                    <label>Choose File</label>
+                                    <input 
+                                        type="file" 
+                                        accept=".txt,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls,.md"
+                                        onChange={(e) => setDocFile(e.target.files[0])}
+                                        required 
+                                    />
+                                </div>
+                                <div className="formGroup">
+                                    <label>Category</label>
+                                    <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
+                                        <option value="Company Information">Company Information</option>
+                                        <option value="Services">Services</option>
+                                        <option value="Pricing">Pricing</option>
+                                        <option value="Policies">Policies</option>
+                                        <option value="FAQs">FAQs</option>
+                                        <option value="Support Guides">Support Guides</option>
+                                        <option value="Hiring Information">Hiring Information</option>
+                                    </select>
+                                </div>
+                                <button className="primaryBtn" type="submit">Upload & Chunk File</button>
+                            </form>
+                        )}
+
+                        {/* FORM: Database Connection */}
+                        {sourceType === "database" && (
+                            <form className="settingsForm" onSubmit={handleConnectDb} style={{marginBottom: "36px"}}>
+                                <h4>Connect Corporate Database Source</h4>
+                                <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+                                    <div className="formGroup">
+                                        <label>Connection Name</label>
+                                        <input 
+                                            type="text" 
+                                            value={dbForm.connection_name} 
+                                            onChange={(e) => setDbForm({ ...dbForm, connection_name: e.target.value })} 
+                                            placeholder="e.g. Products MongoDB" 
+                                            required 
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Database Type</label>
+                                        <select value={dbForm.db_type} onChange={(e) => setDbForm({ ...dbForm, db_type: e.target.value })}>
+                                            <option value="mongodb">MongoDB</option>
+                                            <option value="mysql">MySQL</option>
+                                            <option value="postgresql">PostgreSQL</option>
+                                            <option value="sqlserver">SQL Server</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="formGroup">
+                                    <label>Connection String</label>
+                                    <input 
+                                        type="password" 
+                                        value={dbForm.connection_string} 
+                                        onChange={(e) => setDbForm({ ...dbForm, connection_string: e.target.value })} 
+                                        placeholder="mongodb://username:password@host:port" 
+                                        required 
+                                    />
+                                </div>
+                                <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+                                    <div className="formGroup">
+                                        <label>Database Name</label>
+                                        <input 
+                                            type="text" 
+                                            value={dbForm.db_name} 
+                                            onChange={(e) => setDbForm({ ...dbForm, db_name: e.target.value })} 
+                                            placeholder="company_inventory" 
+                                            required 
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Target Table / Collection</label>
+                                        <input 
+                                            type="text" 
+                                            value={dbForm.target_collection} 
+                                            onChange={(e) => setDbForm({ ...dbForm, target_collection: e.target.value })} 
+                                            placeholder="products" 
+                                            required 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="formGroup">
+                                    <label>Category</label>
+                                    <select value={dbForm.category} onChange={(e) => setDbForm({ ...dbForm, category: e.target.value })}>
+                                        <option value="Company Information">Company Information</option>
+                                        <option value="Services">Services</option>
+                                        <option value="Pricing">Pricing</option>
+                                        <option value="Policies">Policies</option>
+                                        <option value="FAQs">FAQs</option>
+                                        <option value="Support Guides">Support Guides</option>
+                                        <option value="Hiring Information">Hiring Information</option>
+                                    </select>
+                                </div>
+                                <button className="primaryBtn" type="submit">Establish & Chunk Connection</button>
+                            </form>
+                        )}
+
+                        {/* FORM: Website Crawling */}
+                        {sourceType === "website" && (
+                            <form className="settingsForm" onSubmit={handleConnectWeb} style={{marginBottom: "36px"}}>
+                                <h4>Connect Website Crawler</h4>
+                                <div className="formGroup">
+                                    <label>Page URL</label>
+                                    <input 
+                                        type="url" 
+                                        value={webForm.url} 
+                                        onChange={(e) => setWebForm({ ...webForm, url: e.target.value })} 
+                                        placeholder="https://codeqlik.com/about" 
+                                        required 
+                                    />
+                                </div>
+                                <div className="formGroup">
+                                    <label>Category</label>
+                                    <select value={webForm.category} onChange={(e) => setWebForm({ ...webForm, category: e.target.value })}>
+                                        <option value="Company Information">Company Information</option>
+                                        <option value="Services">Services</option>
+                                        <option value="Pricing">Pricing</option>
+                                        <option value="Policies">Policies</option>
+                                        <option value="FAQs">FAQs</option>
+                                        <option value="Support Guides">Support Guides</option>
+                                        <option value="Hiring Information">Hiring Information</option>
+                                    </select>
+                                </div>
+                                <button className="primaryBtn" type="submit">Crawl & Index URL</button>
+                            </form>
+                        )}
+
+                        <hr style={{borderColor: "rgba(255,255,255,0.05)", margin: "40px 0"}} />
+
+                        {/* FILTER BY TYPE */}
+                        <div className="filterRow">
+                            <h4>Active Chatbot Knowledge Sources</h4>
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="tableSelect">
+                                <option value="">All Source Types</option>
+                                <option value="manual">Manual Entry</option>
+                                <option value="document">Document Files</option>
+                                <option value="database">Database Connections</option>
+                                <option value="website">Websites</option>
+                            </select>
+                        </div>
+
+                        {/* SOURCE CARDS LIST */}
+                        {knowledgeSources.length === 0 ? (
+                            <p>No knowledge sources active in system catalog.</p>
+                        ) : (
+                            <div className="sourceGrid">
+                                {knowledgeSources.map((source) => (
+                                    <div className="sourceCard" key={source._id}>
+                                        <div>
+                                            <div className="sourceCardHeader">
+                                                <span className={`sourceCardBadge ${source.type}`}>{source.type}</span>
+                                                {/* Enable / Disable Slider Switch */}
+                                                <label className="switch">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={source.enabled} 
+                                                        onChange={() => handleToggleSource(source._id, source.enabled)}
+                                                    />
+                                                    <span className="slider"></span>
+                                                </label>
+                                            </div>
+                                            <h3 className="sourceCardTitle">{source.title}</h3>
+                                            <p className="sourceCardDesc">{source.content}</p>
+                                        </div>
+                                        <div>
+                                            <div className="sourceCardMeta">
+                                                <span>Category: <strong>{source.category}</strong></span>
+                                                <span>Index: <strong>{source.num_chunks || 0} chunks</strong></span>
+                                            </div>
+                                            <div className="sourceCardFooter">
+                                                <span style={{fontSize:"11px", color:"var(--text-muted)"}}>
+                                                    Last Indexed: {new Date(source.updated_at || source.created_at).toLocaleString()}
+                                                </span>
+                                                <div className="sourceActions">
+                                                    <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => handleReindexSource(source._id)}>
+                                                        Re-index
+                                                    </button>
+                                                    {source.type === "manual" && (
+                                                        <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => openEditModal(source)}>
+                                                            Edit
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        className="secondaryBtn" 
+                                                        style={{padding:"4px 10px", fontSize:"12px", color:"var(--danger)", borderColor:"rgba(239,68,68,0.2)"}} 
+                                                        onClick={() => handleDeleteSource(source._id)}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    SETTINGS TAB
+                    ========================================== */}
+                {!loading && activeTab === "settings" && (
+                    <form className="settingsForm" onSubmit={saveSettings}>
+                        <div className="settingsSection">
+                            <h4>Corporate Branding</h4>
+                            <div className="formGroup">
+                                <label>Company Name</label>
+                                <input 
+                                    type="text" 
+                                    value={settings.company_name}
+                                    onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="formGroup">
+                                <label>Branding / Description Summary</label>
+                                <textarea 
+                                    rows="3"
+                                    value={settings.company_description}
+                                    onChange={(e) => setSettings({ ...settings, company_description: e.target.value })}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="settingsSection">
+                            <h4>Dynamic Assistance Parameters</h4>
+                            <div className="formGroup">
+                                <label>Support Chatbot Greeting Message</label>
+                                <input 
+                                    type="text" 
+                                    value={settings.chatbot_greeting}
+                                    onChange={(e) => setSettings({ ...settings, chatbot_greeting: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="formGroup">
+                                <label>Default Fallback / Bound Restriction Redirect Message</label>
+                                <textarea 
+                                    rows="3"
+                                    value={settings.fallback_message}
+                                    onChange={(e) => setSettings({ ...settings, fallback_message: e.target.value })}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="settingsSection">
+                            <h4>Emergency Channels</h4>
+                            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px"}}>
+                                <div className="formGroup">
+                                    <label>General Email</label>
+                                    <input 
+                                        type="email" 
+                                        value={settings.contact_email}
+                                        onChange={(e) => setSettings({ ...settings, contact_email: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="formGroup">
+                                    <label>General Phone</label>
+                                    <input 
+                                        type="text" 
+                                        value={settings.contact_phone}
+                                        onChange={(e) => setSettings({ ...settings, contact_phone: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px", marginTop:"12px"}}>
+                                <div className="formGroup">
+                                    <label>Desk Support Email</label>
+                                    <input 
+                                        type="email" 
+                                        value={settings.support_email}
+                                        onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="formGroup">
+                                    <label>Desk Support Phone</label>
+                                    <input 
+                                        type="text" 
+                                        value={settings.support_phone}
+                                        onChange={(e) => setSettings({ ...settings, support_phone: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button className="primaryBtn" type="submit">Save Configurations</button>
+                    </form>
+                )}
+            </main>
+
+            {/* ==========================================
+                KNOWLEDGE SOURCE EDIT MODAL OVERLAY
+                ========================================== */}
+            {isEditModalOpen && (
+                <div className="modalOverlay">
+                    <div className="modalContent">
+                        <h3>Modify Manual Source Context</h3>
+                        <form onSubmit={handleSaveEdit}>
+                            <div className="formGroup">
+                                <label>Title</label>
+                                <input 
+                                    type="text" 
+                                    value={editForm.title}
+                                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="formGroup">
+                                <label>Category</label>
+                                <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                                    <option value="Company Information">Company Information</option>
+                                    <option value="Services">Services</option>
+                                    <option value="Pricing">Pricing</option>
+                                    <option value="Policies">Policies</option>
+                                    <option value="FAQs">FAQs</option>
+                                    <option value="Support Guides">Support Guides</option>
+                                    <option value="Hiring Information">Hiring Information</option>
+                                </select>
+                            </div>
+                            <div className="formGroup">
+                                <label>Content Context</label>
+                                <textarea 
+                                    rows="6"
+                                    value={editForm.content}
+                                    onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="formActions">
+                                <button className="secondaryBtn" type="button" onClick={() => setIsEditModalOpen(false)}>
+                                    Cancel
+                                </button>
+                                <button className="primaryBtn" type="submit">
+                                    Save Edits
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default Admin;
