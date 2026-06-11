@@ -202,95 +202,6 @@ def is_small_talk(text: str) -> bool:
     return any(p in t for p in smalltalk_patterns)
 
 
-def is_explanatory_or_company_question(text: str) -> bool:
-    """
-    Company/info questions should be answered but must not be stored as profile fields.
-    Examples: explain software development, what is CodeQlik, tell me about services.
-    """
-    t = normalize(text)
-
-    starters = (
-        "explain ",
-        "what is ",
-        "what are ",
-        "tell me ",
-        "tell me about",
-        "describe ",
-        "define ",
-        "how does ",
-        "how do ",
-        "why ",
-        "can you explain",
-    )
-
-    if t.startswith(starters):
-        return True
-
-    info_words = [
-        "software development",
-        "web development",
-        "app development",
-        "ai development",
-        "chatbot",
-        "automation",
-        "services",
-        "technology",
-        "technologies",
-        "pricing",
-        "cost",
-        "codeqlik",
-        "company",
-    ]
-
-    if any(w in t for w in info_words) and not any(x in t for x in ["i need", "i want", "build", "create", "hire", "quote"]):
-        if is_question(t) or t.startswith(("explain", "tell", "describe", "define")):
-            return True
-
-    return False
-
-
-def is_field_like_answer(text: str, expected_field: Optional[str]) -> bool:
-    """
-    Blocks normal questions/explanations from being saved into profile.
-    Allows real field values, labeled values, emails/phones, and explicit refusals.
-    """
-    t = normalize(text)
-
-    if not expected_field:
-        return False
-
-    if is_small_talk(t) or is_ack(t) or is_gibberish(t):
-        return False
-
-    if is_sensitive_or_unsafe(t) or is_unrelated_query(t):
-        return False
-
-    if is_explanatory_or_company_question(t):
-        return False
-
-    if looks_like_refusal(t):
-        return True
-
-    if expected_field in {"email_or_phone", "email", "phone"}:
-        return bool(extract_email(t) or extract_phone(t))
-
-    label_words = [
-        "my name", "name", "i am", "i'm",
-        "company", "company name", "my company",
-        "project type", "requirements", "requirement",
-        "budget", "timeline", "issue type", "issue details",
-        "urgency", "role", "position", "experience",
-        "skills", "resume", "portfolio",
-    ]
-    if any(t.startswith(lbl) for lbl in label_words):
-        return True
-
-    if is_question(t):
-        return False
-
-    return True
-
-
 def is_gibberish(text: str) -> bool:
     t = normalize(text)
     if not t:
@@ -606,11 +517,6 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
     if is_sensitive_or_unsafe(t) or is_unrelated_query(t):
         return "unrelated_query"
 
-    # If hiring collection is active, normal non-question answers like
-    # "python developer" must stay inside hiring flow as role/experience/skills.
-    if active_collection == "hiring_support" and not is_question(t):
-        return "hiring_support"
-
     # Support must be checked BEFORE active-flow field-answer locking.
     # Example: "actually my existing app has a bug" should switch from client_lead to customer_support.
     support_keywords = [
@@ -799,18 +705,15 @@ def remove_label_prefix(text: str, labels: list[str]) -> Optional[str]:
     raw = str(text or "").strip()
 
     for label in labels:
-        # Supports:
-        # company is SalesPro
-        # company: SalesPro
-        # company - SalesPro
-        # project type is CRM
-        # my company is ABC
-        pattern = rf"(?i)^\s*{re.escape(label)}\s*(?:is|:|-)?\s+(.+?)\s*$"
-        match = re.match(pattern, raw)
-        if match:
-            value = match.group(1).strip()
-            if value:
-                return value
+        pattern = rf"(?i)^\s*{re.escape(label)}\s*(is|:|-)?\s*"
+        if re.search(pattern, raw):
+            value = re.sub(pattern, "", raw).strip()
+            return value or None
+
+        pattern2 = rf"(?i)^\s*{re.escape(label)}\s+is\s+"
+        if re.search(pattern2, raw):
+            value = re.sub(pattern2, "", raw).strip()
+            return value or None
 
     return None
 
@@ -852,35 +755,16 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
 
     if expected_field == "name":
         value = remove_label_prefix(text, ["my name", "name", "i am", "i'm"])
-
-        non_name_words = [
-            "explain", "what", "why", "how", "tell", "show", "describe", "define",
-            "service", "services", "software", "development", "website", "web",
-            "app", "application", "project", "budget", "timeline", "company",
-            "support", "technology", "technologies", "pricing", "cost", "contact",
-            "need", "want", "build", "create", "make", "hire", "quote", "proposal",
-        ]
-
         if not value:
-            if (
-                1 <= len(text.split()) <= 4
-                and not any(w in low for w in non_name_words)
-                and not email
-                and not phone
-            ):
+            blocked = ["need", "want", "company", "project", "budget", "timeline", "issue", "role", "experience", "skills", "requirements", "service", "technology"]
+            if 1 <= len(text.split()) <= 4 and not any(b in low for b in blocked) and not email and not phone:
                 value = text
-
         return {"name": value} if value else {}
 
     if expected_field == "company":
         value = remove_label_prefix(text, ["my company", "company name", "company", "organization", "business name"])
         if not value:
-            blocked = [
-                "explain", "what", "why", "how", "tell", "describe",
-                "software", "development", "service", "services",
-                "need", "want", "budget", "timeline", "issue", "role",
-                "experience", "skills", "requirements",
-            ]
+            blocked = ["need", "want", "budget", "timeline", "issue", "role", "experience", "skills", "requirements"]
             if 1 <= len(text.split()) <= 5 and not any(b in low for b in blocked) and not email and not phone:
                 value = text
         return {"company": value} if value else {}
@@ -969,101 +853,6 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
     return {}
 
 
-
-def extract_direct_labeled_fields(user_text: str, category: str) -> dict:
-    """
-    Strong deterministic extraction for explicit labeled values.
-    This runs before generic field-like filtering so cases like:
-    - company is SalesPro
-    - project type is CRM
-    - budget is 50000
-    are not skipped.
-    """
-    text = str(user_text or "").strip()
-    low = normalize(text)
-    out = {}
-
-    if is_small_talk(text) or is_gibberish(text) or is_ack(text):
-        return out
-
-    email = extract_email(text)
-    phone = extract_phone(text)
-
-    if category == "client_lead":
-        if email:
-            out["email_or_phone"] = email
-            out["email"] = email
-        if phone:
-            out["email_or_phone"] = phone
-            out["phone"] = phone
-
-        mapping = {
-            "company": [
-                "my company",
-                "company name",
-                "company",
-                "organization",
-                "business name",
-            ],
-            "project_type": [
-                "project type",
-                "project",
-                "type",
-            ],
-            "requirements": [
-                "requirements",
-                "requirement",
-                "features",
-            ],
-            "budget": [
-                "budget",
-                "amount",
-            ],
-            "timeline": [
-                "timeline",
-                "deadline",
-                "time",
-            ],
-        }
-
-    elif category == "customer_support":
-        if email:
-            out["email_or_phone"] = email
-            out["email"] = email
-        if phone:
-            out["email_or_phone"] = phone
-            out["phone"] = phone
-
-        mapping = {
-            "issue_type": ["issue type", "issue"],
-            "issue_details": ["issue details", "details", "problem", "error"],
-            "urgency": ["urgency", "priority"],
-        }
-
-    elif category == "hiring_support":
-        if email:
-            out["email"] = email
-        if phone:
-            out["phone"] = phone
-
-        mapping = {
-            "role": ["role", "position"],
-            "experience": ["experience"],
-            "skills": ["skills", "skill"],
-            "resume_or_portfolio": ["resume link", "portfolio", "resume"],
-        }
-
-    else:
-        mapping = {}
-
-    for key, labels in mapping.items():
-        value = remove_label_prefix(text, labels)
-        if value:
-            out[key] = value
-
-    return out
-
-
 def extract_labeled_fields(user_text: str, category: str) -> dict:
     """Only explicit labeled values; no question inference."""
     if is_question(user_text) or is_gibberish(user_text) or is_ack(user_text):
@@ -1148,24 +937,9 @@ def extract_collection_data(state: ChatState, category: str) -> dict:
     missing_before = check_missing_fields(current_profile, required)
     expected_field = missing_before[0] if missing_before else None
 
-    # First extract explicit labeled values.
-    # This must happen before the generic field-like gate.
-    direct_labeled = extract_direct_labeled_fields(user_text, category)
-
-    # Normal company/explanation questions should be answered, but not saved into profile.
-    # Example: "explain software development" must not become name/company/project_type.
-    if not direct_labeled and not is_field_like_answer(user_text, expected_field):
-        synced = sync_collection_state(category, current_profile)
-        return {
-            "profile": current_profile,
-            **synced,
-            "is_field_answer": False,
-        }
-
     extracted = {}
     extracted.update(extract_expected_field(user_text, expected_field, category))
     extracted.update(extract_labeled_fields(user_text, category))
-    extracted.update(direct_labeled)
 
     clean = {}
     allowed = set(required + ["email", "phone"])

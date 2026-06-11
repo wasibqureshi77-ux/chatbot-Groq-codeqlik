@@ -1,6 +1,6 @@
 # Ignore virtual environment folder
 /venv
-venv
+venv/*
 
 # Ignore root environment variables
 .env
@@ -10,4 +10,4 @@ venv
 
 # Ignore specific backend configuration file
 /backend/config.py
-venv/Lib/site-packages/docx.py
+venv/Lib/
