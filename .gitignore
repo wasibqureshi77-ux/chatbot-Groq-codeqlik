@@ -1,5 +1,5 @@
 # Ignore virtual environment folder
-/venv
+/venv/*
 venv/*
 
 # Ignore root environment variables
