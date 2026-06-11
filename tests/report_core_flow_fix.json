@@ -1,0 +1,152 @@
+{
+  "suite_name": "CodeQlik chatbot multi-turn stabilization tests",
+  "run_at": "2026-06-11T09:17:43.604961Z",
+  "base_url": "http://localhost:8000",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "pass_rate": 100.0,
+  "results": [
+    {
+      "id": "FLOW_021",
+      "name": "Name should not be overwritten by later company or project data",
+      "category": "profile_stability",
+      "thread_id": "test_FLOW_021_f01441dc",
+      "passed": true,
+      "error_count": 0,
+      "errors": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "i need crm",
+          "expected": {
+            "turn": 1,
+            "active_collection": "client_lead"
+          },
+          "actual": {
+            "reply": "We offer a range of CRM solutions to help you manage customer relationships effectively. Our CRM systems are designed to streamline sales, marketing, and customer support processes.\n\nPlease share your name so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "name",
+            "profile": {},
+            "missing_fields": [
+              "name",
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.924
+          },
+          "errors": []
+        },
+        {
+          "turn": 2,
+          "message": "Amit",
+          "expected": {
+            "turn": 2,
+            "profile_contains": {
+              "name": "Amit"
+            }
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Amit"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
+          },
+          "errors": []
+        },
+        {
+          "turn": 3,
+          "message": "company name is SalesPro",
+          "expected": {
+            "turn": 3,
+            "profile_contains": {
+              "name": "Amit",
+              "company": "SalesPro"
+            },
+            "profile_should_not_contain_keys_with_value": {
+              "name": "SalesPro"
+            }
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Amit",
+              "company": "SalesPro"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
+          },
+          "errors": []
+        },
+        {
+          "turn": 4,
+          "message": "project type is CRM",
+          "expected": {
+            "turn": 4,
+            "profile_contains": {
+              "name": "Amit",
+              "project_type": "CRM"
+            },
+            "profile_should_not_contain_keys_with_value": {
+              "name": "CRM",
+              "company": "CRM"
+            }
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Amit",
+              "company": "SalesPro",
+              "project_type": "CRM"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
+          },
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

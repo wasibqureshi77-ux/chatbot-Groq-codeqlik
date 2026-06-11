@@ -1,0 +1,175 @@
+{
+  "suite_name": "CodeQlik chatbot multi-turn stabilization tests",
+  "run_at": "2026-06-11T02:06:35.221251Z",
+  "base_url": "http://localhost:8000",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "pass_rate": 100.0,
+  "results": [
+    {
+      "id": "FLOW_001",
+      "name": "Company info chain should not repeat generic services",
+      "category": "company_info_chain",
+      "thread_id": "test_FLOW_001_e9d394c8",
+      "passed": true,
+      "error_count": 0,
+      "errors": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "what services do you provide",
+          "expected": {
+            "turn": 1,
+            "must_answer_about": "services",
+            "reply_should_contain_any": [
+              "web",
+              "app",
+              "AI",
+              "chatbot",
+              "CRM",
+              "automation",
+              "software"
+            ],
+            "should_not_only_ask_field": true
+          },
+          "actual": {
+            "reply": "We provide software development, AI automation, web apps, mobile apps, CRM systems, SaaS solutions, cloud services, and IT consulting services. Our team of experts can help you with a wide range of technology needs. What specific area would you like to know more about?",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "declined"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.9
+          },
+          "errors": []
+        },
+        {
+          "turn": 2,
+          "message": "what technologies do you use",
+          "expected": {
+            "turn": 2,
+            "must_answer_about": "technologies",
+            "reply_should_contain_any": [
+              "React",
+              "Node",
+              "Python",
+              "Django",
+              "cloud",
+              "AI",
+              "technology"
+            ],
+            "should_not_repeat_generic_services_only": true
+          },
+          "actual": {
+            "reply": "We utilize a range of technologies including Java, Python, JavaScript, React, Node.js, and cloud platforms like AWS and Azure to deliver our software development, AI automation, web apps, mobile apps, CRM systems, SaaS solutions, cloud services, and IT consulting services. Our team also leverages AI and machine learning frameworks such as TensorFlow and PyTorch to enhance our solutions.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "name": "declined",
+              "email_or_phone": "declined"
+            },
+            "missing_fields": [
+              "company",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.892
+          },
+          "errors": []
+        },
+        {
+          "turn": 3,
+          "message": "what is your office address",
+          "expected": {
+            "turn": 3,
+            "must_answer_about": "address",
+            "reply_should_contain_any": [
+              "Jaipur",
+              "Raja Park",
+              "Tilak Nagar",
+              "address",
+              "office"
+            ],
+            "should_not_repeat_generic_services_only": true
+          },
+          "actual": {
+            "reply": "Our office address is not publicly listed for security and privacy reasons. However, you can find our contact information on our website, including a contact form and phone number.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "project_type",
+            "profile": {
+              "name": "declined",
+              "email_or_phone": "declined",
+              "company": "declined"
+            },
+            "missing_fields": [
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.894
+          },
+          "errors": []
+        },
+        {
+          "turn": 4,
+          "message": "how can i contact you",
+          "expected": {
+            "turn": 4,
+            "must_answer_about": "contact",
+            "reply_should_contain_any": [
+              "info@codeqlik.com",
+              "+91",
+              "8949687368",
+              "contact",
+              "email",
+              "phone"
+            ],
+            "should_not_repeat_generic_services_only": true
+          },
+          "actual": {
+            "reply": "You can contact us through our website's contact form or by calling our phone number. We also have a 24-hour response guarantee for all inquiries.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "requirements",
+            "profile": {
+              "name": "declined",
+              "email_or_phone": "declined",
+              "company": "declined",
+              "project_type": "declined"
+            },
+            "missing_fields": [
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.702
+          },
+          "errors": []
+        }
+      ]
+    }
+  ]
+}
