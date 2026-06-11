@@ -133,7 +133,7 @@ def format_hiring_candidate(doc):
         "role": get_profile_value(doc, "role", "N/A"),
         "experience": get_profile_value(doc, "experience", "N/A"),
         "skills": get_profile_value(doc, "skills", "N/A"),
-        "resume_or_portfolio": get_profile_value(doc, "resume_or_portfolio", ""),
+        "resume_or_portfolio": doc.get("resume_or_portfolio", ""),
         "status": doc.get("status", "Applied"),
         "created_at": doc.get("created_at", ""),
         "updated_at": doc.get("updated_at", "")

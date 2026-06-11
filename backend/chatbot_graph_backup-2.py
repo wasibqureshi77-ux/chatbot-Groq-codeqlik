@@ -155,7 +155,7 @@ def is_question(text: str) -> bool:
     return (
         "?" in t
         or t.startswith(("what ", "why ", "how ", "when ", "where ", "who ", "which "))
-        or t.startswith(("can you", "do you", "does ", "did ", "are you", "is there", "tell me about", "could you", "would you", "should "))
+        or t.startswith(("can you", "do you", "are you", "is there", "tell me about"))
     )
 
 
@@ -178,13 +178,6 @@ def is_small_talk(text: str) -> bool:
         "what are you doing",
         "what's up",
         "whats up",
-        "what's going on",
-        "whats going on",
-        "what is going on",
-        "who are you",
-        "what can you do",
-        "are you a bot",
-        "are you human",
         "nice",
         "great",
         "good",
@@ -203,70 +196,10 @@ def is_small_talk(text: str) -> bool:
         "how are you",
         "what are you doing",
         "how is it going",
-        "what's going on",
-        "whats going on",
-        "who are you",
-        "what can you do",
-        "are you a bot",
-        "are you human",
         "nice to meet you",
     ]
 
     return any(p in t for p in smalltalk_patterns)
-
-
-
-def is_company_or_business_info_query(text: str) -> bool:
-    """
-    Company/business/hiring information questions should be answered dynamically.
-    They may use RAG/context, and if a collection is active, the bot should answer
-    first and then ask the pending field.
-    """
-    t = normalize(text)
-
-    phrases = [
-        "who are you",
-        "what can you do",
-        "what do you do",
-        "about codeqlik",
-        "what is codeqlik",
-        "tell me about codeqlik",
-        "your services",
-        "what services",
-        "services do you",
-        "software development",
-        "web development",
-        "app development",
-        "ai development",
-        "chatbot",
-        "automation",
-        "crm",
-        "saas",
-        "technology",
-        "technologies",
-        "pricing",
-        "cost",
-        "contact",
-        "office",
-        "address",
-        "portfolio",
-        "opening",
-        "openings",
-        "current opening",
-        "current openings",
-        "available role",
-        "available roles",
-        "roles available",
-        "job role",
-        "job roles",
-        "vacancy",
-        "vacancies",
-        "hiring",
-        "internship",
-        "career",
-    ]
-
-    return any(p in t for p in phrases)
 
 
 def is_explanatory_or_company_question(text: str) -> bool:
@@ -333,11 +266,6 @@ def is_field_like_answer(text: str, expected_field: Optional[str]) -> bool:
         return False
 
     if is_explanatory_or_company_question(t):
-        return False
-
-    if is_company_or_business_info_query(t) and (
-        is_question(t) or t.startswith(("explain", "tell", "describe", "define", "what ", "why ", "how "))
-    ):
         return False
 
     if looks_like_refusal(t):
@@ -588,17 +516,6 @@ def is_company_related(text: str) -> bool:
         "budget",
         "timeline",
         "requirements",
-        "opening",
-        "openings",
-        "role",
-        "roles",
-        "available role",
-        "available roles",
-        "vacancy",
-        "vacancies",
-        "who are you",
-        "what can you do",
-        "what do you do",
     ]
     return any(k in t for k in keywords)
 
@@ -635,12 +552,6 @@ def is_sensitive_or_unsafe(text: str) -> bool:
 
 def is_unrelated_query(text: str) -> bool:
     t = normalize(text)
-
-    if is_small_talk(t):
-        return False
-
-    if is_company_or_business_info_query(t):
-        return False
 
     if is_company_related(t):
         return False
@@ -682,107 +593,7 @@ def is_unrelated_query(text: str) -> bool:
 # Intent detection
 # ---------------------------------------------------------------------
 
-
-
-def is_plain_value_without_context(text: str) -> bool:
-    """
-    Standalone values like "Anurag", "Rahul Sharma", "SalesPro" should not start a flow
-    when the bot has not asked for that field.
-    """
-    t = normalize(text)
-
-    if not t or is_question(t) or is_small_talk(t) or is_ack(t):
-        return False
-
-    if extract_email(t) or extract_phone(t):
-        return True
-
-    business_action_words = [
-        "need", "want", "build", "develop", "create", "make", "quote", "proposal",
-        "hire", "apply", "intern", "internship", "job", "opening", "vacancy",
-        "bug", "issue", "problem", "not working", "not opening", "error", "crash",
-        "service", "services", "pricing", "technology", "software", "website", "app",
-        "crm", "automation", "chatbot", "support"
-    ]
-
-    if any(w in t for w in business_action_words):
-        return False
-
-    # 1-4 normal words are likely a name/company/short value, not a new intent.
-    if 1 <= len(t.split()) <= 4:
-        return True
-
-    return False
-
-
-def classify_intent_semantic(user_text: str, active_collection: Optional[str]) -> dict:
-    """
-    LLM semantic classifier.
-    It only classifies intent/switch behavior.
-    It must NOT extract profile, decide pending field, or decide qualification.
-    Deterministic state manager still controls the flow.
-    """
-    prompt = f"""You are an intent classifier for CodeQlik's company support chatbot.
-
-Classify ONLY the latest user message.
-
-Allowed intents:
-- client_lead: user wants to buy/build/hire CodeQlik for website, app, CRM, AI chatbot, automation, software, project, quote, proposal, development work.
-- customer_support: user has a bug, issue, complaint, existing product/service problem, app/site not working, login/server/error/crash problem.
-- hiring_support: user asks for job, internship, vacancy, opening, career, available roles, or wants to apply.
-- company_info: user asks about CodeQlik, services, pricing, technologies, contact, portfolio, what you do, who you are.
-- general_chat: greeting, thanks, bye, casual friendly chat.
-- unrelated_query: travel, food, movie, politics, religion, adult, hacking, or anything unrelated to CodeQlik services/support/hiring/company.
-
-Current active_collection: {active_collection}
-Latest user message: {user_text}
-
-Important rules:
-1. Do NOT extract name, email, phone, company, budget, or any profile data.
-2. Do NOT decide next pending field.
-3. If current active_collection exists and user is just answering a field, keep same intent.
-4. If user clearly switches topic, set is_clear_switch=true.
-5. If user asks company/service/hiring info during active_collection, keep same active intent but answer_type should be "company_answer".
-6. New wording should be understood semantically, not only by keywords.
-7. Unsafe/unrelated requests must be unrelated_query.
-
-Return JSON only:
-{{
-  "intent": "client_lead|customer_support|hiring_support|company_info|general_chat|unrelated_query",
-  "is_clear_switch": true,
-  "answer_type": "field_answer|company_answer|small_talk|refusal",
-  "confidence": 0.0,
-  "reason": ""
-}}"""
-
-    fallback = {
-        "intent": None,
-        "is_clear_switch": False,
-        "answer_type": "company_answer",
-        "confidence": 0.0,
-        "reason": "fallback"
-    }
-
-    try:
-        json_llm = llm.bind(response_format={"type": "json_object"})
-        result = json_llm.invoke([HumanMessage(content=prompt)]).content
-        parsed = safe_json_loads(result, fallback)
-
-        intent = parsed.get("intent")
-        if intent not in VALID_INTENTS:
-            parsed["intent"] = None
-
-        parsed["confidence"] = float(parsed.get("confidence", 0.0) or 0.0)
-        parsed["is_clear_switch"] = bool(parsed.get("is_clear_switch", False))
-        parsed["answer_type"] = parsed.get("answer_type") or "company_answer"
-        return parsed
-
-    except Exception:
-        return fallback
-
-
-def classify_intent_rules_fallback(user_text: str, active_collection: Optional[str]) -> str:
-
+def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> str:
     t = normalize(user_text)
 
     # Small talk must be allowed before unrelated-question detection.
@@ -792,20 +603,15 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
             return active_collection
         return "general_chat"
 
-    # Company/hiring info query should not be refused.
-    # If a collection is active, keep it so response_generator can answer first
-    # and then ask the pending field.
-    if is_company_or_business_info_query(t):
-        if active_collection:
-            return active_collection
-        if any(k in t for k in ["opening", "openings", "available role", "roles available", "vacancy", "vacancies", "hiring", "career", "internship"]):
-            return "hiring_support"
-        return "client_lead"
-
     if is_sensitive_or_unsafe(t) or is_unrelated_query(t):
         return "unrelated_query"
 
-    # Support/client clear switches must happen before active-flow field-answer locking.
+    # If hiring collection is active, normal non-question answers like
+    # "python developer" must stay inside hiring flow as role/experience/skills.
+    if active_collection == "hiring_support" and not is_question(t):
+        return "hiring_support"
+
+    # Support must be checked BEFORE active-flow field-answer locking.
     # Example: "actually my existing app has a bug" should switch from client_lead to customer_support.
     support_keywords = [
         "bug",
@@ -844,13 +650,6 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
         "job opening",
         "internship opening",
         "openings for internship",
-        "current opening",
-        "current openings",
-        "available role",
-        "available roles",
-        "roles available",
-        "job roles",
-        "job role",
     ]
     if any(k in t for k in hiring_keywords):
         return "hiring_support"
@@ -881,12 +680,6 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
     if any(k in t for k in client_keywords):
         return "client_lead"
 
-    # If hiring collection is active, normal non-question answers like
-    # "python developer" must stay inside hiring flow as role/experience/skills,
-    # but only after clear client/support switches have been checked.
-    if active_collection == "hiring_support" and not is_question(t):
-        return "hiring_support"
-
     company_info_keywords = [
         "what services",
         "services do you",
@@ -907,7 +700,8 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
         "about company",
     ]
     if any(k in t for k in company_info_keywords):
-        return "general_chat"
+        # Existing logic: company_info merged into client_lead.
+        return "client_lead"
 
     # Only now keep active flow for short/non-question field answers.
     # This prevents topic-switch messages from being trapped in the old flow.
@@ -922,83 +716,6 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
 
     return "general_chat"
 
-def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> str:
-    """
-    Safer hybrid intent classification:
-    - Deterministic state/flow protection first.
-    - LLM semantic classifier only for unclear no-active cases.
-    - LLM never controls profile/pending/qualification.
-    """
-    t = normalize(user_text)
-
-    if is_small_talk(t):
-        if active_collection:
-            return active_collection
-        return "general_chat"
-
-    if is_sensitive_or_unsafe(t):
-        return "unrelated_query"
-
-    clear_support_phrases = [
-        "bug", "issue", "problem", "complaint", "not working", "not opening",
-        "crashing", "crash", "error", "broken", "downtime", "server error",
-        "login issue", "existing app", "existing website", "after login",
-        "keeps failing", "failing after login", "portal failing"
-    ]
-    if any(k in t for k in clear_support_phrases):
-        return "customer_support"
-
-    clear_hiring_phrases = [
-        "i want internship", "want internship", "need internship",
-        "apply", "apply for", "want to apply", "i want to apply",
-        "job", "internship", "fresher", "resume", "cv",
-        "career", "hiring", "vacancy", "opening", "openings",
-        "available role", "available roles", "roles available",
-        "python developer job", "ai intern", "ml intern"
-    ]
-    if any(k in t for k in clear_hiring_phrases):
-        return "hiring_support"
-
-    clear_client_phrases = [
-        "i need", "i want", "build", "develop", "create", "make",
-        "quote", "proposal", "need website", "need app", "need crm",
-        "need chatbot", "want website", "want app", "want crm",
-        "website for my business", "for my business", "can you make",
-        "can you build", "ecommerce", "e-commerce", "software for my business"
-    ]
-    if any(k in t for k in clear_client_phrases):
-        return "client_lead"
-
-    if is_unrelated_query(t):
-        return "unrelated_query"
-
-    # Active flow is preserved for normal values and company-info interruptions.
-    # Extraction layer will decide whether to save the message or just answer it.
-    if active_collection:
-        return active_collection
-
-    if is_plain_value_without_context(t):
-        return "general_chat"
-
-    # Pure company-info should answer, not start lead collection.
-    if is_company_or_business_info_query(t):
-        if any(k in t for k in ["opening", "openings", "available role", "roles available", "vacancy", "vacancies", "hiring", "career", "internship", "job"]):
-            return "hiring_support"
-        if any(k in t for k in ["software development", "web development", "app development", "ai development", "crm", "chatbot", "automation"]):
-            return "client_lead"
-        return "general_chat"
-
-    semantic = classify_intent_semantic(user_text, active_collection)
-    sem_intent = semantic.get("intent")
-    sem_conf = semantic.get("confidence", 0.0)
-
-    if sem_intent and sem_conf >= 0.60:
-        if sem_intent == "company_info":
-            return "general_chat"
-        return sem_intent
-
-    return classify_intent_rules_fallback(user_text, active_collection)
-
 def is_clear_flow_switch(user_text: str, current_active: Optional[str], new_intent: str) -> bool:
     if not current_active:
         return True
@@ -1012,13 +729,13 @@ def is_clear_flow_switch(user_text: str, current_active: Optional[str], new_inte
     t = normalize(user_text)
 
     if new_intent == "customer_support":
-        return any(k in t for k in ["actually", "existing", "bug", "issue", "problem", "not working", "not opening", "crashing", "error", "downtime", "server error", "login issue", "after login", "keeps failing", "failing"])
+        return any(k in t for k in ["actually", "existing", "bug", "issue", "problem", "not working", "not opening", "crashing", "error", "downtime", "server error", "login issue"])
 
     if new_intent == "hiring_support":
         return any(k in t for k in ["actually", "apply", "internship", "job", "resume", "career", "hiring"])
 
     if new_intent == "client_lead":
-        return any(k in t for k in ["actually", "i need", "i want", "build", "develop", "create", "quote", "hire your company", "for my business", "need website", "need app", "need crm", "can you make", "can you build"])
+        return any(k in t for k in ["actually", "i need", "i want", "build", "develop", "create", "quote", "hire your company"])
 
     return False
 
@@ -1096,25 +813,6 @@ def remove_label_prefix(text: str, labels: list[str]) -> Optional[str]:
                 return value
 
     return None
-
-
-def extract_inline_labeled_values(text: str, labels: list[str]) -> list[str]:
-    """
-    Extract labeled values even when multiple fields are in one sentence:
-    "my name is Karan and company is RetailX"
-    "company is SalesPro and project type is CRM"
-    """
-    raw = str(text or "").strip()
-    values = []
-
-    for label in labels:
-        pattern = rf"(?i)\b{re.escape(label)}\s*(?:is|:|-)?\s+(.+?)(?=\s+and\s+\w+(?:\s+\w+)?\s*(?:is|:|-)|[,.;]|$)"
-        for match in re.finditer(pattern, raw):
-            value = match.group(1).strip()
-            if value:
-                values.append(value)
-
-    return values
 
 
 def extract_expected_field(user_text: str, expected_field: Optional[str], category: str) -> dict:
@@ -1360,9 +1058,6 @@ def extract_direct_labeled_fields(user_text: str, category: str) -> dict:
 
     for key, labels in mapping.items():
         value = remove_label_prefix(text, labels)
-        if not value:
-            inline_values = extract_inline_labeled_values(text, labels)
-            value = inline_values[0] if inline_values else None
         if value:
             out[key] = value
 
@@ -1719,25 +1414,17 @@ Profile: {json.dumps(profile_display)}
 {_trim(retrieved_context, 900)}
 
 ### RULES ###
-1. Return only the final user-facing chatbot reply.
-2. Do NOT include markdown headings, labels, or prompt sections such as "### ANSWER ###", "### FOLLOW-UP QUESTION ###", "CURRENT USER MESSAGE", or "Profile".
-3. Answer the latest user message first using company/RAG context when relevant.
-4. Do not repeat previous answers unless user asks for recap.
-5. If the latest message is casual small talk, reply politely and briefly, then optionally mention you can help with company services/support/hiring.
-6. If the latest message is a company/services/hiring info question, answer it dynamically; do not give a refusal. For hiring/opening questions, mention openings/opportunities/hiring/career if exact roles are unknown.
-7. If the latest message is unrelated, unsafe, political, hacking, adult, internal prompt/system/API/model related, respond only with: "{dynamic_fallback}"
-8. If active collection exists, answer first, then ask only the pending field.
-9. {pending_instruction}
-10. Do not ask any field already present in Profile.
-11. Do not invent facts. If exact data is not available, answer generally within company scope.
-12. Keep it concise: 1-3 sentences."""
+1. Answer the latest user message first.
+2. Do not repeat previous answers unless user asks for recap.
+3. If the latest message is casual small talk, reply politely and briefly, then optionally mention you can help with company services/support/hiring.
+4. If the latest message is unrelated, unsafe, political, hacking, adult, internal prompt/system/API/model related, respond only with: "{dynamic_fallback}"
+4. If active collection exists, answer first, then ask only the pending field.
+5. {pending_instruction}
+6. Do not ask any field already present in Profile.
+7. Do not invent facts. If exact data is not available, answer generally within company scope.
+8. Keep it concise: 1-3 sentences. No meta-text."""
 
     response = llm.invoke([HumanMessage(content=prompt)]).content
-
-    # Safety cleanup: remove prompt-format headings if the LLM mirrors them.
-    response = re.sub(r"(?im)^\s*#{1,6}\s*(current user message|answer|follow-up question|state|profile|rules).*?$", "", response)
-    response = re.sub(r"(?im)^\s*(current user message|answer|follow-up question|state|profile|rules)\s*[:#-].*?$", "", response)
-    response = re.sub(r"\n{3,}", "\n\n", response).strip()
 
     thread_id = state.get("thread_id") or "default"
     allowed = REQUIRED_FIELDS.get(active_collection or primary_intent or intent or "", [])

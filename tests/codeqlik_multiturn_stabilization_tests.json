@@ -2229,6 +2229,820 @@
       "global_expected": {
         "question_during_pending_field_should_not_be_extracted": true
       }
+    },
+    {
+      "id": "FLOW_046",
+      "name": "Natural identity and casual questions should not be refused",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "hi",
+        "what's going on?",
+        "who are you",
+        "what can you do"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 2,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 3,
+          "reply_should_contain_any": [
+            "CodeQlik",
+            "assistant",
+            "support",
+            "company"
+          ],
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 4,
+          "reply_should_contain_any": [
+            "services",
+            "support",
+            "hiring",
+            "projects",
+            "help"
+          ],
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "FLOW_047",
+      "name": "Company question during lead flow should answer and keep pending field",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "i need a website",
+        "what technologies do you use?",
+        "Anurag",
+        "explain software development",
+        "anurag@gmail.com"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "reply_should_contain_any": [
+            "technology",
+            "technologies",
+            "React",
+            "Python",
+            "web",
+            "AI"
+          ],
+          "profile_should_not_contain_keys_with_value": {
+            "name": "what technologies do you use"
+          }
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "name": "Anurag"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 4,
+          "active_collection": "client_lead",
+          "pending_field": "email_or_phone",
+          "reply_should_contain_any": [
+            "software",
+            "development",
+            "solution"
+          ],
+          "profile_should_not_contain_keys_with_value": {
+            "email_or_phone": "explain software development"
+          }
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "email_or_phone": "anurag@gmail.com"
+          },
+          "pending_field": "company"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_048",
+      "name": "Hiring info question should answer dynamically and then collect if hiring intent",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "is there any opening for codeqlik",
+        "what are the current opening roles available?",
+        "I want to apply for python developer",
+        "Pooja"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ],
+          "reply_should_contain_any": [
+            "opening",
+            "opportunities",
+            "hiring",
+            "career"
+          ]
+        },
+        {
+          "turn": 2,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ],
+          "reply_should_contain_any": [
+            "opening",
+            "role",
+            "roles",
+            "opportunities",
+            "hiring"
+          ]
+        },
+        {
+          "turn": 3,
+          "active_collection": "hiring_support",
+          "pending_field": "name"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "name": "Pooja"
+          },
+          "pending_field": "email"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_049",
+      "name": "Random mixed lead flow with casual and info interruptions",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "hello",
+        "I need CRM for my sales team",
+        "who are you",
+        "Rahul",
+        "what services do you provide",
+        "rahul@gmail.com",
+        "company is SalesPro",
+        "project type is CRM"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 2,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 3,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "reply_should_contain_any": [
+            "CodeQlik",
+            "assistant",
+            "support",
+            "company"
+          ]
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "name": "Rahul"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 5,
+          "active_collection": "client_lead",
+          "pending_field": "email_or_phone",
+          "reply_should_contain_any": [
+            "services",
+            "software",
+            "web",
+            "app",
+            "AI"
+          ]
+        },
+        {
+          "turn": 6,
+          "profile_contains": {
+            "email_or_phone": "rahul@gmail.com"
+          },
+          "pending_field": "company"
+        },
+        {
+          "turn": 7,
+          "profile_contains": {
+            "company": "SalesPro"
+          },
+          "pending_field": "project_type"
+        },
+        {
+          "turn": 8,
+          "profile_contains": {
+            "project_type": "CRM"
+          },
+          "pending_field": "requirements"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_050",
+      "name": "Real unrelated should still be refused inside dynamic conversation",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "how are you",
+        "what services do you provide",
+        "plan a trip to himachal",
+        "I need an app"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 2,
+          "reply_should_contain_any": [
+            "services",
+            "software",
+            "web",
+            "app",
+            "AI"
+          ]
+        },
+        {
+          "turn": 3,
+          "should_decline_unrelated": true,
+          "reply_should_not_contain_any": [
+            "hotel",
+            "flight",
+            "itinerary",
+            "Shimla",
+            "Manali"
+          ]
+        },
+        {
+          "turn": 4,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_051",
+      "name": "Support switch still works after company and lead questions",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "I need website development",
+        "what is CodeQlik",
+        "actually my existing website is not opening",
+        "Amit",
+        "amit@gmail.com"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "reply_should_contain_any": [
+            "CodeQlik",
+            "company",
+            "software"
+          ]
+        },
+        {
+          "turn": 3,
+          "intent": "customer_support",
+          "active_collection": "customer_support",
+          "pending_field": "name"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "name": "Amit"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "email_or_phone": "amit@gmail.com"
+          },
+          "pending_field": "issue_type"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_052",
+      "name": "User asks pricing before giving name in lead flow",
+      "category": "random_uat_dynamic_answer",
+      "messages": [
+        "i need a mobile app",
+        "what will it cost?",
+        "Ravi",
+        "ravi@gmail.com"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "reply_should_contain_any": [
+            "cost",
+            "budget",
+            "pricing",
+            "requirements"
+          ]
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "name": "Ravi"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "email_or_phone": "ravi@gmail.com"
+          },
+          "pending_field": "company"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_053",
+      "name": "User gives multiple fields in one message",
+      "category": "random_uat_multi_field",
+      "messages": [
+        "i need CRM",
+        "my name is Karan and company is RetailX",
+        "karan@gmail.com",
+        "project type is CRM"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Karan",
+            "company": "RetailX"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "email_or_phone": "karan@gmail.com"
+          },
+          "pending_field": "project_type"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "project_type": "CRM"
+          },
+          "pending_field": "requirements"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_054",
+      "name": "User asks unrelated during lead then continues correctly",
+      "category": "random_uat_unrelated_recovery",
+      "messages": [
+        "i need website",
+        "plan a trip to goa",
+        "Suman",
+        "suman@gmail.com"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "should_decline_unrelated": true,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "profile_should_not_contain_keys_with_value": {
+            "name": "plan a trip to goa"
+          }
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "name": "Suman"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "email_or_phone": "suman@gmail.com"
+          },
+          "pending_field": "company"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_055",
+      "name": "User changes from hiring to client lead clearly",
+      "category": "random_uat_topic_switch",
+      "messages": [
+        "i want internship",
+        "actually i need website for my business",
+        "Rohit",
+        "rohit@gmail.com"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "hiring_support",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "intent": "client_lead",
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "name": "Rohit"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "email_or_phone": "rohit@gmail.com"
+          },
+          "pending_field": "company"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_056",
+      "name": "User gives phone instead of email in client flow",
+      "category": "random_uat_contact",
+      "messages": [
+        "i need automation software",
+        "Meena",
+        "9876543210",
+        "company is AutoMax"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Meena"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "email_or_phone": "9876543210"
+          },
+          "pending_field": "company"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "company": "AutoMax"
+          },
+          "pending_field": "project_type"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_057",
+      "name": "Support user gives issue details before issue type",
+      "category": "random_uat_support",
+      "messages": [
+        "my app is crashing",
+        "Deepak",
+        "deepak@gmail.com",
+        "it crashes after login",
+        "high priority"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "customer_support",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Deepak"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "email_or_phone": "deepak@gmail.com"
+          },
+          "pending_field": "issue_type"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "issue_type": "it crashes after login"
+          },
+          "pending_field": "issue_details"
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "issue_details": "high priority"
+          },
+          "pending_field": "urgency"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_058",
+      "name": "Hiring user asks about salary before giving phone",
+      "category": "random_uat_hiring",
+      "messages": [
+        "i want to apply for internship",
+        "Anjali",
+        "anjali@gmail.com",
+        "what is salary?",
+        "9998887776"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "hiring_support",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Anjali"
+          },
+          "pending_field": "email"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "email": "anjali@gmail.com"
+          },
+          "pending_field": "phone"
+        },
+        {
+          "turn": 4,
+          "active_collection": "hiring_support",
+          "pending_field": "phone",
+          "profile_should_not_contain_keys_with_value": {
+            "phone": "what is salary"
+          }
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "phone": "9998887776"
+          },
+          "pending_field": "role"
+        }
+      ]
+    },
+    {
+      "id": "FLOW_059",
+      "name": "User refuses optional budget and flow continues",
+      "category": "random_uat_refusal",
+      "messages": [
+        "i need a chatbot",
+        "Vikas",
+        "vikas@gmail.com",
+        "company is BotWorks",
+        "project type is AI chatbot",
+        "requirements are website chatbot",
+        "skip budget",
+        "timeline is 2 months"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Vikas"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "email_or_phone": "vikas@gmail.com"
+          },
+          "pending_field": "company"
+        },
+        {
+          "turn": 4,
+          "profile_contains": {
+            "company": "BotWorks"
+          },
+          "pending_field": "project_type"
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "project_type": "AI chatbot"
+          },
+          "pending_field": "requirements"
+        },
+        {
+          "turn": 6,
+          "profile_contains": {
+            "requirements": "website chatbot"
+          },
+          "pending_field": "budget"
+        },
+        {
+          "turn": 7,
+          "profile_contains": {
+            "budget": "declined"
+          },
+          "pending_field": "timeline"
+        },
+        {
+          "turn": 8,
+          "profile_contains": {
+            "timeline": "2 months"
+          },
+          "qualified": true
+        }
+      ]
+    },
+    {
+      "id": "FLOW_060",
+      "name": "Stress random mixed conversation",
+      "category": "random_uat_stress",
+      "messages": [
+        "hey",
+        "what can you do",
+        "i need crm",
+        "what services do you provide",
+        "Neeraj",
+        "neeraj@gmail.com",
+        "plan a trip to manali",
+        "company is GrowthCRM",
+        "project type is CRM",
+        "requirements are lead tracking dashboard",
+        "budget is 50000",
+        "timeline is next month"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "reply_should_not_contain_any": [
+            "can only help",
+            "company-related"
+          ]
+        },
+        {
+          "turn": 2,
+          "reply_should_contain_any": [
+            "services",
+            "support",
+            "hiring",
+            "projects"
+          ]
+        },
+        {
+          "turn": 3,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 4,
+          "active_collection": "client_lead",
+          "pending_field": "name",
+          "profile_should_not_contain_keys_with_value": {
+            "name": "what services do you provide"
+          }
+        },
+        {
+          "turn": 5,
+          "profile_contains": {
+            "name": "Neeraj"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 6,
+          "profile_contains": {
+            "email_or_phone": "neeraj@gmail.com"
+          },
+          "pending_field": "company"
+        },
+        {
+          "turn": 7,
+          "should_decline_unrelated": true,
+          "pending_field": "company"
+        },
+        {
+          "turn": 8,
+          "profile_contains": {
+            "company": "GrowthCRM"
+          },
+          "pending_field": "project_type"
+        },
+        {
+          "turn": 9,
+          "profile_contains": {
+            "project_type": "CRM"
+          },
+          "pending_field": "requirements"
+        },
+        {
+          "turn": 10,
+          "profile_contains": {
+            "requirements": "lead tracking dashboard"
+          },
+          "pending_field": "budget"
+        },
+        {
+          "turn": 11,
+          "profile_contains": {
+            "budget": "50000"
+          },
+          "pending_field": "timeline"
+        },
+        {
+          "turn": 12,
+          "profile_contains": {
+            "timeline": "next month"
+          },
+          "qualified": true
+        }
+      ]
     }
   ]
 }
