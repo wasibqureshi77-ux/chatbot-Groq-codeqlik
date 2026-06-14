@@ -64,18 +64,21 @@ class FailoverChatGroq(ChatGroq):
 
     def __init__(self, *args, **kwargs):
         # Determine available keys in order of preference
-        primary = os.getenv("API_KEY_1") or os.getenv("API_KEY")
-        backup = os.getenv("API_KEY_2")
-        
-        # Build list of active keys
         keys = []
+        
+        # Check API_KEY_1 or API_KEY first
+        primary = os.getenv("API_KEY_1") or os.getenv("API_KEY")
         if primary:
             keys.append(primary)
-        if backup and backup != primary:
-            keys.append(backup)
+            
+        # Check other API keys (API_KEY_2 up to API_KEY_10)
+        for i in range(2, 11):
+            key = os.getenv(f"API_KEY_{i}")
+            if key and key not in keys:
+                keys.append(key)
             
         if not keys:
-            raise ValueError("No API keys found. Please set API_KEY_1 and/or API_KEY_2 in the .env file.")
+            raise ValueError("No API keys found. Please set API_KEY_1 or other API keys in the .env file.")
 
         # Initialize the base class with the primary key
         kwargs["groq_api_key"] = keys[0]

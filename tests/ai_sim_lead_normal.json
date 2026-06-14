@@ -1,0 +1,165 @@
+{
+  "run_at": "2026-06-13T09:02:57Z",
+  "base_url": "http://localhost:8000",
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "results": [
+    {
+      "id": "scenario_lead_normal",
+      "name": "Normal Client Lead Flow",
+      "thread_id": "sim_scenario_lead_normal_46ed8b63",
+      "passed": false,
+      "turns_taken": 7,
+      "loop_detected": true,
+      "final_state": {
+        "intent": "client_lead",
+        "active_collection": "client_lead",
+        "pending_field": "company",
+        "profile": {
+          "project_type": "Software development.",
+          "name": "Emily",
+          "email_or_phone": "emily@example.com",
+          "email": "emily@example.com"
+        },
+        "qualified": false
+      },
+      "history": [
+        {
+          "turn": 1,
+          "user": "What kind of services does CodeQlik offer?",
+          "bot": "At CodeQlik, we offer a wide range of services, including software development, AI automation, web and mobile app development, CRM systems, SaaS solutions, cloud services, and IT consulting. Our team is here to help you with any questions or concerns you may have. What specific service are you interested in learning more about?",
+          "state": {
+            "intent": "general_chat",
+            "active_collection": null,
+            "pending_field": null,
+            "profile": {},
+            "qualified": false
+          }
+        },
+        {
+          "turn": 2,
+          "user": "Software development.",
+          "bot": "Thanks. Please share your name so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "name",
+            "profile": {
+              "project_type": "Software development."
+            },
+            "qualified": false
+          }
+        },
+        {
+          "turn": 3,
+          "user": "My name is Emily.",
+          "bot": "Thanks. Please share your email or phone number so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "project_type": "Software development.",
+              "name": "Emily"
+            },
+            "qualified": false
+          }
+        },
+        {
+          "turn": 4,
+          "user": "My email is emily@example.com.",
+          "bot": "Thanks. Please share your company name so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "project_type": "Software development.",
+              "name": "Emily",
+              "email_or_phone": "emily@example.com",
+              "email": "emily@example.com"
+            },
+            "qualified": false
+          }
+        },
+        {
+          "turn": 5,
+          "user": "I prefer not to share that.",
+          "bot": "I'd rather not pry into your personal life, Emily. Let's focus on how we can help your company. Please share your company name so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "project_type": "Software development.",
+              "name": "Emily",
+              "email_or_phone": "emily@example.com",
+              "email": "emily@example.com"
+            },
+            "qualified": false
+          }
+        },
+        {
+          "turn": 6,
+          "user": "I'm not a business owner, I prefer not to share that.",
+          "bot": "I'd rather not pry into your personal life, Emily. Let's focus on how we can help your company. Please share your company name so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "project_type": "Software development.",
+              "name": "Emily",
+              "email_or_phone": "emily@example.com",
+              "email": "emily@example.com"
+            },
+            "qualified": false
+          }
+        },
+        {
+          "turn": 7,
+          "user": "I'm not a business owner, I prefer not to share that.",
+          "bot": "I'd rather not pry into your personal life, Emily. Let's focus on how we can help you with your software needs. We're here to provide guidance on our services, from custom software development to AI integration and cloud solutions. Please share your company name so we can guide you better.",
+          "state": {
+            "intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "project_type": "Software development.",
+              "name": "Emily",
+              "email_or_phone": "emily@example.com",
+              "email": "emily@example.com"
+            },
+            "qualified": false
+          }
+        }
+      ],
+      "evaluation": {
+        "qualified_status_correct": false,
+        "profile_correctness_correct": false,
+        "wrong_fields_saved": true,
+        "short_reply_quality": false,
+        "no_repeated_details": true,
+        "answered_user_questions": false,
+        "refused_unrelated_topics": true,
+        "passed": false,
+        "explanation": "The bot failed to correctly determine the user's company name, which is a required field. The bot repeatedly asked for the company name despite the user's refusal to provide it. The bot also failed to answer the user's company-related questions. The bot's replies were concise, and it avoided repeating already collected user details. The bot correctly refused unrelated queries and kept replies short.\n- Manual check failed: bot generated 2 long replies.\n- Manual check failed: qualified was False but expected True",
+        "long_replies": [
+          {
+            "turn": 1,
+            "word_count": 53,
+            "limit": 35,
+            "bot": "At CodeQlik, we offer a wide range of services, including software development, AI automation, web and mobile app development, CRM systems, SaaS solutions, cloud services, and IT consulting. Our team is here to help you with any questions or concerns you may have. What specific service are you interested in learning more about?"
+          },
+          {
+            "turn": 7,
+            "word_count": 50,
+            "limit": 35,
+            "bot": "I'd rather not pry into your personal life, Emily. Let's focus on how we can help you with your software needs. We're here to provide guidance on our services, from custom software development to AI integration and cloud solutions. Please share your company name so we can guide you better."
+          }
+        ]
+      }
+    }
+  ]
+}

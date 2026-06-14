@@ -60,6 +60,24 @@ VALID_INTENTS = [
 ]
 
 
+# Broad business/service vocabulary.
+# Keep this separate from lead-detection words so informational questions like
+# "tell me about e-commerce" are answered instead of treated as unrelated.
+BUSINESS_DOMAIN_KEYWORDS = [
+    "e commerce", "e-commerce", "ecommerce", "online store", "online shop",
+    "shopping platform", "marketplace", "retail", "retail platform",
+    "payment gateway", "payment integration", "apple pay", "google pay",
+    "razorpay", "stripe", "paypal", "cod", "cash on delivery",
+    "cart", "checkout", "order management", "product catalog",
+    "inventory", "billing", "invoice", "erp", "business management",
+    "management system", "admin panel", "dashboard", "customer portal",
+    "vendor portal", "mobile commerce", "m-commerce", "crm", "cms",
+    "pos", "booking system", "appointment system", "learning management",
+    "lms", "hrm", "hrms", "saas", "automation tools",
+    "ai-powered automation", "ai automation", "workflow automation",
+]
+
+
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     intent: Optional[str]
@@ -84,6 +102,7 @@ class ChatState(TypedDict):
     response_mode: Optional[str]
     is_field_answer: Optional[bool]
     saved_collection: Optional[bool]
+    intro_context: Optional[str]
 
 
 # ---------------------------------------------------------------------
@@ -154,13 +173,13 @@ def is_question(text: str) -> bool:
     t = normalize(text)
     return (
         "?" in t
-        or t.startswith(("what ", "why ", "how ", "when ", "where ", "who ", "which "))
+        or t.startswith(("what ", "why ", "how ","have" ,"when ", "where ", "who ", "which "))
         or t.startswith(("can you", "do you", "does ", "did ", "are you", "is there", "tell me about", "could you", "would you", "should "))
     )
 
 
 def is_ack(text: str) -> bool:
-    return normalize(text) in {"ok", "okay", "yes", "yeah", "yep", "sure", "go ahead", "fine", "hmm"}
+    return normalize(text) in {"ok", "okay", "yes", "yeah", "yep", "sure", "go ahead", "fine", "hmm","yes sure", "sure thing", "sounds good"}
 
 
 def is_small_talk(text: str) -> bool:
@@ -216,6 +235,24 @@ def is_small_talk(text: str) -> bool:
 
 
 
+def looks_like_intro_context(text: str) -> bool:
+    """
+    Temporary intro detector for general_chat.
+    We do NOT save this to profile immediately. We only buffer it and use it
+    if the user later starts client/support/hiring collection.
+    """
+    t = normalize(text)
+    if not t or is_hard_unrelated_or_unsafe(t):
+        return False
+
+    intro_cues = [
+        "my name is", "i am", "i'm", "myself", "this is",
+        "my company", "company is", "company name", "work at", "working at",
+        "from ", " at "
+    ]
+    return any(cue in t for cue in intro_cues)
+
+
 def is_company_or_business_info_query(text: str) -> bool:
     """
     Company/business/hiring information questions should be answered dynamically.
@@ -266,7 +303,7 @@ def is_company_or_business_info_query(text: str) -> bool:
         "career",
     ]
 
-    return any(p in t for p in phrases)
+    return any(p in t for p in phrases) or has_business_domain_keyword(t)
 
 
 def is_explanatory_or_company_question(text: str) -> bool:
@@ -309,7 +346,7 @@ def is_explanatory_or_company_question(text: str) -> bool:
         "company",
     ]
 
-    if any(w in t for w in info_words) and not any(x in t for x in ["i need", "i want", "build", "create", "hire", "quote"]):
+    if (any(w in t for w in info_words) or has_business_domain_keyword(t)) and not any(x in t for x in ["i need", "i want", "build", "create", "hire", "quote"]):
         if is_question(t) or t.startswith(("explain", "tell", "describe", "define")):
             return True
 
@@ -329,14 +366,14 @@ def is_field_like_answer(text: str, expected_field: Optional[str]) -> bool:
     if is_small_talk(t) or is_ack(t) or is_gibberish(t):
         return False
 
-    if is_sensitive_or_unsafe(t) or is_unrelated_query(t):
+    if is_hard_unrelated_or_unsafe(t):
         return False
 
     if is_explanatory_or_company_question(t):
         return False
 
     if is_company_or_business_info_query(t) and (
-        is_question(t) or t.startswith(("explain", "tell", "describe", "define", "what ", "why ", "how "))
+        is_question(t) or t.startswith(("explain", "tell", "describe", "define", "what ", "why ", "how ","have", "when ", "where ", "who ", "which " ))
     ):
         return False
 
@@ -483,7 +520,7 @@ def sync_collection_state(category: Optional[str], profile: dict) -> dict:
         return {
             "required_fields": [],
             "missing_fields": [],
-            "qualified": True,
+            "qualified": False,
             "pending_field": None,
             "last_pending_field": None,
             "active_collection": None,
@@ -517,22 +554,91 @@ def merge_profile(old: dict, new: dict, category: Optional[str] = None) -> dict:
         if value in [None, "", [], {}]:
             continue
 
-        # Do not overwrite valid old values with accidental later values.
         old_value = merged.get(key)
+
+        # Append issue details instead of replacing useful earlier information.
+        # Example: "my website is not opening" + "it shows server error"
+        # becomes: "my website is not opening; it shows server error".
+        if key == "issue_details" and is_answered(old_value, key) and normalize(value) not in DECLINED_VALUES:
+            old_text = str(old_value).strip()
+            new_text = str(value).strip()
+            if new_text and normalize(new_text) not in normalize(old_text):
+                merged[key] = f"{old_text}; {new_text}"
+            continue
+
+        # Contact fields can be updated if the user provides a new explicit email/phone.
+        if key in {"email_or_phone", "email", "phone"}:
+            merged[key] = value
+            continue
+
+        # For name/company/role/project fields, overwrite only with validated current-message data.
+        # This fixes hallucinated/stale values like demo names blocking the user's real answer.
+        if key in {"name", "company", "role", "project_type"}:
+            merged[key] = value
+            continue
+
+        # For other fields, keep old value unless old is missing/invalid.
         if is_answered(old_value, key) and normalize(value) not in DECLINED_VALUES:
-            # If explicitly same, no need to update.
             if normalize(old_value) == normalize(value):
                 continue
-            # Do not overwrite name/company/role/project unless value was explicitly labeled by extractor.
-            # The deterministic extractor only sends expected/labeled fields, so overwrite is usually safe.
-            # Still protect name from being overwritten after first valid value.
-            if key == "name":
-                continue
+            # requirements can grow over time, but avoid duplicate text.
+            if key == "requirements":
+                old_text = str(old_value).strip()
+                new_text = str(value).strip()
+                if new_text and normalize(new_text) not in normalize(old_text):
+                    merged[key] = f"{old_text}; {new_text}"
+            continue
 
         merged[key] = value
 
     return merged
 
+
+
+
+def has_business_domain_keyword(text: str) -> bool:
+    """Broad, non-lead business vocabulary for company/service info questions."""
+    t = normalize(text)
+    return any(k in t for k in BUSINESS_DOMAIN_KEYWORDS)
+
+
+def rag_suggests_company_relevance(text: str, threshold: float = 0.40) -> bool:
+    """Use RAG only as a fallback for ambiguous questions to avoid false refusals."""
+    if not text or is_small_talk(text) or is_hard_unrelated_or_unsafe(text):
+        return False
+    try:
+        details = retrieve_company_context_details(text)
+        confidence = float(details.get("confidence", 0.0) or 0.0)
+        return confidence >= threshold
+    except Exception as e:
+        print("[Relevance RAG] skipped:", e)
+        return False
+
+
+def llm_suggests_company_relevance(text: str) -> bool:
+    """Last-resort ambiguity check; never overrides hard unsafe/unrelated topics."""
+    if not text or is_small_talk(text) or is_hard_unrelated_or_unsafe(text):
+        return False
+
+    prompt = f"""Classify whether this user message is related to CodeQlik's business scope.
+
+CodeQlik scope includes: software development, websites, web apps, mobile apps, e-commerce, CRM, ERP, dashboards, SaaS, AI automation, chatbots, support issues, hiring, pricing, contact, and company information.
+
+Unrelated examples: travel, weather, sports, movies, food recipes, politics, religion, hacking, adult content.
+
+User message: {text}
+
+Return JSON only:
+{{"company_related": true, "reason": ""}}
+"""
+    try:
+        json_llm = llm.bind(response_format={"type": "json_object"})
+        result = json_llm.invoke([HumanMessage(content=prompt)]).content
+        parsed = safe_json_loads(result, {"company_related": False})
+        return bool(parsed.get("company_related", False))
+    except Exception as e:
+        print("[Relevance LLM] skipped:", e)
+        return False
 
 # ---------------------------------------------------------------------
 # Relevance / safety
@@ -599,8 +705,30 @@ def is_company_related(text: str) -> bool:
         "who are you",
         "what can you do",
         "what do you do",
+        # Business/project discussion terms that are valid during client lead flow
+        "business management",
+        "management system",
+        "erp",
+        "inventory",
+        "billing",
+        "invoice",
+        "dashboard",
+        "admin panel",
+        "employee management",
+        "attendance",
+        "sales",
+        "purchase",
+        "reporting",
+        "analytics",
+        "customer portal",
+        "vendor portal",
+        "accounting",
+        "business management system",
+        "management software",
+        "custom software",
+        "business software",
     ]
-    return any(k in t for k in keywords)
+    return any(k in t for k in keywords) or has_business_domain_keyword(t)
 
 
 def is_sensitive_or_unsafe(text: str) -> bool:
@@ -631,6 +759,64 @@ def is_sensitive_or_unsafe(text: str) -> bool:
         "internal instruction",
     ]
     return any(k in t for k in unsafe)
+
+
+def is_hard_unrelated_or_unsafe(text: str) -> bool:
+    """
+    Strong refusal list used while a lead/support/hiring collection is active.
+    During an active collection, broad project questions must NOT be rejected
+    just because they are questions. Only clearly unsafe or clearly off-company
+    topics should be refused.
+    """
+    t = normalize(text)
+    hard_blocks = [
+        "system prompt",
+        "ignore previous instructions",
+        "developer message",
+        "api key",
+        "secret key",
+        "mongodb uri",
+        "database password",
+        "hack",
+        "hacking",
+        "malware",
+        "phishing",
+        "payload",
+        "sql injection",
+        "exploit",
+        "adult",
+        "porn",
+        "religion",
+        "politics",
+        "prime minister",
+        "president",
+        "which llm",
+        "model provider",
+        "internal instruction",
+        "trip",
+        "travel",
+        "tour",
+        "hotel",
+        "flight",
+        "recipe",
+        "cook",
+        "pizza",
+        "pasta",
+        "sports",
+        "cricket",
+        "movie",
+        "song",
+        "weather",
+        "news",
+        "geography",
+        "history",
+        "capital of",
+        "himachal",
+        "goa",
+        "manali",
+        "shimla",
+    ]
+    return any(k in t for k in hard_blocks)
 
 
 def is_unrelated_query(text: str) -> bool:
@@ -969,13 +1155,25 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
     if any(k in t for k in clear_client_phrases):
         return "client_lead"
 
-    if is_unrelated_query(t):
-        return "unrelated_query"
-
-    # Active flow is preserved for normal values and company-info interruptions.
-    # Extraction layer will decide whether to save the message or just answer it.
+    # During an active collection, do not reject broad project/company questions
+    # just because keyword matching is imperfect. Only hard unrelated/unsafe topics
+    # should break the flow.
     if active_collection:
+        if is_hard_unrelated_or_unsafe(t):
+            return "unrelated_query"
         return active_collection
+
+    # Broad service/domain informational questions should be answered, not refused.
+    # Example: "tell me about e commerce", "explain ERP", "what is payment gateway integration".
+    if is_company_or_business_info_query(t) or (is_question(t) and has_business_domain_keyword(t)):
+        return "general_chat"
+
+    # Ambiguous questions get RAG first, then LLM fallback before refusing.
+    # Hard unrelated/unsafe topics were already handled above and still remain blocked.
+    if is_unrelated_query(t):
+        if is_question(t) and (rag_suggests_company_relevance(t) or llm_suggests_company_relevance(t)):
+            return "general_chat"
+        return "unrelated_query"
 
     if is_plain_value_without_context(t):
         return "general_chat"
@@ -988,15 +1186,8 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
             return "client_lead"
         return "general_chat"
 
-    semantic = classify_intent_semantic(user_text, active_collection)
-    sem_intent = semantic.get("intent")
-    sem_conf = semantic.get("confidence", 0.0)
-
-    if sem_intent and sem_conf >= 0.60:
-        if sem_intent == "company_info":
-            return "general_chat"
-        return sem_intent
-
+    # Avoid slow/unstable LLM classification in production flow tests.
+    # Rules cover company/client/support/hiring/general/unrelated cases.
     return classify_intent_rules_fallback(user_text, active_collection)
 
 def is_clear_flow_switch(user_text: str, current_active: Optional[str], new_intent: str) -> bool:
@@ -1031,6 +1222,28 @@ def intent_classifier_node(state: ChatState) -> dict:
     summary = state.get("conversation_summary", "")
 
     primary_intent = classify_intent_rules(user_text, current_active)
+
+    # Profile-based context fallback:
+    # After a collection is complete, active_collection becomes None.
+    # Short follow-up questions like "how will you create it" or
+    # "what you use in it" may look unrelated if we only inspect latest text.
+    # If the saved profile has project/support/hiring context, keep the previous
+    # business intent instead of refusing.
+    if (
+        primary_intent == "unrelated_query"
+        and state.get("qualified", False)
+        and has_saved_business_context(current_profile)
+        and is_context_followup(user_text)
+    ):
+        previous_business_intent = state.get("user_goal")
+        if previous_business_intent in COLLECTION_INTENTS:
+            primary_intent = previous_business_intent
+        elif current_profile.get("issue_type") or current_profile.get("issue_details"):
+            primary_intent = "customer_support"
+        elif current_profile.get("role") or current_profile.get("skills"):
+            primary_intent = "hiring_support"
+        else:
+            primary_intent = "client_lead"
 
     # Active flow lock.
     if current_active and primary_intent in COLLECTION_INTENTS and not is_clear_flow_switch(user_text, current_active, primary_intent):
@@ -1078,18 +1291,70 @@ def route_by_intent(state: ChatState) -> str:
 # Deterministic extraction
 # ---------------------------------------------------------------------
 
+def has_extra_question_after_field(text: str) -> bool:
+    t = normalize(text)
+    return (
+        "?" in t
+        or " can you " in f" {t} "
+        or " can i " in f" {t} "
+        or " explain " in f" {t} "
+        or " know about " in f" {t} "
+        or "how " in t
+        or "what " in t
+        or "why " in t
+        or "when " in t
+        or "where " in t
+        or "which " in t
+        or "who " in t
+        or "have" in t
+    )
+
+
+def is_context_followup(text: str) -> bool:
+    """
+    Detect short follow-up questions that refer to already saved profile context.
+    Example after a completed lead/support flow:
+    - what you use in it
+    - how will you create it
+    - how will you fix it
+    - can you explain this
+    These should use saved profile context instead of being treated as unrelated.
+    """
+    t = normalize(text)
+    if not t:
+        return False
+
+    followup_phrases = [
+        "it", "this", "that", "these", "those", "them",
+        "what you use", "what do you use", "what will you use",
+        "what technologies", "what technology", "what stack",
+        "how will you", "how would you", "how do you", "how can you",
+        "how will it", "how does it", "how it",
+        "can you explain", "explain it", "explain this",
+        "features", "modules", "process", "steps", "workflow",
+        "create it", "build it", "develop it", "fix it", "solve it",
+        "in it", "for it", "about it",
+    ]
+    return any(p in t for p in followup_phrases)
+
+
+def has_saved_business_context(profile: dict) -> bool:
+    profile = profile or {}
+    return bool(
+        profile.get("project_type")
+        or profile.get("requirements")
+        or profile.get("issue_type")
+        or profile.get("issue_details")
+        or profile.get("role")
+        or profile.get("skills")
+    )
+
 def remove_label_prefix(text: str, labels: list[str]) -> Optional[str]:
     raw = str(text or "").strip()
 
     for label in labels:
-        # Supports:
-        # company is SalesPro
-        # company: SalesPro
-        # company - SalesPro
-        # project type is CRM
-        # my company is ABC
-        pattern = rf"(?i)^\s*{re.escape(label)}\s*(?:is|:|-)?\s+(.+?)\s*$"
-        match = re.match(pattern, raw)
+        pattern = rf"(?i)\b{re.escape(label)}\s*(?:is|:|-)?\s+(.+?)(?=\s+\b(?:and|but|also|then)\b|\?|,|\.|$)"
+        match = re.search(pattern, raw)
         if match:
             value = match.group(1).strip()
             if value:
@@ -1117,6 +1382,388 @@ def extract_inline_labeled_values(text: str, labels: list[str]) -> list[str]:
     return values
 
 
+
+def validate_extracted_field(key: str, value, category: str) -> Optional[str]:
+    """
+    Strict validation layer for LLM/regex extracted fields.
+    Rejects accidental long sentences, generic words, and question-like values.
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip().strip('"').strip("'")
+    if not text:
+        return None
+
+    low = normalize(text)
+
+    if low in INVALID_VALUES:
+        return None
+
+    if low in DECLINED_VALUES:
+        return "declined"
+
+    if key not in {"requirements", "issue_details"}:
+        if is_question(text) or low.startswith(("explain ", "tell me", "describe ", "what ", "why ", "how ")):
+            return None
+
+    if key == "email_or_phone":
+        email = extract_email(text)
+        phone = extract_phone(text)
+        return email or phone
+
+    if key == "email":
+        return extract_email(text)
+
+    if key == "phone":
+        return extract_phone(text)
+
+    if key == "name":
+        forbidden = [
+            "product manager", "manager at", "company", "solutions", "project",
+            "requirement", "requirements", "mobile app", "application", "platform",
+            "development", "dashboard", "invoice", "export", "support", "details",
+            "we're", "we are", "looking", "build", "create", "proposal", "email",
+            "phone", "budget", "timeline",
+            "e-commerce", "ecommerce", "website", "web site", "app",
+            "application", "crm", "chatbot", "platform", "portal",
+            "software", "store", "shop", "business", "landing page",
+            "informational site", "online store"
+        ]
+        words = text.split()
+        if len(words) > 4:
+            return None
+        if any(f in low for f in forbidden):
+            return None
+        if not re.search(r"[A-Za-z]", text):
+            return None
+        return text
+
+    if key == "company":
+        forbidden_exact = {"details", "project", "requirements", "mobile app", "app", "website", "crm", "yes", "no", "ok"}
+        if low in forbidden_exact:
+            return None
+        if len(text.split()) > 6:
+            return None
+        if is_question(text):
+            return None
+        return text
+
+    if key == "project_type":
+        if low in {"details", "yes", "no", "ok", "name", "company"}:
+            return None
+        project_keywords = [
+            "mobile app", "android", "ios", "cross-platform", "cross platform",
+            "website", "web app", "e-commerce", "ecommerce", "crm", "dashboard",
+            "management system", "software", "chatbot", "automation", "portal",
+            "erp", "saas", "application", "app"
+        ]
+        if any(w in low for w in project_keywords):
+            return text
+        if len(text.split()) <= 12:
+            return text
+        return None
+
+    if key == "budget":
+        if looks_like_refusal(text):
+            return "declined"
+        if re.search(r"(\d|rs|inr|usd|dollar|₹|\$|lakh|lakhs|k\b|budget|around|approx)", low):
+            return text
+        return None
+
+    if key == "timeline":
+        if re.search(r"(\d+\s*(day|days|week|weeks|month|months|year|years)|next\s+\w+|this\s+\w+|quarter|asap)", low):
+            return text
+        return None
+
+    if key == "urgency":
+        if any(k in low for k in ["urgent", "high", "medium", "low", "critical"]):
+            return text
+        return None
+
+    if key == "experience":
+        if re.search(r"(fresher|\d+\s*(month|months|year|years))", low):
+            return text
+        return None
+
+    if key == "resume_or_portfolio":
+        if re.search(r"(https?://\S+|[\w.-]+\.(com|dev|io|in|net)/?\S*)", text):
+            return text
+        if looks_like_refusal(text):
+            return "declined"
+        return None
+
+    if key in {"requirements", "issue_type", "issue_details", "role", "skills"}:
+        if low in {"details", "yes", "no", "ok"} and key != "issue_type":
+            return None
+        return text
+
+    return text
+
+
+def validate_extracted_profile(raw: dict, category: str) -> dict:
+    allowed = set(REQUIRED_FIELDS.get(category, [])) | {"email", "phone"}
+    clean = {}
+
+    for key, value in (raw or {}).items():
+        if key not in allowed:
+            continue
+
+        validated = validate_extracted_field(key, value, category)
+        if validated is None:
+            continue
+
+        clean[key] = validated
+
+        if key == "email_or_phone":
+            if extract_email(validated):
+                clean["email"] = validated
+            elif extract_phone(validated):
+                clean["phone"] = validated
+
+    return clean
+
+
+def llm_verify_uncertain_field(field: Optional[str], user_text: str, category: str) -> Optional[str]:
+    """
+    Last-resort verifier for uncertain field answers.
+
+    Important:
+    - Deterministic extraction must run first.
+    - This verifier is only for fields where natural wording is ambiguous.
+    - It does NOT run for email/phone/budget/timeline/urgency because rules are safer there.
+    - It returns one validated value or None; it never updates profile directly.
+    """
+    if not field:
+        return None
+
+    verifier_fields = {
+        "name",
+        "company",
+        "role",
+        "project_type",
+        "issue_type",
+        "skills",
+        "requirements",
+        "issue_details",
+        "resume_or_portfolio",
+    }
+
+    if field not in verifier_fields:
+        return None
+
+    if is_small_talk(user_text) or is_ack(user_text) or is_gibberish(user_text):
+        return None
+
+    if is_hard_unrelated_or_unsafe(user_text):
+        return None
+
+    prompt = f"""You are a strict verifier for CodeQlik chatbot field collection.
+
+The chatbot is currently expecting exactly this field:
+{field}
+
+Category:
+{category}
+
+Latest user message:
+{user_text}
+
+Decide whether the latest user message clearly provides a value for the expected field.
+
+Rules:
+- Return valid=true only if the message clearly provides the expected field.
+- Do NOT guess.
+- Do NOT infer from old context.
+- Do NOT use examples as facts.
+- If unsure, valid=false.
+- For name:
+  - valid=true for: "my name is Anurag", "I am Anurag", "myself Kunal Singh", "this is Rahul", "Anurag here", "Anurag, why is it not working?"
+  - valid=false for: "fix it fast", "payment is not working", "why is it not working", "app issue"
+- For company:
+  - valid=true only if a company/business/organization is clearly provided.
+- For project_type, issue_type, role, skills, requirements:
+  - valid=true only if the message clearly provides that field.
+
+Return JSON only:
+{{
+  "valid": true/false,
+  "value": "extracted value or null"
+}}
+"""
+
+    try:
+        json_llm = llm.bind(response_format={"type": "json_object"})
+        result = json_llm.invoke([HumanMessage(content=prompt)]).content
+        parsed = safe_json_loads(result, {"valid": False, "value": None})
+
+        if not parsed.get("valid"):
+            return None
+
+        value = parsed.get("value")
+        validated = validate_extracted_field(field, value, category)
+        return validated
+    except Exception as e:
+        print("[Field Verifier LLM] skipped:", e)
+        return None
+
+
+
+def extract_structured_profile_llm(user_text: str, category: str, current_profile: dict, expected_field: Optional[str]) -> dict:
+    """
+    LLM-based structured extractor.
+    It extracts only explicitly mentioned fields from the latest user message.
+    It does NOT infer missing fields and does NOT decide pending/qualified.
+    Validation runs after this before saving.
+    """
+    if is_small_talk(user_text) or is_ack(user_text) or is_gibberish(user_text):
+        return {}
+
+    if is_hard_unrelated_or_unsafe(user_text):
+        return {}
+
+    # Selective LLM extraction: allow the LLM only when the latest message has
+    # explicit business/profile/project signals. This restores dynamic extraction
+    # for rich messages while preventing hallucinated demo values on vague inputs.
+    low_text = normalize(user_text)
+    explicit_cues = [
+        "my name", "i am", "i'm", "company", "from ", " at ",
+        "email", "phone", "budget", "timeline", "deadline", "within", "next",
+        "project type", "requirements", "requirement", "features", "proposal",
+        "issue type", "issue details", "urgency", "role", "experience",
+        "skills", "resume", "portfolio", "mobile app", "android", "ios",
+        "cross-platform", "cross platform", "website", "web app", "e-commerce",
+        "ecommerce", "crm", "dashboard", "management system", "software",
+        "chatbot", "automation", "apple pay", "payment", "business management",
+    ]
+    has_contact = bool(extract_email(user_text) or extract_phone(user_text))
+    if not has_contact and not any(cue in low_text for cue in explicit_cues):
+        return {}
+
+    required = REQUIRED_FIELDS.get(category, [])
+    schema_hint = {field: None for field in required}
+
+    prompt = f"""You extract structured profile fields for CodeQlik chatbot.
+
+Extract ONLY fields explicitly mentioned in the latest user message.
+Do NOT guess.
+Do NOT fill a field just because it is pending.
+Do NOT put the whole message into a field.
+If a value is not clearly present, return null for that field.
+If user refuses/skips a field, use "declined".
+
+Category: {category}
+Expected pending field: {expected_field}
+Existing profile: {json.dumps(current_profile or {}, ensure_ascii=False)}
+Allowed output fields: {list(schema_hint.keys())}
+
+Latest user message:
+{user_text}
+
+Rules:
+- Extract ONLY from the latest user message, not from old profile, examples, or assumptions.
+- Never invent name, company, contact, project type, requirements, budget, or timeline.
+- Name/company/contact values must appear in the latest user message.
+- Project type may be a short phrase explicitly supported by the message, e.g. "cross-platform iOS and Android mobile app".
+- Requirements may summarize explicitly stated features, e.g. "e-commerce platform with Apple Pay integration".
+- Budget/timeline must be explicitly present; do not infer them.
+- For vague messages like "i need an app", extract only project_type="app" if appropriate; leave name/company/budget/timeline null.
+- For pure explanation/company questions like "explain software development", return all fields null.
+
+Return JSON only:
+{json.dumps(schema_hint, indent=2)}
+"""
+
+    try:
+        json_llm = llm.bind(response_format={"type": "json_object"})
+        result = json_llm.invoke([HumanMessage(content=prompt)]).content
+        parsed = safe_json_loads(result, {})
+        clean = validate_extracted_profile(parsed, category)
+
+        # Hard evidence check for identity/contact fields to prevent hallucination.
+        low_msg = normalize(user_text)
+        for identity_key in ["name", "company", "email", "phone", "email_or_phone"]:
+            val = clean.get(identity_key)
+            if val and normalize(val) not in low_msg:
+                # Phone may be normalized digits while the message contains separators.
+                if identity_key in {"phone", "email_or_phone"} and extract_phone(user_text) == str(val):
+                    continue
+                clean.pop(identity_key, None)
+
+        return clean
+    except Exception:
+        return {}
+
+
+def extract_obvious_profile_regex(user_text: str, category: str) -> dict:
+    """
+    Deterministic supplement for common natural phrases.
+    """
+    text = str(user_text or "").strip()
+    out = {}
+
+    email = extract_email(text)
+    phone = extract_phone(text)
+
+    if category in {"client_lead", "customer_support"}:
+        if email:
+            out["email_or_phone"] = email
+        elif phone:
+            out["email_or_phone"] = phone
+    elif category == "hiring_support":
+        if email:
+            out["email_or_phone"] = email
+            out["email"] = email
+        if phone:
+            out["email_or_phone"] = phone
+            out["phone"] = phone
+
+    # Extract names without swallowing "from/at <company>".
+    # Example: "i am deepak kumar from technohub" -> name="deepak kumar"
+    m = re.search(r"(?i)\b(?:i am|i'm|my name is|myself)\s+([a-z][a-z.'-]*(?:\s+[a-z][a-z.'-]*){0,2})(?=\s+(?:from|at)\b|[,.;]|$)", text)
+    if m:
+        candidate_name = re.sub(r"(?i)\s+\b(from|at)\b\s*$", "", m.group(1).strip())
+        if candidate_name:
+            out["name"] = candidate_name
+
+    m = re.search(r"(?i)\b(?:at|from)\s+([A-Z][A-Za-z0-9&.-]*(?:\s+[A-Z][A-Za-z0-9&.-]*){0,4})(?:\.|,|$)", text)
+    if m:
+        company = m.group(1).strip()
+        if normalize(company) not in {"product manager", "software engineer", "senior software engineer"}:
+            out["company"] = company
+
+    m = re.search(r"(?i)\b(?:work at|working at|works at)\s+([A-Z][A-Za-z0-9&.-]*(?:\s+[A-Z][A-Za-z0-9&.-]*){0,4})(?:\.|,|$|\s+and\b)", text)
+    if m:
+        company = m.group(1).strip()
+        if normalize(company) not in {"product manager", "software engineer", "senior software engineer"}:
+            out["company"] = company
+
+    if category == "client_lead":
+        low = normalize(text)
+        project_markers = [
+            "mobile app", "android", "ios", "cross-platform", "cross platform",
+            "website", "web app", "e-commerce", "ecommerce", "crm", "dashboard",
+            "management system", "software", "chatbot", "automation", "portal", "app"
+        ]
+        requirement_markers = [
+            "apple pay", "payment", "integration", "feature", "features",
+            "business management", "inventory", "billing", "e-commerce", "ecommerce"
+        ]
+        if any(k in low for k in project_markers):
+            # Keep the whole sentence for validation; LLM can later refine it.
+            out.setdefault("project_type", text)
+        if any(k in low for k in requirement_markers):
+            out.setdefault("requirements", text)
+        budget_match = re.search(r"(?i)(?:budget(?:\s+is|\s+around|\s+of)?|around|approx(?:imately)?)\s*([₹$]?\s*[\d,]+(?:\.\d+)?\s*(?:usd|inr|rs|k|lakh|lakhs|crore|cr)?)", text)
+        if budget_match:
+            out.setdefault("budget", budget_match.group(0).strip())
+        timeline_match = re.search(r"(?i)(within\s+the\s+next\s+\d+\s*(?:days?|weeks?|months?|years?)|within\s+\d+\s*(?:days?|weeks?|months?|years?)|next\s+\d+\s*(?:days?|weeks?|months?|years?)|\d+\s*(?:days?|weeks?|months?|years?))", text)
+        if timeline_match:
+            out.setdefault("timeline", timeline_match.group(0).strip())
+
+    return validate_extracted_profile(out, category)
+
+
 def extract_expected_field(user_text: str, expected_field: Optional[str], category: str) -> dict:
     text = str(user_text or "").strip()
     low = normalize(text)
@@ -1127,10 +1774,16 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
     if is_gibberish(text) or is_ack(text):
         return {}
 
-    if is_sensitive_or_unsafe(text) or is_unrelated_query(text):
+    if is_hard_unrelated_or_unsafe(text):
         return {}
 
+    # Do not block extraction just because the message also contains a question.
+    # Example: "Anurag, why is it not working?" can provide name AND ask a question.
+    # The response layer will still answer the question; this layer only saves a verified field.
     if is_question(text):
+        verified = llm_verify_uncertain_field(expected_field, text, category)
+        if verified:
+            return {expected_field: verified}
         return {}
 
     if looks_like_refusal(text):
@@ -1153,7 +1806,44 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
         return {"phone": phone} if phone else {}
 
     if expected_field == "name":
-        value = remove_label_prefix(text, ["my name", "name", "i am", "i'm"])
+        value = remove_label_prefix(text, ["my name", "name", "i am", "i'm", "myself", "this is"])
+
+        # Mixed field + question/action fallback:
+        # If the bot is waiting for name and the user writes like
+        # "Anurag, why is it not working?" or "Anurag, fix it fast",
+        # treat the short leading phrase before comma as a possible name only
+        # after strict validation/blocked-word checks.
+        if not value:
+            m = re.match(r"(?i)^\s*([a-z][a-z.'-]*(?:\s+[a-z][a-z.'-]*){0,2})\s*,\s+(.+)$", text)
+            if m:
+                candidate = m.group(1).strip()
+                rest = normalize(m.group(2))
+                bad_name_words = {
+                    "why", "what", "how", "please", "fix", "urgent", "asap",
+                    "app", "website", "payment", "issue", "problem", "error",
+                    "support", "help", "bug", "server", "login"
+                }
+                if (
+                    normalize(candidate) not in bad_name_words
+                    and not any(w in normalize(candidate) for w in bad_name_words)
+                    and any(w in rest for w in ["why", "what", "how", "fix", "help", "not working", "issue", "problem", "urgent", "asap"])
+                ):
+                    validated_candidate = validate_extracted_field("name", candidate.title(), category)
+                    if validated_candidate:
+                        value = validated_candidate
+
+        # Safety guard:
+        # If the bot accidentally asked an exploratory project question while
+        # pending_field is still name, project/business answers must NOT be saved as name.
+        project_or_business_words = [
+            "e-commerce", "ecommerce", "website", "web site", "app", "application",
+            "crm", "chatbot", "platform", "portal", "software", "store", "shop",
+            "business", "landing page", "informational site", "online store",
+            "mobile app", "web app", "dashboard", "automation"
+        ]
+
+        if not value and any(w in low for w in project_or_business_words):
+            return {}
 
         non_name_words = [
             "explain", "what", "why", "how", "tell", "show", "describe", "define",
@@ -1161,6 +1851,8 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
             "app", "application", "project", "budget", "timeline", "company",
             "support", "technology", "technologies", "pricing", "cost", "contact",
             "need", "want", "build", "create", "make", "hire", "quote", "proposal",
+            "e-commerce", "ecommerce", "crm", "chatbot", "platform", "portal",
+            "store", "shop", "business", "landing page", "online store"
         ]
 
         if not value:
@@ -1190,8 +1882,17 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
     if category == "client_lead":
         if expected_field == "project_type":
             value = remove_label_prefix(text, ["project type", "type", "project"])
-            if not value and len(text.split()) <= 8:
-                value = text
+            project_keywords = [
+                "mobile app", "android", "ios", "cross-platform", "cross platform",
+                "website", "web app", "e-commerce", "ecommerce", "crm", "dashboard",
+                "management system", "software", "chatbot", "automation", "portal",
+                "erp", "saas", "application", "app"
+            ]
+            if not value:
+                if any(k in low for k in project_keywords):
+                    value = text
+                elif len(text.split()) <= 8:
+                    value = text
             return {"project_type": value} if value else {}
 
         if expected_field == "requirements":
@@ -1268,6 +1969,12 @@ def extract_expected_field(user_text: str, expected_field: Optional[str], catego
                     value = text
             return {"resume_or_portfolio": value} if value else {}
 
+    # Last-resort verifier:
+    # Deterministic extraction above failed. Ask LLM only for uncertain fields.
+    verified = llm_verify_uncertain_field(expected_field, text, category)
+    if verified:
+        return {expected_field: verified}
+
     return {}
 
 
@@ -1300,6 +2007,7 @@ def extract_direct_labeled_fields(user_text: str, category: str) -> dict:
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "company": [
                 "my company",
                 "company name",
@@ -1337,6 +2045,7 @@ def extract_direct_labeled_fields(user_text: str, category: str) -> dict:
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "issue_type": ["issue type", "issue"],
             "issue_details": ["issue details", "details", "problem", "error"],
             "urgency": ["urgency", "priority"],
@@ -1344,11 +2053,14 @@ def extract_direct_labeled_fields(user_text: str, category: str) -> dict:
 
     elif category == "hiring_support":
         if email:
+            out["email_or_phone"] = email
             out["email"] = email
         if phone:
+            out["email_or_phone"] = phone
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "role": ["role", "position"],
             "experience": ["experience"],
             "skills": ["skills", "skill"],
@@ -1389,6 +2101,7 @@ def extract_labeled_fields(user_text: str, category: str) -> dict:
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "company": ["my company", "company name", "company"],
             "project_type": ["project type"],
             "requirements": ["requirements", "requirement"],
@@ -1405,6 +2118,7 @@ def extract_labeled_fields(user_text: str, category: str) -> dict:
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "issue_type": ["issue type"],
             "issue_details": ["issue details"],
             "urgency": ["urgency", "priority"],
@@ -1412,11 +2126,14 @@ def extract_labeled_fields(user_text: str, category: str) -> dict:
 
     elif category == "hiring_support":
         if email:
+            out["email_or_phone"] = email
             out["email"] = email
         if phone:
+            out["email_or_phone"] = phone
             out["phone"] = phone
 
         mapping = {
+            "name": ["my name", "name"],
             "role": ["role", "position"],
             "experience": ["experience"],
             "skills": ["skills", "skill"],
@@ -1441,8 +2158,10 @@ def extract_collection_data(state: ChatState, category: str) -> dict:
     user_text = latest_user_message(state["messages"])
     current_profile = state.get("profile", {}) or {}
     required = REQUIRED_FIELDS.get(category, [])
+    intro_context = state.get("intro_context") or ""
+    combined_text = (intro_context + "\n" + user_text).strip() if intro_context else user_text
 
-    if is_small_talk(user_text) or is_sensitive_or_unsafe(user_text) or is_unrelated_query(user_text):
+    if is_small_talk(user_text) or is_hard_unrelated_or_unsafe(user_text):
         synced = sync_collection_state(category, current_profile)
         return {
             "profile": current_profile,
@@ -1453,13 +2172,49 @@ def extract_collection_data(state: ChatState, category: str) -> dict:
     missing_before = check_missing_fields(current_profile, required)
     expected_field = missing_before[0] if missing_before else None
 
-    # First extract explicit labeled values.
-    # This must happen before the generic field-like gate.
-    direct_labeled = extract_direct_labeled_fields(user_text, category)
+    # IMPORTANT:
+    # Company/explanation questions must be answered, not saved as field values.
+    # Example:
+    # - "explain software development"
+    # - "what services do you provide"
+    # - "what technologies do you use"
+    # These should go to RAG/dynamic answer path, then ask pending field if active.
+    is_info_question = (
+        is_explanatory_or_company_question(user_text)
+        or (
+            is_company_or_business_info_query(user_text)
+            and (
+                is_question(user_text)
+                or normalize(user_text).startswith(("explain", "tell", "describe", "define", "what ", "why ", "how "))
+            )
+        )
+    )
 
-    # Normal company/explanation questions should be answered, but not saved into profile.
-    # Example: "explain software development" must not become name/company/project_type.
-    if not direct_labeled and not is_field_like_answer(user_text, expected_field):
+    # Use buffered intro context only after a business/support/hiring flow starts.
+    # Latest-message expected-field extraction still uses user_text below.
+    direct_labeled = extract_direct_labeled_fields(combined_text, category)
+    regex_extracted = extract_obvious_profile_regex(combined_text, category)
+
+    extracted = {}
+    extracted.update(direct_labeled)
+    extracted.update(regex_extracted)
+
+    # Expected pending field should run even when the same message also asks a question.
+    # Example: "Anurag, why is it not working?" should save name while response still answers the question.
+    expected_extracted = extract_expected_field(user_text, expected_field, category)
+    if expected_extracted:
+        extracted.update(expected_extracted)
+
+    if is_field_like_answer(user_text, expected_field):
+        extracted.update(extract_labeled_fields(user_text, category))
+
+    # If this is an information/explanation question and no field was extracted,
+    # do not save anything; let response_generator answer the question and keep
+    # asking the same pending field.
+    # If a field WAS extracted (e.g. "Anurag, why is it not working?"), keep it
+    # and still let response_generator answer because has_extra_question_after_field()
+    # prevents the field-only shortcut.
+    if is_info_question and not extracted:
         synced = sync_collection_state(category, current_profile)
         return {
             "profile": current_profile,
@@ -1467,20 +2222,44 @@ def extract_collection_data(state: ChatState, category: str) -> dict:
             "is_field_answer": False,
         }
 
-    extracted = {}
-    extracted.update(extract_expected_field(user_text, expected_field, category))
-    extracted.update(extract_labeled_fields(user_text, category))
-    extracted.update(direct_labeled)
+    # Selective LLM extraction: deterministic first, LLM only fills important
+    # missing semantic fields from rich messages. This keeps the flow stable but
+    # restores dynamic extraction for project/support/hiring details.
+    deterministic_clean = validate_extracted_profile(extracted, category)
+    temp_profile = merge_profile(current_profile, deterministic_clean, category)
+    still_missing = check_missing_fields(temp_profile, required)
+    critical_fields = {
+        "client_lead": ["project_type", "requirements", "budget", "timeline"],
+        "customer_support": ["issue_type", "issue_details", "urgency"],
+        "hiring_support": ["role", "experience", "skills", "resume_or_portfolio"],
+    }
+    low_user = normalize(user_text)
+    rich_signal_words = [
+        "build", "develop", "create", "proposal", "mobile app", "android", "ios",
+        "cross-platform", "website", "e-commerce", "ecommerce", "crm", "software",
+        "management system", "apple pay", "payment", "budget", "timeline", "within",
+        "experience", "skills", "role", "issue", "error", "urgent"
+    ]
+    should_try_llm = (
+        any(f in still_missing for f in critical_fields.get(category, []))
+        and any(w in low_user for w in rich_signal_words)
+    )
+    if should_try_llm:
+        llm_extracted = extract_structured_profile_llm(user_text, category, temp_profile, expected_field)
+        # Do not let LLM overwrite deterministic identity/contact values; only fill/extend.
+        for k, v in llm_extracted.items():
+            if k not in deterministic_clean or k in {"requirements", "issue_details", "project_type", "budget", "timeline"}:
+                extracted[k] = v
 
-    clean = {}
-    allowed = set(required + ["email", "phone"])
-    for key, value in extracted.items():
-        if key not in allowed:
-            continue
-        if normalize(value) in DECLINED_VALUES:
-            clean[key] = "declined"
-        elif is_valid_field_value(value, key):
-            clean[key] = value
+    if not extracted:
+        synced = sync_collection_state(category, current_profile)
+        return {
+            "profile": current_profile,
+            **synced,
+            "is_field_answer": False,
+        }
+
+    clean = validate_extracted_profile(extracted, category)
 
     merged = merge_profile(current_profile, clean, category)
     synced = sync_collection_state(category, merged)
@@ -1489,6 +2268,7 @@ def extract_collection_data(state: ChatState, category: str) -> dict:
         "profile": merged,
         **synced,
         "is_field_answer": bool(clean),
+        "intro_context": None,
     }
 
 
@@ -1529,13 +2309,22 @@ def unrelated_query_node(state: ChatState) -> dict:
 def general_chat_node(state: ChatState) -> dict:
     if state.get("active_collection"):
         return {}
-    return {
+
+    user_text = latest_user_message(state["messages"])
+    update = {
         "required_fields": [],
         "missing_fields": [],
-        "qualified": True,
+        "qualified": False,
         "pending_field": None,
         "last_pending_field": None,
     }
+
+    # Buffer intro/profile-like text only temporarily. It is not saved to profile
+    # until the user starts a real client/support/hiring flow.
+    if looks_like_intro_context(user_text):
+        update["intro_context"] = user_text
+
+    return update
 
 
 @traceable
@@ -1547,11 +2336,9 @@ def client_lead_node(state: ChatState) -> dict:
     confidence = 0.0
     sources = []
 
-    if not data.get("is_field_answer") and not is_small_talk(user_text) and not is_sensitive_or_unsafe(user_text) and not is_unrelated_query(user_text):
-        details = retrieve_company_context_details(user_text)
-        context = details.get("context_text", "")
-        confidence = details.get("confidence", 0.0)
-        sources = details.get("sources", [])
+    # Keep collection path fast and deterministic. Response generator can answer general info without blocking on RAG.
+    if False:
+        pass
 
     if data["qualified"]:
         save_collection_data("client_lead", state.get("thread_id", "default"), data["profile"])
@@ -1633,6 +2420,8 @@ def response_generator_node(state: ChatState) -> dict:
     conversation_summary = state.get("conversation_summary", "") or ""
     qualified = state.get("qualified", False)
     is_field_answer = state.get("is_field_answer", False)
+    has_profile_context = has_saved_business_context(profile)
+    is_saved_context_followup = bool(qualified and has_profile_context and is_context_followup(user_text))
 
     settings = get_chatbot_settings()
     company_name = settings.get("company_name", "CodeQlik")
@@ -1646,33 +2435,125 @@ def response_generator_node(state: ChatState) -> dict:
         text = str(text or "")
         return text if len(text) <= max_chars else text[:max_chars] + "…"
 
-    # Deterministic response for field answers.
-    # This prevents old history/RAG answer from being repeated after user provides name/email/company/etc.
-    if is_field_answer:
-        if qualified:
-            response = "Thanks, I’ve received the required details. Our team can follow up with you shortly. Is there anything else you’d like to know?"
-        else:
-            response = f"Thanks. {build_pending_question(pending_field, active_collection)}"
+    def _clean_response(text: str) -> str:
+        text = str(text or "").strip()
+        text = re.sub(r"(?im)^\s*#{1,6}\s*(current user message|answer|follow-up question|state|profile|rules).*?$", "", text)
+        text = re.sub(r"(?im)^\s*(current user message|answer|follow-up question|state|profile|rules)\s*[:#-].*?$", "", text)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        return text
 
+    def _llm_reply(prompt: str, fallback: str) -> str:
+        try:
+            result = llm.invoke([HumanMessage(content=prompt)])
+            text = _clean_response(getattr(result, "content", result))
+            return text or fallback
+        except Exception as e:
+            print("[Response LLM] fallback used:", e)
+            return fallback
+
+    def _enforce_pending_question(response: str) -> str:
+        """
+        When a collection is active, the assistant may answer the user's current
+        question, but it must ask only the exact pending_field next.
+        This prevents bugs like pending_field=name but the bot asking project_type.
+        """
+        if not (active_collection and pending_field and not qualified):
+            return response
+
+        required_question = build_pending_question(pending_field, active_collection)
+        response = str(response or "").strip()
+
+        # Remove any LLM-generated exploratory question.
+        # Keep non-question answer sentences, then append the deterministic pending question.
+        parts = re.split(r"(?<=[.!?])\s+", response)
+        kept = []
+        for part in parts:
+            clean = part.strip()
+            if not clean:
+                continue
+            if "?" in clean and required_question.lower() not in clean.lower():
+                continue
+            if required_question.lower() in clean.lower():
+                continue
+            kept.append(clean)
+
+        base = " ".join(kept).strip()
+        if base:
+            return f"{base} {required_question}"
+        return required_question
+
+    def _save_and_return(response: str, rag_confidence_value=None) -> dict:
         thread_id = state.get("thread_id") or "default"
         allowed = REQUIRED_FIELDS.get(active_collection or primary_intent or intent or "", [])
         filtered_profile = {k: v for k, v in profile.items() if k in allowed} if allowed else {}
         save_chat_to_mongo(thread_id, user_text, response, intent, filtered_profile)
-
+        try:
+            rag_value = float(rag_confidence_value if rag_confidence_value is not None else rag_confidence)
+        except Exception:
+            rag_value = 0.0
         return {
             "response_text": response,
             "messages": [AIMessage(content=response)],
             "retrieved_context": retrieved_context,
-            "rag_confidence": rag_confidence,
+            "rag_confidence": rag_value,
             "rag_sources": rag_sources,
         }
 
-    # RAG only for non-field company questions.
-    if not retrieved_context and not is_small_talk(user_text) and not is_sensitive_or_unsafe(user_text) and not is_unrelated_query(user_text):
-        details = retrieve_company_context_details(user_text)
-        retrieved_context = details.get("context_text", "")
-        rag_confidence = details.get("confidence", 0.0) or 0.0
-        rag_sources = details.get("sources", []) or []
+    # Only field-submission turns get deterministic collection response.
+    # Normal greetings/questions after a completed flow must still go to dynamic LLM response.
+    is_info_question = (
+        is_explanatory_or_company_question(user_text)
+        or (
+            is_company_or_business_info_query(user_text)
+            and (
+                is_question(user_text)
+                or normalize(user_text).startswith(("explain", "tell", "describe", "define", "what ", "why ", "how "))
+            )
+        )
+    )
+
+    # If the latest message only submits a field, keep the fast deterministic response.
+    # If it submits a field AND asks a question, answer the question dynamically first,
+    # then _enforce_pending_question() will append the exact next pending field.
+    if is_field_answer and not is_info_question and not has_extra_question_after_field(user_text):
+        if active_collection and qualified:
+            response = "Thanks, I’ve received the required details. Our team can follow up with you shortly. Is there anything else you’d like to know?"
+        else:
+            response = f"Thanks. {build_pending_question(pending_field, active_collection)}"
+        return _save_and_return(response)
+
+    dynamic_fallback = f"I can only help with {company_name}-related services, projects, support, or hiring. Please ask something related to our company."
+
+    if (
+        is_hard_unrelated_or_unsafe(user_text)
+        or (
+            not active_collection
+            and is_unrelated_query(user_text)
+            and not is_saved_context_followup
+            and not has_business_domain_keyword(user_text)
+            and not rag_suggests_company_relevance(user_text)
+            and not llm_suggests_company_relevance(user_text)
+        )
+    ):
+        return _save_and_return(dynamic_fallback)
+
+    # Optional RAG only for company/info questions. If retriever fails or is slow internally,
+    # response still works because LLM fallback has company description/state.
+    if (
+        not retrieved_context
+        and not is_small_talk(user_text)
+        and (not is_field_answer or has_extra_question_after_field(user_text))
+    ):
+        try:
+            details = retrieve_company_context_details(user_text)
+            retrieved_context = details.get("context_text", "") or ""
+            rag_confidence = details.get("confidence", 0.0) or 0.0
+            rag_sources = details.get("sources", []) or []
+        except Exception as e:
+            print("[RAG] skipped:", e)
+            retrieved_context = ""
+            rag_confidence = 0.0
+            rag_sources = []
 
     try:
         rag_confidence_float = float(rag_confidence)
@@ -1686,71 +2567,58 @@ def response_generator_node(state: ChatState) -> dict:
     if active_collection:
         allowed = REQUIRED_FIELDS.get(active_collection, [])
         profile_display = {k: v for k, v in profile.items() if k in allowed}
+    elif is_saved_context_followup:
+        profile_display = profile
 
-    pending_instruction = ""
     if active_collection and pending_field and not qualified:
-        pending_instruction = f"After answering, ask exactly this one follow-up: {build_pending_question(pending_field, active_collection)}"
-    elif qualified:
-        pending_instruction = "The collection is complete. Confirm that details are received and do not ask more fields."
-
-    dynamic_fallback = f"I can only help with {company_name}-related services, projects, support, or hiring. Please ask something related to our company."
+        pending_instruction = f"After answering the current message, ask exactly this one follow-up: {build_pending_question(pending_field, active_collection)}"
+    elif active_collection and qualified:
+        pending_instruction = "The collection is complete. Do not ask more fields unless the user starts a new request."
+    elif is_saved_context_followup:
+        pending_instruction = "The collection is complete. Use the saved Profile as previous business context. If the user says it/this/that, assume they refer to the saved project, issue, or hiring request. Answer without asking more fields."
+    else:
+        pending_instruction = "No collection is active. Do not say that details were received."
 
     prompt = f"""You are {company_name}'s official support chatbot.
-Company: {_trim(company_desc, 500)}
+Company: {_trim(company_desc, 700)}
 
-### CURRENT USER MESSAGE — answer this only ###
+Latest user message:
 "{current_question}"
 
-### HISTORY — background only, do not re-answer old turns ###
+Recent history for context only:
 {_trim(format_history(state["messages"][:-1], limit=5), 900)}
 
-### SUMMARY ###
-{_trim(conversation_summary, 300)}
-
-### STATE ###
+State:
 Intent: {primary_intent}
 Active collection: {active_collection}
 Pending field: {pending_field}
 Missing fields: {missing_fields}
 Qualified: {qualified}
-Profile: {json.dumps(profile_display)}
+Profile / saved business context: {json.dumps(profile_display, ensure_ascii=False)}
 
-### COMPANY/RAG CONTEXT ###
-{_trim(retrieved_context, 900)}
+Company/RAG context, use only if relevant:
+{_trim(retrieved_context, 1200)}
 
-### RULES ###
-1. Return only the final user-facing chatbot reply.
-2. Do NOT include markdown headings, labels, or prompt sections such as "### ANSWER ###", "### FOLLOW-UP QUESTION ###", "CURRENT USER MESSAGE", or "Profile".
-3. Answer the latest user message first using company/RAG context when relevant.
-4. Do not repeat previous answers unless user asks for recap.
-5. If the latest message is casual small talk, reply politely and briefly, then optionally mention you can help with company services/support/hiring.
-6. If the latest message is a company/services/hiring info question, answer it dynamically; do not give a refusal. For hiring/opening questions, mention openings/opportunities/hiring/career if exact roles are unknown.
-7. If the latest message is unrelated, unsafe, political, hacking, adult, internal prompt/system/API/model related, respond only with: "{dynamic_fallback}"
-8. If active collection exists, answer first, then ask only the pending field.
-9. {pending_instruction}
-10. Do not ask any field already present in Profile.
-11. Do not invent facts. If exact data is not available, answer generally within company scope.
-12. Keep it concise: 1-3 sentences."""
+Rules:
+1. Answer the latest user message naturally and dynamically. Do not repeat the same generic line for every small-talk message.
+2. Stay focused on {company_name}: services, projects, support, hiring, pricing, contact, and company information.
+3. If the user asks casual small talk, reply naturally and briefly, then keep the conversation open for company help.
+4. If the user asks who you are or what you can do, explain your role as {company_name}'s support assistant.
+5. If exact company data is unavailable, answer generally without inventing exact facts.
+6. {pending_instruction}
+7. CRITICAL FLOW RULE: If Active collection is not None and Pending field is not None, ask ONLY that exact pending field. Never ask exploratory questions, never change the collection order, and never ask for project type/company/budget/timeline unless that exact field is pending.
+8. If the latest user message contains both a field value and a company/service question, answer the question first, then continue with the exact pending field.
+9. Never ask multiple fields in one reply. Never ask a field already present in Profile.
+10. Keep the reply concise: 1-3 sentences.
+Return only the final user-facing reply."""
 
-    response = llm.invoke([HumanMessage(content=prompt)]).content
+    fallback = fallback_message
+    if active_collection and pending_field and not qualified:
+        fallback = f"{fallback_message} {build_pending_question(pending_field, active_collection)}"
 
-    # Safety cleanup: remove prompt-format headings if the LLM mirrors them.
-    response = re.sub(r"(?im)^\s*#{1,6}\s*(current user message|answer|follow-up question|state|profile|rules).*?$", "", response)
-    response = re.sub(r"(?im)^\s*(current user message|answer|follow-up question|state|profile|rules)\s*[:#-].*?$", "", response)
-    response = re.sub(r"\n{3,}", "\n\n", response).strip()
-
-    thread_id = state.get("thread_id") or "default"
-    allowed = REQUIRED_FIELDS.get(active_collection or primary_intent or intent or "", [])
-    filtered_profile = {k: v for k, v in profile.items() if k in allowed} if allowed else {}
-    save_chat_to_mongo(thread_id, user_text, response, intent, filtered_profile)
-
-    return {
-        "response_text": response,
-        "messages": [AIMessage(content=response)],
-        "retrieved_context": retrieved_context,
-        "rag_confidence": rag_confidence_float,
-        "rag_sources": rag_sources,
-    }
+    response = _llm_reply(prompt, fallback)
+    response = _enforce_pending_question(response)
+    return _save_and_return(response, rag_confidence_float)
 
 
 # ---------------------------------------------------------------------
@@ -1802,6 +2670,16 @@ def send_message(user_input: str, thread_id: str = "test_user"):
         }
     }
 
+    print("\n" + "="*80)
+    print("GRAPH THREAD ID:", thread_id)
+    print("USER INPUT:", user_input)
+
+    try:
+        before_state = chatbot.get_state(config)
+        print("STATE BEFORE:", before_state.values.get("profile") if before_state and before_state.values else None)
+    except Exception as e:
+        print("STATE BEFORE ERROR:", e)
+
     response = chatbot.invoke(
         {
             "messages": [HumanMessage(content=user_input)],
@@ -1810,6 +2688,8 @@ def send_message(user_input: str, thread_id: str = "test_user"):
         config=config,
     )
 
+    print("STATE AFTER PROFILE:", response.get("profile"))
+    print("="*80 + "\n")
     return {
         "reply": response["messages"][-1].content,
         "intent": response.get("intent"),

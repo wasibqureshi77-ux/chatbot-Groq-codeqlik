@@ -1,137 +1,159 @@
 {
   "suite_name": "CodeQlik chatbot multi-turn stabilization tests",
-  "run_at": "2026-06-11T13:29:13.739719Z",
+  "run_at": "2026-06-13T05:10:09.733930Z",
   "base_url": "http://localhost:8000",
   "total": 1,
-  "passed": 1,
-  "failed": 0,
-  "pass_rate": 100.0,
+  "passed": 0,
+  "failed": 1,
+  "thread_id": [
+    "test_FLOW_068_d5f5a87a"
+  ],
+  "pass_rate": 0.0,
   "results": [
     {
-      "id": "FLOW_001",
-      "name": "Company info chain should not repeat generic services",
-      "category": "company_info_chain",
-      "thread_id": "test_FLOW_001_6bbff710",
-      "passed": true,
-      "error_count": 0,
-      "errors": [],
+      "id": "FLOW_068",
+      "name": "Field answer plus question should save field and answer question",
+      "category": "mixed_field_question",
+      "thread_id": "test_FLOW_068_d5f5a87a",
+      "passed": false,
+      "error_count": 1,
+      "errors": [
+        "Turn 4: pending_field expected 'project_type', got 'requirements'"
+      ],
       "turn_results": [
         {
           "turn": 1,
-          "message": "what services do you provide",
+          "message": "i need automation software",
           "expected": {
             "turn": 1,
-            "must_answer_about": "services",
-            "reply_should_contain_any": [
-              "web",
-              "app",
-              "AI",
-              "chatbot",
-              "CRM",
-              "automation",
-              "software"
-            ],
-            "should_not_only_ask_field": true
+            "active_collection": "client_lead",
+            "pending_field": "name"
           },
           "actual": {
-            "reply": "We provide software development, AI automation, web apps, mobile apps, CRM systems, SaaS solutions, and cloud services. Additionally, we offer IT consulting to help businesses streamline their operations and improve efficiency.",
-            "intent": "general_chat",
-            "primary_intent": "general_chat",
-            "active_collection": null,
-            "pending_field": null,
-            "profile": {},
-            "missing_fields": [],
-            "qualified": true,
-            "rag_confidence": 0.705
+            "reply": "Thanks. Please share your name so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "name",
+            "profile": {
+              "project_type": "i need automation software"
+            },
+            "missing_fields": [
+              "name",
+              "email_or_phone",
+              "company",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
           },
           "errors": []
         },
         {
           "turn": 2,
-          "message": "what technologies do you use",
+          "message": "I am Mahesh , can i know about ai-powered automation tools",
           "expected": {
             "turn": 2,
-            "must_answer_about": "technologies",
-            "reply_should_contain_any": [
-              "React",
-              "Node",
-              "Python",
-              "Django",
-              "cloud",
-              "AI",
-              "technology"
-            ],
-            "should_not_repeat_generic_services_only": true
+            "profile_contains": {
+              "name": "Mahesh"
+            },
+            "must_answer_about": "AI-powered automation tools",
+            "pending_field": "email_or_phone",
+            "should_not_only_ask_field": true
           },
           "actual": {
-            "reply": "We primarily use technologies such as Java, Python, JavaScript, and .NET for software development, along with various frameworks like Spring, Django, and React. Additionally, we leverage AI and machine learning libraries like TensorFlow and PyTorch for AI automation and chatbot development.",
-            "intent": "general_chat",
-            "primary_intent": "general_chat",
-            "active_collection": null,
-            "pending_field": null,
-            "profile": {},
-            "missing_fields": [],
-            "qualified": true,
-            "rag_confidence": 0.705
+            "reply": "Hi Mahesh, I'd be happy to help you with AI-powered automation tools. At CodeQlik, we offer a range of AI-driven solutions that can automate various business processes, such as workflow automation, data analysis, and predictive analytics. We can help you integrate AI into your existing systems or build a custom AI-powered solution tailored to your needs. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "project_type": "I am Mahesh , can i know about ai-powered automation tools",
+              "name": "Mahesh"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.892
           },
           "errors": []
         },
         {
           "turn": 3,
-          "message": "what is your office address",
+          "message": "mahesh@gmail.com . can you explain automation tools",
           "expected": {
             "turn": 3,
-            "must_answer_about": "address",
-            "reply_should_contain_any": [
-              "Jaipur",
-              "Raja Park",
-              "Tilak Nagar",
-              "address",
-              "office"
-            ],
-            "should_not_repeat_generic_services_only": true
+            "profile_contains": {
+              "email_or_phone": "mahesh@gmail.com"
+            },
+            "must_answer_about": "automation tools",
+            "pending_field": "company",
+            "should_not_only_ask_field": true
           },
           "actual": {
-            "reply": "Our office address is in Jaipur, Rajasthan, India. If you need more information or would like to discuss how we can assist you, please feel free to ask.",
-            "intent": "general_chat",
-            "primary_intent": "general_chat",
-            "active_collection": null,
-            "pending_field": null,
-            "profile": {},
-            "missing_fields": [],
-            "qualified": true,
-            "rag_confidence": 0.705
+            "reply": "Automation tools can be a game-changer for businesses, helping streamline processes and increase efficiency. At CodeQlik, we've worked with various automation tools, including workflow automation, data analysis, and predictive analytics. We'd be happy to discuss how these tools can benefit your business. Please share your company name so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "company",
+            "profile": {
+              "project_type": "mahesh@gmail.com . can you explain automation tools",
+              "name": "Mahesh",
+              "email_or_phone": "mahesh@gmail.com",
+              "email": "mahesh@gmail.com"
+            },
+            "missing_fields": [
+              "company",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.922
           },
           "errors": []
         },
         {
           "turn": 4,
-          "message": "how can i contact you",
+          "message": "my company is AutoWorks",
           "expected": {
             "turn": 4,
-            "must_answer_about": "contact",
-            "reply_should_contain_any": [
-              "info@codeqlik.com",
-              "+91",
-              "8949687368",
-              "contact",
-              "email",
-              "phone"
-            ],
-            "should_not_repeat_generic_services_only": true
+            "profile_contains": {
+              "company": "AutoWorks"
+            },
+            "pending_field": "project_type"
           },
           "actual": {
-            "reply": "You can contact us through our email at info@codeqlik.com or by calling +91-8949687368.",
-            "intent": "general_chat",
-            "primary_intent": "general_chat",
-            "active_collection": null,
-            "pending_field": null,
-            "profile": {},
-            "missing_fields": [],
-            "qualified": true,
-            "rag_confidence": 0.705
+            "reply": "Thanks. Please share your main requirements so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "requirements",
+            "profile": {
+              "project_type": "mahesh@gmail.com . can you explain automation tools",
+              "name": "Mahesh",
+              "email_or_phone": "mahesh@gmail.com",
+              "email": "mahesh@gmail.com",
+              "company": "AutoWorks"
+            },
+            "missing_fields": [
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
           },
-          "errors": []
+          "errors": [
+            "pending_field expected 'project_type', got 'requirements'"
+          ]
         }
       ]
     }

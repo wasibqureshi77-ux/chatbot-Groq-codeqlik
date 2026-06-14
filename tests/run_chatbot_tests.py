@@ -133,7 +133,7 @@ def check_turn(actual, expected):
     return errors
 
 
-def run_test_case(base_url, test, delay=4):
+def run_test_case(base_url, test, delay=1):
     thread_id = f"test_{test['id']}_{uuid.uuid4().hex[:8]}"
     messages = test["messages"]
     expectations = {e["turn"]: e for e in test.get("expected_each_turn", [])}
@@ -237,6 +237,7 @@ def main():
         "total": len(results),
         "passed": passed,
         "failed": failed,
+        "thread_id": [r["thread_id"] for r in results],
         "pass_rate": round((passed / len(results)) * 100, 2) if results else 0,
         "results": results
     }

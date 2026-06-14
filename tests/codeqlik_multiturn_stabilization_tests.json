@@ -3043,6 +3043,417 @@
           "qualified": true
         }
       ]
+    },
+    {
+      "id": "FLOW_061",
+      "name": "Natural intro should extract name company and project cleanly",
+      "category": "structured_extraction",
+      "messages": [
+        "Hi, I'm Sarah Jenkins, Product Manager at TechGrowth Solutions. We're looking to build a new mobile e-commerce application for our platform. Can you create a proposal based on our requirements?"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "profile_contains": {
+            "name": "Sarah Jenkins",
+            "company": "TechGrowth Solutions"
+          },
+          "profile_should_not_contain_keys_with_value": {
+            "name": "Product Manager",
+            "company": "details"
+          }
+        }
+      ],
+      "global_expected": {
+        "natural_intro_should_not_be_saved_as_name_blob": true
+      }
+    },
+    {
+      "id": "FLOW_062",
+      "name": "Natural project details should not overwrite name",
+      "category": "structured_extraction",
+      "messages": [
+        "I need a mobile app",
+        "I'm Sarah Jenkins from TechGrowth Solutions",
+        "My project type is mobile app development and requirements are cross-platform iOS and Android ecommerce app with Apple Pay integration"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "client_lead",
+          "pending_field": "name"
+        },
+        {
+          "turn": 2,
+          "profile_contains": {
+            "name": "Sarah Jenkins",
+            "company": "TechGrowth Solutions"
+          },
+          "pending_field": "email_or_phone"
+        },
+        {
+          "turn": 3,
+          "profile_contains": {
+            "name": "Sarah Jenkins",
+            "company": "TechGrowth Solutions",
+            "project_type": "mobile app development",
+            "requirements": "cross-platform iOS and Android ecommerce app with Apple Pay integration"
+          },
+          "profile_should_not_contain_keys_with_value": {
+            "name": "project type",
+            "company": "details"
+          }
+        }
+      ],
+      "global_expected": {
+        "project_details_should_not_corrupt_identity_fields": true
+      }
+    },
+    {
+      "id": "FLOW_063",
+      "name": "Company info question should not be extracted as profile",
+      "category": "structured_extraction",
+      "messages": [
+        "what technologies do you use?",
+        "Rahul"
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "profile_should_equal": {},
+          "reply_should_not_contain_any": [
+            "Please share your name"
+          ]
+        },
+        {
+          "turn": 2,
+          "profile_should_equal": {}
+        }
+      ],
+      "global_expected": {
+        "no_active_collection_no_profile_extraction": true
+      }
+    },
+    {
+      "id": "FLOW_064",
+      "name": "Role intro for hiring should extract cleanly",
+      "category": "structured_extraction",
+      "messages": [
+        "I want to apply for a Senior Python Developer role. I'm Alex Mercer with 6 years experience in Python, LangGraph and React."
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "hiring_support",
+          "profile_contains": {
+            "name": "Alex Mercer",
+            "role": "Senior Python Developer",
+            "experience": "6 years"
+          },
+          "profile_should_not_contain_keys_with_value": {
+            "name": "Senior Python Developer"
+          }
+        }
+      ],
+      "global_expected": {
+        "hiring_intro_structured_extraction": true
+      }
+    },
+    {
+      "id": "FLOW_065",
+      "name": "Support natural message should not save whole message as name",
+      "category": "structured_extraction",
+      "messages": [
+        "I'm Marcus Vance. Our invoice export dashboard crashes with a 500 Internal Server Error when clicking export. This is high priority."
+      ],
+      "expected_each_turn": [
+        {
+          "turn": 1,
+          "active_collection": "customer_support",
+          "profile_contains": {
+            "name": "Marcus Vance",
+            "urgency": "high priority"
+          },
+          "profile_should_not_contain_keys_with_value": {
+            "name": "invoice export dashboard"
+          }
+        }
+      ],
+      "global_expected": {
+        "support_intro_structured_extraction": true
+      }
+    },
+    {
+    "id": "FLOW_066",
+    "name": "E-commerce info should not be refused",
+    "category": "company_info_edge",
+    "messages": [
+      "tell me about e commerce",
+      "what features are included in ecommerce development",
+      "can you integrate payment gateway"
+    ],
+    "expected_each_turn": [
+      {
+        "turn": 1,
+        "must_answer_about": "e-commerce",
+        "reply_should_contain_any": ["e-commerce", "online store", "shopping", "products", "cart", "payment"],
+        "should_not_be_unrelated_refusal": true
+      },
+      {
+        "turn": 2,
+        "must_answer_about": "ecommerce features",
+        "reply_should_contain_any": ["cart", "payment", "admin", "products", "orders", "inventory"],
+        "should_not_be_unrelated_refusal": true
+      },
+      {
+        "turn": 3,
+        "must_answer_about": "payment gateway",
+        "reply_should_contain_any": ["payment", "gateway", "Razorpay", "Stripe", "PayPal", "UPI"],
+        "should_not_be_unrelated_refusal": true
+      }
+    ],
+    "global_expected": {
+      "must_answer_latest_question_first": true,
+      "should_not_start_lead_collection_unless_user_intent_to_buy": true,
+      "max_sentences_per_reply": 4
     }
+  },
+  {
+    "id": "FLOW_067",
+    "name": "Completed lead follow-up should use saved project context",
+    "category": "post_qualification_context",
+    "messages": [
+      "hi i am deepak kumar from technohub, we need cross-platform iOS and Android mobile app for e-commerce platform with Apple Pay integration",
+      "deepak@gmail.com",
+      "budget is 10k",
+      "timeline is 1 year",
+      "what you use in it",
+      "how will you create it"
+    ],
+    "expected_each_turn": [
+      {
+        "turn": 1,
+        "active_collection": "client_lead",
+        "profile_contains": {
+          "name": "deepak kumar",
+          "company": "technohub"
+        },
+        "pending_field": "email_or_phone"
+      },
+      {
+        "turn": 2,
+        "profile_contains": {
+          "email_or_phone": "deepak@gmail.com"
+        }
+      },
+      {
+        "turn": 3,
+        "profile_contains": {
+          "budget": "10k"
+        }
+      },
+      {
+        "turn": 4,
+        "profile_contains": {
+          "timeline": "1 year"
+        },
+        "qualified": true
+      },
+      {
+        "turn": 5,
+        "must_answer_about": "technology stack for saved project",
+        "reply_should_contain_any": ["React Native", "Flutter", "Node", "Python", "API", "payment", "Apple Pay"],
+        "should_not_be_unrelated_refusal": true
+      },
+      {
+        "turn": 6,
+        "must_answer_about": "project creation process",
+        "reply_should_contain_any": ["design", "develop", "API", "testing", "deploy", "integration"],
+        "should_not_be_unrelated_refusal": true
+      }
+    ],
+    "global_expected": {
+      "must_use_saved_profile_context": true,
+      "should_not_ask_collected_fields_again": true,
+      "must_answer_latest_question_first": true
+    }
+  },
+  {
+    "id": "FLOW_068",
+    "name": "Field answer plus question should save field and answer question",
+    "category": "mixed_field_question",
+    "messages": [
+      "i need automation software",
+      "I am Mahesh , can i know about ai-powered automation tools",
+      "mahesh@gmail.com . can you explain automation tools",
+      "my company is AutoWorks"
+    ],
+    "expected_each_turn": [
+      {
+        "turn": 1,
+        "active_collection": "client_lead",
+        "pending_field": "name"
+      },
+      {
+        "turn": 2,
+        "profile_contains": {
+          "name": "Mahesh"
+        },
+        "must_answer_about": "AI-powered automation tools",
+        "pending_field": "email_or_phone",
+        "should_not_only_ask_field": true
+      },
+      {
+        "turn": 3,
+        "profile_contains": {
+          "email_or_phone": "mahesh@gmail.com"
+        },
+        "must_answer_about": "automation tools",
+        "pending_field": "company",
+        "should_not_only_ask_field": true
+      },
+      {
+        "turn": 4,
+        "profile_contains": {
+          "company": "AutoWorks"
+        },
+        "pending_field": "project_type"
+      }
+    ],
+    "global_expected": {
+      "field_and_question_same_turn_should_both_work": true,
+      "must_answer_latest_question_first": true
+    }
+  },
+  {
+    "id": "FLOW_069",
+    "name": "Support flow should answer issue follow-up while collecting fields",
+    "category": "support_mixed_flow",
+    "messages": [
+      "my website is not working",
+      "myself kunal singh and why it is not working",
+      "kunal@gmail.com and can you fix it today",
+      "issue type is website down",
+      "it shows server error after login",
+      "urgent"
+    ],
+    "expected_each_turn": [
+      {
+        "turn": 1,
+        "active_collection": "customer_support",
+        "pending_field": "name"
+      },
+      {
+        "turn": 2,
+        "profile_contains": {
+          "name": "kunal singh"
+        },
+        "must_answer_about": "website not working",
+        "pending_field": "email_or_phone",
+        "should_not_only_ask_field": true
+      },
+      {
+        "turn": 3,
+        "profile_contains": {
+          "email_or_phone": "kunal@gmail.com"
+        },
+        "must_answer_about": "fixing issue",
+        "pending_field": "issue_type",
+        "should_not_only_ask_field": true
+      },
+      {
+        "turn": 4,
+        "profile_contains": {
+          "issue_type": "website down"
+        },
+        "pending_field": "issue_details"
+      },
+      {
+        "turn": 5,
+        "profile_contains": {
+          "issue_details": "server error after login"
+        },
+        "pending_field": "urgency"
+      },
+      {
+        "turn": 6,
+        "profile_contains": {
+          "urgency": "urgent"
+        },
+        "qualified": true
+      }
+    ],
+    "global_expected": {
+      "should_not_switch_to_client_lead": true,
+      "must_answer_latest_question_first": true
+    }
+  },
+  {
+    "id": "FLOW_070",
+    "name": "Unrelated refusal should recover back to lead flow",
+    "category": "recovery_after_unrelated",
+    "messages": [
+      "need crm software",
+      "Rahul",
+      "weather today",
+      "rahul@gmail.com",
+      "company is RetailX",
+      "what modules can crm include",
+      "project type is CRM",
+      "requirements are sales tracking, customer management, reports",
+      "budget 2 lakh",
+      "timeline 3 months"
+    ],
+    "expected_each_turn": [
+      {
+        "turn": 1,
+        "active_collection": "client_lead",
+        "pending_field": "name"
+      },
+      {
+        "turn": 2,
+        "profile_contains": {
+          "name": "Rahul"
+        },
+        "pending_field": "email_or_phone"
+      },
+      {
+        "turn": 3,
+        "intent": "unrelated_query",
+        "should_be_unrelated_refusal": true,
+        "pending_field": "email_or_phone"
+      },
+      {
+        "turn": 4,
+        "profile_contains": {
+          "email_or_phone": "rahul@gmail.com"
+        },
+        "pending_field": "company"
+      },
+      {
+        "turn": 5,
+        "profile_contains": {
+          "company": "RetailX"
+        },
+        "pending_field": "project_type"
+      },
+      {
+        "turn": 6,
+        "must_answer_about": "CRM modules",
+        "reply_should_contain_any": ["sales", "customer", "reports", "dashboard", "lead", "tracking"],
+        "pending_field": "project_type",
+        "should_not_be_unrelated_refusal": true
+      },
+      {
+        "turn": 10,
+        "qualified": true
+      }
+    ],
+    "global_expected": {
+      "unrelated_should_not_break_active_collection": true,
+      "must_answer_latest_question_first": true
+    }
+  }
   ]
 }
