@@ -6,3 +6,6 @@ langgraph
 langchain-core
 langchain-groq
 typing-extensions
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart

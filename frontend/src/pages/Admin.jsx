@@ -1,9 +1,11 @@
+import { apiFetch } from "../api";
 import { useEffect, useState } from "react";
 import React from "react";
 
 const API_BASE = "http://localhost:8000/api/admin";
 
 function Admin() {
+
     const [activeTab, setActiveTab] = useState("dashboard");
     const [loading, setLoading] = useState(false);
     
@@ -35,6 +37,30 @@ function Admin() {
         last_updated: "N/A"
     });
     const [settings, setSettings] = useState({
+        companyName: "",
+        companyDescription: "",
+        fallbackMessage: "",
+        generalEmail: "",
+        generalPhone: "",
+        supportEmail: "",
+        supportPhone: "",
+        title: "",
+        subtitle: "",
+        welcomeMessage: "",
+        placeholder: "",
+        primaryColor: "",
+        theme: "light",
+        position: "bottom-right",
+        width: "",
+        height: "",
+        logoUrl: "",
+        botAvatar: "",
+        launcherIcon: "",
+        launcherText: "",
+        showNewChat: true,
+        footerText: "",
+        suggestions: [],
+        storage: "local",
         company_name: "",
         company_description: "",
         contact_email: "",
@@ -44,14 +70,16 @@ function Admin() {
         support_email: "",
         support_phone: ""
     });
+    const [settingsLoading, setSettingsLoading] = useState(true);
 
     // Knowledge Creator states
     const [sourceType, setSourceType] = useState("manual"); // manual, document, database, website
-    const [manualForm, setManualForm] = useState({ title: "", category: "Company Information", content: "" });
-    const [dbForm, setDbForm] = useState({ connection_name: "", db_type: "mongodb", connection_string: "", db_name: "", target_collection: "", category: "Company Information" });
-    const [webForm, setWebForm] = useState({ url: "", category: "Company Information" });
+    const [manualForm, setManualForm] = useState({ title: "", category: "Company Information", content: "", intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
+    const [dbForm, setDbForm] = useState({ connection_name: "", db_type: "mongodb", connection_string: "", db_name: "", target_collection: "", category: "Company Information", intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
+    const [webForm, setWebForm] = useState({ url: "", category: "Company Information", intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
     const [docFile, setDocFile] = useState(null);
     const [docCategory, setDocCategory] = useState("Company Information");
+    const [docMetadata, setDocMetadata] = useState({ intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
     
     // Knowledge Editor Modal States
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,7 +90,7 @@ function Admin() {
     async function fetchData() {
         try {
             if (activeTab === "dashboard") {
-                const res = await fetch(`${API_BASE}/dashboard`);
+                const res = await apiFetch(`${API_BASE}/dashboard`);
                 if (res.ok) {
                     setDashboardData(await res.json());
                 }
@@ -71,7 +99,7 @@ function Admin() {
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (extraFilter) queryParams.append("intent", extraFilter);
                 
-                const res = await fetch(`${API_BASE}/chats?${queryParams.toString()}`);
+                const res = await apiFetch(`${API_BASE}/chats?${queryParams.toString()}`);
                 if (res.ok) {
                     const data = await res.json();
                     setChatsList(data);
@@ -89,7 +117,7 @@ function Admin() {
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("status", statusFilter);
                 
-                const res = await fetch(`${API_BASE}/leads?${queryParams.toString()}`);
+                const res = await apiFetch(`${API_BASE}/leads?${queryParams.toString()}`);
                 if (res.ok) {
                     setLeads(await res.json());
                 }
@@ -99,7 +127,7 @@ function Admin() {
                 if (statusFilter) queryParams.append("status", statusFilter);
                 if (extraFilter) queryParams.append("priority", extraFilter);
                 
-                const res = await fetch(`${API_BASE}/support?${queryParams.toString()}`);
+                const res = await apiFetch(`${API_BASE}/support?${queryParams.toString()}`);
                 if (res.ok) {
                     setTickets(await res.json());
                 }
@@ -108,7 +136,7 @@ function Admin() {
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("status", statusFilter);
                 
-                const res = await fetch(`${API_BASE}/hiring?${queryParams.toString()}`);
+                const res = await apiFetch(`${API_BASE}/hiring?${queryParams.toString()}`);
                 if (res.ok) {
                     setCandidates(await res.json());
                 }
@@ -117,21 +145,23 @@ function Admin() {
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("type", statusFilter);
                 
-                const res = await fetch(`${API_BASE}/knowledge?${queryParams.toString()}`);
+                const res = await apiFetch(`${API_BASE}/knowledge?${queryParams.toString()}`);
                 if (res.ok) {
                     setKnowledgeSources(await res.json());
                 }
                 
                 // Fetch sync status details
-                const syncRes = await fetch(`${API_BASE}/knowledge/sync-status`);
+                const syncRes = await apiFetch(`${API_BASE}/knowledge/sync-status`);
                 if (syncRes.ok) {
                     setSyncStatus(await syncRes.json());
                 }
             } else if (activeTab === "settings") {
-                const res = await fetch(`http://localhost:8000/api/settings`);
+                setSettingsLoading(true);
+                const res = await apiFetch(`http://localhost:8000/api/settings`);
                 if (res.ok) {
                     setSettings(await res.json());
                 }
+                setSettingsLoading(false);
             }
         } catch (error) {
             console.error("Connection error:", error);
@@ -140,7 +170,7 @@ function Admin() {
 
     async function fetchThreadMessages(threadId) {
         try {
-            const res = await fetch(`${API_BASE}/chats/${threadId}`);
+            const res = await apiFetch(`${API_BASE}/chats/${threadId}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data && typeof data === "object" && !Array.isArray(data)) {
@@ -198,7 +228,7 @@ function Admin() {
     // Update statuses
     async function handleLeadStatus(leadId, newStatus) {
         try {
-            const res = await fetch(`${API_BASE}/leads/${leadId}/status`, {
+            const res = await apiFetch(`${API_BASE}/leads/${leadId}/status`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: newStatus })
@@ -213,7 +243,7 @@ function Admin() {
         const payload = {};
         payload[field] = value;
         try {
-            const res = await fetch(`${API_BASE}/support/${ticketId}/status`, {
+            const res = await apiFetch(`${API_BASE}/support/${ticketId}/status`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -226,7 +256,7 @@ function Admin() {
 
     async function handleHiringStatus(candidateId, newStatus) {
         try {
-            const res = await fetch(`${API_BASE}/hiring/${candidateId}/status`, {
+            const res = await apiFetch(`${API_BASE}/hiring/${candidateId}/status`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: newStatus })
@@ -241,22 +271,28 @@ function Admin() {
     async function saveSettings(e) {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_BASE}/settings`, {
+            const res = await apiFetch("http://localhost:8000/api/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(settings)
             });
             if (res.ok) {
                 alert("Configurations saved!");
+            } else {
+                const errData = await res.json();
+                alert("Failed to save settings: " + (errData.detail || "Validation or auth error"));
             }
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to save settings due to network error.");
+        }
     }
 
     // Knowledge actions
     async function handleToggleSource(sourceId, currentState) {
         const url = currentState ? `${API_BASE}/knowledge/${sourceId}/disable` : `${API_BASE}/knowledge/${sourceId}/enable`;
         try {
-            const res = await fetch(url, { method: "PUT" });
+            const res = await apiFetch(url, { method: "PUT" });
             if (res.ok) {
                 setKnowledgeSources(knowledgeSources.map(s => s._id === sourceId ? { ...s, enabled: !currentState } : s));
                 fetchData(); // Sync metrics
@@ -266,7 +302,7 @@ function Admin() {
 
     async function handleReindexSource(sourceId) {
         try {
-            const res = await fetch(`${API_BASE}/knowledge/${sourceId}/reindex`, { method: "POST" });
+            const res = await apiFetch(`${API_BASE}/knowledge/${sourceId}/reindex`, { method: "POST" });
             if (res.ok) {
                 alert("Source re-indexing successfully completed!");
                 fetchData();
@@ -277,7 +313,7 @@ function Admin() {
     async function handleDeleteSource(sourceId) {
         if (!confirm("Are you sure you want to delete this source? This will remove all chunks and indexing parameters. The chatbot will immediately lose access to this context.")) return;
         try {
-            const res = await fetch(`${API_BASE}/knowledge/${sourceId}`, { method: "DELETE" });
+            const res = await apiFetch(`${API_BASE}/knowledge/${sourceId}`, { method: "DELETE" });
             if (res.ok) {
                 fetchData();
             }
@@ -288,13 +324,22 @@ function Admin() {
     async function handleCreateManual(e) {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_BASE}/knowledge`, {
+            const body = {
+                title: manualForm.title,
+                category: manualForm.category,
+                content: manualForm.content,
+                intent_scope: manualForm.intent_scope === "Auto" ? "" : manualForm.intent_scope,
+                topic: manualForm.topic === "Auto" ? "" : manualForm.topic,
+                service: manualForm.service === "Auto" ? "" : manualForm.service,
+                tags: manualForm.tags || ""
+            };
+            const res = await apiFetch(`${API_BASE}/knowledge`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(manualForm)
+                body: JSON.stringify(body)
             });
             if (res.ok) {
-                setManualForm({ title: "", category: "Company Information", content: "" });
+                setManualForm({ title: "", category: "Company Information", content: "", intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
                 fetchData();
             }
         } catch (err) { console.error(err); }
@@ -306,13 +351,26 @@ function Admin() {
         const formData = new FormData();
         formData.append("file", docFile);
         formData.append("category", docCategory);
+        if (docMetadata.intent_scope !== "Auto") {
+            formData.append("intent_scope", docMetadata.intent_scope);
+        }
+        if (docMetadata.topic !== "Auto") {
+            formData.append("topic", docMetadata.topic);
+        }
+        if (docMetadata.service !== "Auto") {
+            formData.append("service", docMetadata.service);
+        }
+        if (docMetadata.tags) {
+            formData.append("tags", docMetadata.tags);
+        }
         try {
-            const res = await fetch(`${API_BASE}/knowledge/upload`, {
+            const res = await apiFetch(`${API_BASE}/knowledge/upload`, {
                 method: "POST",
                 body: formData
             });
             if (res.ok) {
                 setDocFile(null);
+                setDocMetadata({ intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
                 fetchData();
             }
         } catch (err) { console.error(err); }
@@ -321,13 +379,31 @@ function Admin() {
     async function handleConnectDb(e) {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_BASE}/sources/database`, {
+            const body = {
+                ...dbForm,
+                intent_scope: dbForm.intent_scope === "Auto" ? "" : dbForm.intent_scope,
+                topic: dbForm.topic === "Auto" ? "" : dbForm.topic,
+                service: dbForm.service === "Auto" ? "" : dbForm.service,
+                tags: dbForm.tags || ""
+            };
+            const res = await apiFetch(`${API_BASE}/sources/database`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dbForm)
+                body: JSON.stringify(body)
             });
             if (res.ok) {
-                setDbForm({ connection_name: "", db_type: "mongodb", connection_string: "", db_name: "", target_collection: "", category: "Company Information" });
+                setDbForm({
+                    connection_name: "",
+                    db_type: "mongodb",
+                    connection_string: "",
+                    db_name: "",
+                    target_collection: "",
+                    category: "Company Information",
+                    intent_scope: "Auto",
+                    topic: "Auto",
+                    service: "Auto",
+                    tags: ""
+                });
                 fetchData();
             }
         } catch (err) { console.error(err); }
@@ -336,13 +412,20 @@ function Admin() {
     async function handleConnectWeb(e) {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_BASE}/sources/website`, {
+            const body = {
+                ...webForm,
+                intent_scope: webForm.intent_scope === "Auto" ? "" : webForm.intent_scope,
+                topic: webForm.topic === "Auto" ? "" : webForm.topic,
+                service: webForm.service === "Auto" ? "" : webForm.service,
+                tags: webForm.tags || ""
+            };
+            const res = await apiFetch(`${API_BASE}/sources/website`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(webForm)
+                body: JSON.stringify(body)
             });
             if (res.ok) {
-                setWebForm({ url: "", category: "Company Information" });
+                setWebForm({ url: "", category: "Company Information", intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
                 fetchData();
             }
         } catch (err) { console.error(err); }
@@ -361,7 +444,7 @@ function Admin() {
     async function handleSaveEdit(e) {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_BASE}/knowledge/${editingSourceId}`, {
+            const res = await apiFetch(`${API_BASE}/knowledge/${editingSourceId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(editForm)
@@ -400,6 +483,64 @@ function Admin() {
         document.body.removeChild(link);
     }
 
+    function renderMetadataFields(formState, setFormState) {
+        return (
+            <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                    <div className="formGroup">
+                        <label>Intent Scope</label>
+                        <select value={formState.intent_scope} onChange={(e) => setFormState({ ...formState, intent_scope: e.target.value })}>
+                            <option value="Auto">Auto</option>
+                            <option value="all">all</option>
+                            <option value="client">client</option>
+                            <option value="support">support</option>
+                            <option value="hiring">hiring</option>
+                            <option value="greet">greet</option>
+                        </select>
+                    </div>
+                    <div className="formGroup">
+                        <label>Topic</label>
+                        <select value={formState.topic} onChange={(e) => setFormState({ ...formState, topic: e.target.value })}>
+                            <option value="Auto">Auto</option>
+                            <option value="general">general</option>
+                            <option value="services">services</option>
+                            <option value="technologies">technologies</option>
+                            <option value="pricing">pricing</option>
+                            <option value="contact">contact</option>
+                            <option value="portfolio">portfolio</option>
+                            <option value="faq">faq</option>
+                            <option value="policies">policies</option>
+                        </select>
+                    </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                    <div className="formGroup">
+                        <label>Service</label>
+                        <select value={formState.service} onChange={(e) => setFormState({ ...formState, service: e.target.value })}>
+                            <option value="Auto">Auto</option>
+                            <option value="general">general</option>
+                            <option value="website">website</option>
+                            <option value="mobile_app">mobile app</option>
+                            <option value="ecommerce">ecommerce</option>
+                            <option value="crm">crm</option>
+                            <option value="ai_automation">ai automation</option>
+                            <option value="software">software</option>
+                        </select>
+                    </div>
+                    <div className="formGroup">
+                        <label>Tags (comma-separated)</label>
+                        <input 
+                            type="text" 
+                            value={formState.tags || ""} 
+                            onChange={(e) => setFormState({ ...formState, tags: e.target.value })} 
+                            placeholder="e.g. tag1, tag2" 
+                        />
+                    </div>
+                </div>
+            </>
+        );
+    }
+
     return (
         <div className="adminPage">
             <aside className="sidebar">
@@ -430,7 +571,15 @@ function Admin() {
                         ⚙️ Settings
                     </button>
                 </nav>
+            
+                <button 
+                    onClick={() => { sessionStorage.removeItem("admin_token"); window.location.href = "/admin/login"; }} 
+                    style={{marginTop: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer', width: '100%', display: 'block', textAlign: 'center'}}
+                >
+                    Logout
+                </button>
             </aside>
+
 
             <main className="adminContent">
                 <div className="adminHeader">
@@ -988,6 +1137,7 @@ function Admin() {
                                         required 
                                     />
                                 </div>
+                                {renderMetadataFields(manualForm, setManualForm)}
                                 <button className="primaryBtn" type="submit">Index Manual Source</button>
                             </form>
                         )}
@@ -1017,6 +1167,7 @@ function Admin() {
                                         <option value="Hiring Information">Hiring Information</option>
                                     </select>
                                 </div>
+                                {renderMetadataFields(docMetadata, setDocMetadata)}
                                 <button className="primaryBtn" type="submit">Upload & Chunk File</button>
                             </form>
                         )}
@@ -1090,6 +1241,7 @@ function Admin() {
                                         <option value="Hiring Information">Hiring Information</option>
                                     </select>
                                 </div>
+                                {renderMetadataFields(dbForm, setDbForm)}
                                 <button className="primaryBtn" type="submit">Establish & Chunk Connection</button>
                             </form>
                         )}
@@ -1120,6 +1272,7 @@ function Admin() {
                                         <option value="Hiring Information">Hiring Information</option>
                                     </select>
                                 </div>
+                                {renderMetadataFields(webForm, setWebForm)}
                                 <button className="primaryBtn" type="submit">Crawl & Index URL</button>
                             </form>
                         )}
@@ -1200,97 +1353,294 @@ function Admin() {
                     SETTINGS TAB
                     ========================================== */}
                 {!loading && activeTab === "settings" && (
-                    <form className="settingsForm" onSubmit={saveSettings}>
-                        <div className="settingsSection">
-                            <h4>Corporate Branding</h4>
-                            <div className="formGroup">
-                                <label>Company Name</label>
-                                <input 
-                                    type="text" 
-                                    value={settings.company_name}
-                                    onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="formGroup">
-                                <label>Branding / Description Summary</label>
-                                <textarea 
-                                    rows="3"
-                                    value={settings.company_description}
-                                    onChange={(e) => setSettings({ ...settings, company_description: e.target.value })}
-                                    required
-                                />
-                            </div>
-                        </div>
+                    settingsLoading ? (
+                        <p style={{ padding: "20px", color: "var(--text-muted)" }}>Loading configurations...</p>
+                    ) : (
+                        <form className="settingsForm" onSubmit={saveSettings}>
+                            <div className="settingsSection">
+                                <h4>Corporate Branding</h4>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                    <div className="formGroup">
+                                        <label>Company Name</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.companyName || settings.company_name || ""}
+                                            onChange={(e) => setSettings({ ...settings, companyName: e.target.value, company_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Branding / Description Summary</label>
+                                        <textarea 
+                                            rows="2"
+                                            value={settings.companyDescription || settings.company_description || ""}
+                                            onChange={(e) => setSettings({ ...settings, companyDescription: e.target.value, company_description: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>General Email</label>
+                                        <input 
+                                            type="email" 
+                                            value={settings.generalEmail || settings.contact_email || ""}
+                                            onChange={(e) => setSettings({ ...settings, generalEmail: e.target.value, contact_email: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>General Phone</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.generalPhone || settings.contact_phone || ""}
+                                            onChange={(e) => setSettings({ ...settings, generalPhone: e.target.value, contact_phone: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="settingsSection">
-                            <h4>Dynamic Assistance Parameters</h4>
-                            <div className="formGroup">
-                                <label>Support Chatbot Greeting Message</label>
-                                <input 
-                                    type="text" 
-                                    value={settings.chatbot_greeting}
-                                    onChange={(e) => setSettings({ ...settings, chatbot_greeting: e.target.value })}
-                                    required
-                                />
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Support Email</label>
+                                        <input 
+                                            type="email" 
+                                            value={settings.supportEmail || settings.support_email || ""}
+                                            onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value, support_email: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Support Phone</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.supportPhone || settings.support_phone || ""}
+                                            onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value, support_phone: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="formGroup">
-                                <label>Default Fallback / Bound Restriction Redirect Message</label>
-                                <textarea 
-                                    rows="3"
-                                    value={settings.fallback_message}
-                                    onChange={(e) => setSettings({ ...settings, fallback_message: e.target.value })}
-                                    required
-                                />
-                            </div>
-                        </div>
 
-                        <div className="settingsSection">
-                            <h4>Emergency Channels</h4>
-                            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px"}}>
-                                <div className="formGroup">
-                                    <label>General Email</label>
-                                    <input 
-                                        type="email" 
-                                        value={settings.contact_email}
-                                        onChange={(e) => setSettings({ ...settings, contact_email: e.target.value })}
-                                        required
-                                    />
+                            <div className="settingsSection">
+                                <h4>Chatbot & Widget Customization</h4>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                    <div className="formGroup">
+                                        <label>Title</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.title || ""}
+                                            onChange={(e) => setSettings({ ...settings, title: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Subtitle</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.subtitle || ""}
+                                            onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                                <div className="formGroup">
-                                    <label>General Phone</label>
-                                    <input 
-                                        type="text" 
-                                        value={settings.contact_phone}
-                                        onChange={(e) => setSettings({ ...settings, contact_phone: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px", marginTop:"12px"}}>
-                                <div className="formGroup">
-                                    <label>Desk Support Email</label>
-                                    <input 
-                                        type="email" 
-                                        value={settings.support_email}
-                                        onChange={(e) => setSettings({ ...settings, support_email: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="formGroup">
-                                    <label>Desk Support Phone</label>
-                                    <input 
-                                        type="text" 
-                                        value={settings.support_phone}
-                                        onChange={(e) => setSettings({ ...settings, support_phone: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        </div>
 
-                        <button className="primaryBtn" type="submit">Save Configurations</button>
-                    </form>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Welcome Message</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.welcomeMessage || settings.chatbot_greeting || ""}
+                                            onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value, chatbot_greeting: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Input Placeholder</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.placeholder || ""}
+                                            onChange={(e) => setSettings({ ...settings, placeholder: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Theme</label>
+                                        <select 
+                                            value={settings.theme || "light"} 
+                                            onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
+                                        >
+                                            <option value="light">Light</option>
+                                            <option value="dark">Dark</option>
+                                        </select>
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Position</label>
+                                        <select 
+                                            value={settings.position || "bottom-right"} 
+                                            onChange={(e) => setSettings({ ...settings, position: e.target.value })}
+                                        >
+                                            <option value="bottom-right">Bottom Right</option>
+                                            <option value="bottom-left">Bottom Left</option>
+                                        </select>
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Storage Mechanism</label>
+                                        <select 
+                                            value={settings.storage || "local"} 
+                                            onChange={(e) => setSettings({ ...settings, storage: e.target.value })}
+                                        >
+                                            <option value="local">Local Storage</option>
+                                            <option value="session">Session Storage</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Widget Width</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.width ?? "480px"}
+                                            onChange={(e) => setSettings({ ...settings, width: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Widget Height</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.height ?? "680px"}
+                                            onChange={(e) => setSettings({ ...settings, height: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Logo URL</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.logoUrl || ""}
+                                            onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
+                                            placeholder="https://example.com/logo.png"
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Bot Avatar Initials/Text</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.botAvatar ?? "CQ"}
+                                            onChange={(e) => setSettings({ ...settings, botAvatar: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Launcher Icon</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.launcherIcon ?? "💬"}
+                                            onChange={(e) => setSettings({ ...settings, launcherIcon: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Launcher Text</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.launcherText || ""}
+                                            onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
+                                            placeholder="Optional button text"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Primary Color</label>
+                                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input 
+                                                type="color" 
+                                                value={settings.primaryColor || "#ff7e21"}
+                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                                                style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
+                                            />
+                                            <input 
+                                                type="text" 
+                                                value={settings.primaryColor || ""}
+                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                                                placeholder="#ff7e21"
+                                                required
+                                                style={{ flex: 1 }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Show New Chat Button</label>
+                                        <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
+                                            <label className="switch">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={!!settings.showNewChat} 
+                                                    onChange={(e) => setSettings({ ...settings, showNewChat: e.target.checked })}
+                                                />
+                                                <span className="slider"></span>
+                                            </label>
+                                            <span style={{ marginLeft: "10px", fontSize: "14px" }}>
+                                                {settings.showNewChat ? "Enabled" : "Disabled"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                    <div className="formGroup">
+                                        <label>Footer Text</label>
+                                        <input 
+                                            type="text" 
+                                            value={settings.footerText || ""}
+                                            onChange={(e) => setSettings({ ...settings, footerText: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Suggestions (comma-separated)</label>
+                                        <input 
+                                            type="text" 
+                                            value={Array.isArray(settings.suggestions) ? settings.suggestions.join(", ") : ""}
+                                            onChange={(e) => setSettings({ 
+                                                ...settings, 
+                                                suggestions: e.target.value.split(",").map(s => s.trim()).filter(s => s !== "")
+                                            })}
+                                            placeholder="e.g. Build a Website, Pricing, Hire Developers"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="settingsSection">
+                                <h4>Fallback & Bound Redirection</h4>
+                                <div className="formGroup">
+                                    <label>Default Fallback / Bound Restriction Redirect Message</label>
+                                    <textarea 
+                                        rows="3"
+                                        value={settings.fallbackMessage || settings.fallback_message || ""}
+                                        onChange={(e) => setSettings({ ...settings, fallbackMessage: e.target.value, fallback_message: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button className="primaryBtn" type="submit">Save Configurations</button>
+                        </form>
+                    )
                 )}
             </main>
 

@@ -571,9 +571,27 @@ def merge_profile(old: dict, new: dict, category: Optional[str] = None) -> dict:
             merged[key] = value
             continue
 
-        # For name/company/role/project fields, overwrite only with validated current-message data.
-        # This fixes hallucinated/stale values like demo names blocking the user's real answer.
-        if key in {"name", "company", "role", "project_type"}:
+        # Protect already-collected identity fields from accidental overwrite.
+        # Example fixed:
+        # name="Amit" should NOT become "SalesPro" when user later says
+        # "company name is SalesPro".
+        #
+        # Contact fields are handled above and can still be updated explicitly.
+        # project_type is intentionally NOT locked here because project details can
+        # be refined later and are controlled by pending-field extraction rules.
+        if key in {"name", "company", "role"}:
+            if is_answered(old_value, key) and normalize(value) not in DECLINED_VALUES:
+                # Keep the existing verified value unless the new value is identical.
+                # This avoids cross-field overwrite caused by regex/LLM false positives.
+                if normalize(old_value) != normalize(value):
+                    continue
+                continue
+
+            merged[key] = value
+            continue
+
+        # project_type can still be set/refined by the active pending-field logic.
+        if key == "project_type":
             merged[key] = value
             continue
 
@@ -901,6 +919,60 @@ def is_plain_value_without_context(text: str) -> bool:
     return False
 
 
+def has_client_buying_intent(text: str) -> bool:
+    """
+    Detect dynamic client/project buying intent without making every service word a lead.
+    A service term alone (for example, "ERP") is not enough. It needs a buying/help/cost cue.
+    This keeps general info questions like "what is ERP" separate from client leads.
+    """
+    t = normalize(text)
+    if not t or is_small_talk(t) or is_sensitive_or_unsafe(t):
+        return False
+
+    info_cues = [
+        "what is", "what are", "explain", "tell me about", "describe",
+        "define", "how does", "how do"
+    ]
+    if any(t.startswith(cue) for cue in info_cues):
+        return False
+
+    buying_cues = [
+        "i need", "i want", "we need", "we want", "need", "want",
+        "looking for", "we are looking for", "i am looking for",
+        "help me with", "can you help me with", "need help with",
+        "interested in", "want to discuss", "planning to build",
+        "planning for", "require", "required", "requirement for",
+        "solution for", "solutions for", "need solution", "need solutions",
+        "business solution", "software solution", "build", "develop",
+        "create", "make", "implement", "implementation", "integrate",
+        "setup", "set up", "customize", "quote", "proposal",
+        "cost for", "price for", "pricing for", "quote for",
+        "estimate for", "how much", "charges for"
+    ]
+
+    service_terms = [
+        "website", "web app", "web application", "mobile app", "android", "ios",
+        "app", "application", "crm", "erp", "odoo", "odoo erp",
+        "dashboard", "admin panel", "management system", "business management",
+        "business management system", "ecommerce", "e-commerce", "online store",
+        "shopping app", "payment gateway", "automation", "workflow automation",
+        "chatbot", "ai chatbot", "ai automation", "software", "custom software",
+        "saas", "portal", "inventory", "billing", "invoice", "hrm", "hrms",
+        "pos", "booking system"
+    ]
+
+    return any(cue in t for cue in buying_cues) and any(term in t for term in service_terms)
+
+
+def has_hiring_info_intent(text: str) -> bool:
+    t = normalize(text)
+    return any(k in t for k in [
+        "opening", "openings", "available role", "available roles",
+        "roles available", "vacancy", "vacancies", "hiring",
+        "career", "internship", "job"
+    ])
+
+
 def classify_intent_semantic(user_text: str, active_collection: Optional[str]) -> dict:
     """
     LLM semantic classifier.
@@ -984,9 +1056,9 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
     if is_company_or_business_info_query(t):
         if active_collection:
             return active_collection
-        if any(k in t for k in ["opening", "openings", "available role", "roles available", "vacancy", "vacancies", "hiring", "career", "internship"]):
+        if has_hiring_info_intent(t):
             return "hiring_support"
-        return "client_lead"
+        return "company_info"
 
     if is_sensitive_or_unsafe(t) or is_unrelated_query(t):
         return "unrelated_query"
@@ -1064,7 +1136,7 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
         "automation software",
         "crm software",
     ]
-    if any(k in t for k in client_keywords):
+    if any(k in t for k in client_keywords) or has_client_buying_intent(t):
         return "client_lead"
 
     # If hiring collection is active, normal non-question answers like
@@ -1152,7 +1224,7 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
         "website for my business", "for my business", "can you make",
         "can you build", "ecommerce", "e-commerce", "software for my business"
     ]
-    if any(k in t for k in clear_client_phrases):
+    if any(k in t for k in clear_client_phrases) or has_client_buying_intent(t):
         return "client_lead"
 
     # During an active collection, do not reject broad project/company questions
@@ -1166,7 +1238,7 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
     # Broad service/domain informational questions should be answered, not refused.
     # Example: "tell me about e commerce", "explain ERP", "what is payment gateway integration".
     if is_company_or_business_info_query(t) or (is_question(t) and has_business_domain_keyword(t)):
-        return "general_chat"
+        return "company_info"
 
     # Ambiguous questions get RAG first, then LLM fallback before refusing.
     # Hard unrelated/unsafe topics were already handled above and still remain blocked.
@@ -1178,13 +1250,12 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
     if is_plain_value_without_context(t):
         return "general_chat"
 
-    # Pure company-info should answer, not start lead collection.
+    # Company/service info should answer and then continue the client lead flow.
+    # Greeting/small-talk is already handled above, so it will not start lead collection.
     if is_company_or_business_info_query(t):
-        if any(k in t for k in ["opening", "openings", "available role", "roles available", "vacancy", "vacancies", "hiring", "career", "internship", "job"]):
+        if has_hiring_info_intent(t):
             return "hiring_support"
-        if any(k in t for k in ["software development", "web development", "app development", "ai development", "crm", "chatbot", "automation"]):
-            return "client_lead"
-        return "general_chat"
+        return "company_info"
 
     # Avoid slow/unstable LLM classification in production flow tests.
     # Rules cover company/client/support/hiring/general/unrelated cases.
@@ -1209,7 +1280,14 @@ def is_clear_flow_switch(user_text: str, current_active: Optional[str], new_inte
         return any(k in t for k in ["actually", "apply", "internship", "job", "resume", "career", "hiring"])
 
     if new_intent == "client_lead":
-        return any(k in t for k in ["actually", "i need", "i want", "build", "develop", "create", "quote", "hire your company", "for my business", "need website", "need app", "need crm", "can you make", "can you build"])
+        return any(k in t for k in [
+            "actually", "i need", "i want", "we need", "we want",
+            "build", "develop", "create", "quote", "hire your company",
+            "for my business", "need website", "need app", "need crm",
+            "can you make", "can you build", "help me with", "looking for",
+            "interested in", "require", "solution for", "erp", "odoo",
+            "crm", "management system", "cost for", "price for", "estimate for"
+        ]) or has_client_buying_intent(t)
 
     return False
 
@@ -2545,7 +2623,7 @@ def response_generator_node(state: ChatState) -> dict:
         and (not is_field_answer or has_extra_question_after_field(user_text))
     ):
         try:
-            details = retrieve_company_context_details(user_text)
+            details = retrieve_company_context_details(user_text, intent=primary_intent)
             retrieved_context = details.get("context_text", "") or ""
             rag_confidence = details.get("confidence", 0.0) or 0.0
             rag_sources = details.get("sources", []) or []
@@ -2599,6 +2677,9 @@ Profile / saved business context: {json.dumps(profile_display, ensure_ascii=Fals
 Company/RAG context, use only if relevant:
 {_trim(retrieved_context, 1200)}
 
+Response nature:
+- friendly and happy conversational
+
 Rules:
 1. Answer the latest user message naturally and dynamically. Do not repeat the same generic line for every small-talk message.
 2. Stay focused on {company_name}: services, projects, support, hiring, pricing, contact, and company information.
@@ -2610,6 +2691,7 @@ Rules:
 8. If the latest user message contains both a field value and a company/service question, answer the question first, then continue with the exact pending field.
 9. Never ask multiple fields in one reply. Never ask a field already present in Profile.
 10. Keep the reply concise: 1-3 sentences.
+11. Response nature: - friendly , polite , funny and happy conversational
 Return only the final user-facing reply."""
 
     fallback = fallback_message

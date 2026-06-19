@@ -143,14 +143,43 @@ def format_hiring_candidate(doc):
 
 # Default settings in case collection is empty
 DEFAULT_SETTINGS = {
+    # Snake_case fields for existing backend compatibility
     "company_name": "CodeQlik",
     "company_description": "CodeQlik provides software development, AI automation, web apps, mobile apps, CRM systems, SaaS solutions, cloud services, and IT consulting.",
     "contact_email": "info@codeqlik.com",
     "contact_phone": "+91-8949687368",
-    "chatbot_greeting": "Hello! I’m CodeQlik’s support assistant. How can I help you today?",
+    "chatbot_greeting": "Hi! How can we help you today?",
     "fallback_message": "I am the official company support assistant and can assist with company services, support requests, project inquiries, hiring, and company-related information.",
     "support_email": "info@codeqlik.com",
-    "support_phone": "+91-8949687368"
+    "support_phone": "+91-8949687368",
+
+    # CamelCase fields for public/widget settings
+    "companyName": "CodeQlik",
+    "companyDescription": "CodeQlik provides software development, AI automation, web apps, mobile apps, CRM systems, SaaS solutions, cloud services, and IT consulting.",
+    "fallbackMessage": "I am the official company support assistant and can assist with company services, support requests, project inquiries, hiring, and company-related information.",
+    "generalEmail": "info@codeqlik.com",
+    "generalPhone": "+91-8949687368",
+    "supportEmail": "info@codeqlik.com",
+    "supportPhone": "+91-8949687368",
+
+    # UI/Widget fields
+    "title": "CodeQlik Assistant",
+    "subtitle": "Usually replies instantly",
+    "welcomeMessage": "Hi! How can we help you today?",
+    "placeholder": "Type your message...",
+    "primaryColor": "#ff7e21",
+    "theme": "light",
+    "position": "bottom-right",
+    "width": "480px",
+    "height": "680px",
+    "logoUrl": "",
+    "botAvatar": "CQ",
+    "launcherIcon": "💬",
+    "launcherText": "",
+    "showNewChat": True,
+    "footerText": "Powered by CodeQlik",
+    "suggestions": [],
+    "storage": "local"
 }
 
 
@@ -183,6 +212,16 @@ def get_chatbot_settings():
         doc["updated_at"] = now_iso()
         settings_collection.insert_one(doc)
         settings = doc
+    else:
+        # Auto-upgrade settings with missing fields
+        missing_updates = {}
+        for key, val in DEFAULT_SETTINGS.items():
+            if key not in settings:
+                missing_updates[key] = val
+        if missing_updates:
+            settings_collection.update_one({"type": "chatbot_settings"}, {"$set": missing_updates})
+            settings.update(missing_updates)
+
     if "_id" in settings:
         settings["_id"] = str(settings["_id"])
     return settings
@@ -190,15 +229,55 @@ def get_chatbot_settings():
 
 def update_chatbot_settings(data: dict):
     settings = get_chatbot_settings()
+    
+    # Extract keys supporting both naming styles to avoid issues
+    c_name = data.get("companyName", data.get("company_name", settings.get("company_name")))
+    c_desc = data.get("companyDescription", data.get("company_description", settings.get("company_description")))
+    fallback = data.get("fallbackMessage", data.get("fallback_message", settings.get("fallback_message")))
+    g_email = data.get("generalEmail", data.get("contact_email", settings.get("contact_email")))
+    g_phone = data.get("generalPhone", data.get("contact_phone", settings.get("contact_phone")))
+    s_email = data.get("supportEmail", data.get("support_email", settings.get("support_email")))
+    s_phone = data.get("supportPhone", data.get("support_phone", settings.get("support_phone")))
+    w_msg = data.get("welcomeMessage", data.get("chatbot_greeting", settings.get("chatbot_greeting")))
+    
     update_data = {
-        "company_name": data.get("company_name", settings.get("company_name")),
-        "company_description": data.get("company_description", settings.get("company_description")),
-        "contact_email": data.get("contact_email", settings.get("contact_email")),
-        "contact_phone": data.get("contact_phone", settings.get("contact_phone")),
-        "chatbot_greeting": data.get("chatbot_greeting", settings.get("chatbot_greeting")),
-        "fallback_message": data.get("fallback_message", settings.get("fallback_message")),
-        "support_email": data.get("support_email", settings.get("support_email")),
-        "support_phone": data.get("support_phone", settings.get("support_phone")),
+        # Snake_case keys
+        "company_name": c_name,
+        "company_description": c_desc,
+        "contact_email": g_email,
+        "contact_phone": g_phone,
+        "chatbot_greeting": w_msg,
+        "fallback_message": fallback,
+        "support_email": s_email,
+        "support_phone": s_phone,
+
+        # CamelCase keys
+        "companyName": c_name,
+        "companyDescription": c_desc,
+        "fallbackMessage": fallback,
+        "generalEmail": g_email,
+        "generalPhone": g_phone,
+        "supportEmail": s_email,
+        "supportPhone": s_phone,
+
+        # UI/Widget fields
+        "title": data.get("title", settings.get("title")),
+        "subtitle": data.get("subtitle", settings.get("subtitle")),
+        "welcomeMessage": w_msg,
+        "placeholder": data.get("placeholder", settings.get("placeholder")),
+        "primaryColor": data.get("primaryColor", settings.get("primaryColor")),
+        "theme": data.get("theme", settings.get("theme")),
+        "position": data.get("position", settings.get("position")),
+        "width": data.get("width", settings.get("width")),
+        "height": data.get("height", settings.get("height")),
+        "logoUrl": data.get("logoUrl", settings.get("logoUrl", "")),
+        "botAvatar": data.get("botAvatar", settings.get("botAvatar")),
+        "launcherIcon": data.get("launcherIcon", settings.get("launcherIcon")),
+        "launcherText": data.get("launcherText", settings.get("launcherText", "")),
+        "showNewChat": data.get("showNewChat", settings.get("showNewChat")),
+        "footerText": data.get("footerText", settings.get("footerText")),
+        "suggestions": data.get("suggestions", settings.get("suggestions")),
+        "storage": data.get("storage", settings.get("storage")),
         "updated_at": now_iso()
     }
     settings_collection.update_one({"type": "chatbot_settings"}, {"$set": update_data})
@@ -207,6 +286,7 @@ def update_chatbot_settings(data: dict):
     broadcast_event("settings_updated", update_data)
     
     return get_chatbot_settings()
+
 
 
 def save_chat_to_mongo(thread_id, user_message, bot_message, intent, profile):

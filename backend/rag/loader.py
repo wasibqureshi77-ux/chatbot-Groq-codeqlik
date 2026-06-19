@@ -43,7 +43,6 @@ def load_pdf(file_path: str) -> str:
         except Exception as e:
             return f"[PDF Load Error: {str(e)}]"
     else:
-        # Fallback reading ASCII character blocks
         try:
             with open(file_path, "rb") as f:
                 content = f.read()
@@ -61,13 +60,12 @@ def load_docx(file_path: str) -> str:
             for para in doc.paragraphs:
                 if para.text.strip():
                     content.append(para.text.strip())
-            # Parse tables
+            
             for table_idx, table in enumerate(doc.tables):
                 content.append(f"--- Table {table_idx + 1} ---")
                 headers = []
                 for row_idx, row in enumerate(table.rows):
                     cells = [cell.text.strip() for cell in row.cells]
-                    # Clean up adjacent duplicates due to horizontal merges
                     clean_cells = []
                     for c in cells:
                         if not clean_cells or c != clean_cells[-1]:
@@ -89,46 +87,136 @@ def load_docx(file_path: str) -> str:
 
 
 def load_json(file_path: str) -> str:
+    """
+    RAG Highly Dense Context Optimization for Dynamic JSON layout.
+    Injects context into every structural line for precise vector retrieval.
+    """
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             data = json.load(f)
-        return json.dumps(data, indent=2)
+        
+        output = []
+        
+        def parse_element(element, context_summary="", prefix=""):
+            if isinstance(element, dict):
+                # Context identify karne ki koshish (e.g., name, title, item_name)
+                local_context = context_summary
+                for identity_key in ['name', 'title', 'id', 'record_id', 'type']:
+                    if identity_key in element and not isinstance(element[identity_key], (dict, list)):
+                        local_context = f"{identity_key} '{element[identity_key]}'"
+                        break
+                
+                for k, v in element.items():
+                    current_key = f"{prefix}.{k}" if prefix else k
+                    if isinstance(v, (dict, list)):
+                        parse_element(v, local_context, current_key)
+                    else:
+                        if v is not None and str(v).strip():
+                            ctx_str = f"Regarding {local_context}: " if local_context else ""
+                            output.append(f"{ctx_str}The field '{current_key}' or '{k}' has the exact value: '{v}'")
+            
+            elif isinstance(element, list):
+                for idx, item in enumerate(element):
+                    current_prefix = f"{prefix}[{idx}]" if prefix else f"Record_{idx}"
+                    parse_element(item, context_summary, current_prefix)
+            else:
+                if element is not None and str(element).strip():
+                    output.append(f"Value for {prefix or 'element'}: '{element}'")
+
+        parse_element(data)
+        
+        if not output:
+            return "[Empty JSON Content]"
+        return "\n".join(output)
+        
     except Exception as e:
         return f"[JSON Load Error: {str(e)}]"
 
 
 def load_csv(file_path: str) -> str:
+    """
+    RAG Highly Dense Context Optimization for dynamic CSV rows.
+    Ensures ID and entity name mappings are repeated on every attribute line.
+    """
     try:
         output = []
+        filename = os.path.basename(file_path)
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            reader = csv.DictReader(f)
-            for idx, row in enumerate(reader):
-                row_str = ", ".join(f"{k}: {v}" for k, v in row.items() if v)
-                output.append(row_str)
+            sample = f.read(2048)
+            f.seek(0)
+            try:
+                dialect = csv.Sniffer().sniff(sample)
+                reader = csv.reader(f, dialect)
+            except Exception:
+                reader = csv.reader(f)
+                
+            rows = list(reader)
+            if not rows:
+                return "[Empty CSV Content]"
+            
+            headers = [h.strip() if h.strip() else f"Column_{i+1}" for i, h in enumerate(rows[0])]
+            
+            for idx, row in enumerate(rows[1:]):
+                if not any(cell.strip() for cell in row):
+                    continue
+                
+                # Sahi metadata link setup karne ke liye Row identity dhoondna
+                row_identity = f"Record Row {idx + 1}"
+                for i, cell in enumerate(row):
+                    if i < len(headers) and headers[i].lower() in ['name', 'title', 'id', 'record id', 'record_id']:
+                        if cell.strip():
+                            row_identity = f"Entity ({headers[i]}: {cell.strip()})"
+                            break
+
+                row_items = []
+                for i, cell in enumerate(row):
+                    val = cell.strip()
+                    if val:
+                        header_name = headers[i] if i < len(headers) else f"Column_{i+1}"
+                        row_items.append(f"For {row_identity} in {filename} -> the '{header_name}' is '{val}'")
+                
+                if row_items:
+                    output.extend(row_items)
+                    
         return "\n".join(output)
     except Exception as e:
         return f"[CSV Load Error: {str(e)}]"
 
 
 def load_xlsx(file_path: str) -> str:
+    """
+    RAG Highly Dense Context Optimization for Excel sheets.
+    """
     if openpyxl:
         try:
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             output = []
+            filename = os.path.basename(file_path)
             for sheet in wb.sheetnames:
                 ws = wb[sheet]
                 rows = list(ws.iter_rows(values_only=True))
                 if not rows:
                     continue
-                headers = [str(cell) if cell is not None else f"Column{i}" for i, cell in enumerate(rows[0])]
+                
+                headers = [str(cell).strip() if cell is not None and str(cell).strip() else f"Col_{i+1}" for i, cell in enumerate(rows[0])]
+                
                 for idx, row in enumerate(rows[1:]):
                     if any(cell is not None for cell in row):
-                        row_str = f"Sheet: {sheet}, " + ", ".join(
-                            f"{headers[i]}: {str(cell)}" 
-                            for i, cell in enumerate(row) 
-                            if cell is not None
-                        )
-                        output.append(row_str)
+                        row_identity = f"Row {idx+2}"
+                        for i, cell in enumerate(row):
+                            if i < len(headers) and headers[i].lower() in ['name', 'title', 'id', 'record id', 'record_id']:
+                                if cell is not None and str(cell).strip():
+                                    row_identity = f"Entity ({headers[i]}: {str(cell).strip()})"
+                                    break
+                                    
+                        row_items = []
+                        for i, cell in enumerate(row):
+                            if cell is not None and str(cell).strip():
+                                header_name = headers[i] if i < len(headers) else f"Col_{i+1}"
+                                row_items.append(f"In Sheet '{sheet}' of '{filename}', for {row_identity} -> '{header_name}' is '{str(cell).strip()}'")
+                        
+                        if row_items:
+                            output.extend(row_items)
             return "\n".join(output)
         except Exception as e:
             return f"[Excel Load Error: {str(e)}]"

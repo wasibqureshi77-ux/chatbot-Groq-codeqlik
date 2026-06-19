@@ -15,7 +15,63 @@ def now_iso():
     return datetime.utcnow().isoformat()
 
 
-def process_and_chunk_source(source_id: str, source_name: str, source_type: str, content: str) -> int:
+def detect_topic(text: str, title: str, category: str, heading: str = "") -> str:
+    combined = f"{text} {title} {category} {heading}".lower()
+    if any(w in combined for w in ["technology", "technologies", "tech stack", "languages", "frameworks", "python", "javascript", "react", "node", "mongodb", "postgresql", "mysql", "fastapi", "langgraph", "groq", "llama"]):
+        return "technologies"
+    if any(w in combined for w in ["pricing", "price", "cost", "budget", "quote", "charges", "rate", "fees"]):
+        return "pricing"
+    if any(w in combined for w in ["contact", "address", "phone", "email", "office", "location", "reach us", "get in touch"]):
+        return "contact"
+    if any(w in combined for w in ["portfolio", "projects", "case study", "case studies", "our work", "clients", "track record", "delivered"]):
+        return "portfolio"
+    if any(w in combined for w in ["faq", "frequently asked questions", "common questions"]):
+        return "faq"
+    if any(w in combined for w in ["policy", "policies", "refund", "privacy", "terms of service", "cancellation", "tos"]):
+        return "policies"
+    if any(w in combined for w in ["service", "services", "provide", "offer", "specialty", "expertise", "custom development", "solution"]):
+        return "services"
+    
+    # Fallback category mapping
+    cat_lower = category.lower()
+    for topic_val in ["services", "technologies", "pricing", "contact", "portfolio", "faq", "policies"]:
+        if topic_val in cat_lower:
+            return topic_val
+    return "general"
+
+
+def detect_service(text: str, title: str, category: str, heading: str = "") -> str:
+    combined = f"{text} {title} {category} {heading}".lower()
+    if any(w in combined for w in ["website", "web app", "web development", "react", "frontend", "html", "css", "static site"]):
+        return "website"
+    if any(w in combined for w in ["mobile app", "ios", "android", "flutter", "react native", "swift", "kotlin", "mobile application"]):
+        return "mobile_app"
+    if any(w in combined for w in ["ecommerce", "e-commerce", "shopify", "woocommerce", "online store", "shopping cart", "payment gateway"]):
+        return "ecommerce"
+    if any(w in combined for w in ["crm", "erp", "dashboard", "admin panel", "sales force", "hubspot", "management system"]):
+        return "crm"
+    if any(w in combined for w in ["ai automation", "chatbot", "rag", "langgraph", "agentic", "openai", "groq", "llama", "artificial intelligence", "automation script"]):
+        return "ai_automation"
+    if any(w in combined for w in ["software", "custom software", "saas", "cloud services", "backend", "database", "api"]):
+        return "software"
+    return "general"
+
+
+def detect_intent_scope(text: str, title: str, category: str, heading: str = "") -> str:
+    combined = f"{text} {title} {category} {heading}".lower()
+    if any(w in combined for w in ["greet", "greeting", "hello", "hi ", "welcome"]):
+        return "greet"
+    if any(w in combined for w in ["hiring", "job", "career", "opening", "internship", "apply", "resume", "cv ", "skills", "experience", "candidate"]):
+        return "hiring"
+    if any(w in combined for w in ["support", "ticket", "bug", "issue", "crash", "error", "not working", "problem", "fault", "complaint", "server down"]):
+        return "support"
+    if any(w in combined for w in ["client", "lead", "project details", "budget", "timeline", "sales", "proposal", "quote", "buy", "purchase"]):
+        return "client"
+    return "all"
+
+
+def process_and_chunk_source(source_id: str, source_name: str, source_type: str, content: str,
+                             intent_scope: str = None, topic: str = None, service: str = None, tags: list = None) -> int:
     """Splits raw text content into chunks and stores them in the database associated with the source_id."""
     # First, clear any existing chunks for this source (e.g. if we are re-indexing or editing)
     chunks_collection.delete_many({"source_id": source_id})
@@ -33,6 +89,23 @@ def process_and_chunk_source(source_id: str, source_name: str, source_type: str,
     
     chunk_docs = []
     for idx, sc in enumerate(smart_chunks):
+        heading = sc["metadata"].get("section_header", "")
+        
+        ch_intent_scope = intent_scope
+        if ch_intent_scope is None or ch_intent_scope == "":
+            ch_intent_scope = detect_intent_scope(sc["chunk_text"], title, category, heading)
+            
+        ch_topic = topic
+        if ch_topic is None or ch_topic == "":
+            ch_topic = detect_topic(sc["chunk_text"], title, category, heading)
+            
+        ch_service = service
+        if ch_service is None or ch_service == "":
+            ch_service = detect_service(sc["chunk_text"], title, category, heading)
+            
+        ch_priority = 1
+        ch_tags = tags if tags is not None else []
+
         chunk_docs.append({
             "source_id": source_id,
             "title": title,
@@ -44,6 +117,11 @@ def process_and_chunk_source(source_id: str, source_name: str, source_type: str,
             "summary": sc["chunk_summary"],
             "metadata": sc["metadata"],
             "status": "active",
+            "intent_scope": ch_intent_scope,
+            "topic": ch_topic,
+            "service": ch_service,
+            "priority": ch_priority,
+            "tags": ch_tags,
             "created_at": now_iso(),
             "upload_date": now_iso()  # for backwards compatibility
         })
@@ -70,7 +148,8 @@ def set_source_active_state(source_id: str, enabled: bool):
     )
 
 
-def process_database_source(source_id: str, conn_name: str, conn_string: str, db_type: str, db_name: str, target_collection: str) -> int:
+def process_database_source(source_id: str, conn_name: str, conn_string: str, db_type: str, db_name: str, target_collection: str,
+                            intent_scope: str = None, topic: str = None, service: str = None, tags: list = None) -> int:
     """
     Connects to the specified target database (SQL/NoSQL), reads its rows/documents,
     converts them into plain text representations, chunks them, and stores the chunks.
@@ -87,12 +166,10 @@ def process_database_source(source_id: str, conn_name: str, conn_string: str, db
             
             for idx, doc in enumerate(cursor):
                 doc_id = str(doc.get("_id", idx))
-                # Make document serializable
                 clean_doc = dict(doc)
                 if "_id" in clean_doc:
                     clean_doc["_id"] = str(clean_doc["_id"])
                 
-                # Format into a clean structured key-value line
                 kv_pairs = []
                 for k, v in clean_doc.items():
                     if v not in (None, "", [], {}):
@@ -102,7 +179,6 @@ def process_database_source(source_id: str, conn_name: str, conn_string: str, db
             client.close()
             
         elif db_type.lower() in ("mysql", "postgresql", "sqlserver"):
-            # Mock / Fallback database connector structure
             content_rows.append(
                 f"Connected to {db_type.upper()} database '{db_name}' table '{target_collection}'. "
                 f"Simulated indexing of corporate records."
@@ -114,10 +190,14 @@ def process_database_source(source_id: str, conn_name: str, conn_string: str, db
         content_rows.append(f"Database crawl failed for {conn_name}: {str(e)}")
         
     full_text = "\n".join(content_rows)
-    return process_and_chunk_source(source_id, conn_name, f"db_{db_type}", full_text)
+    return process_and_chunk_source(
+        source_id, conn_name, f"db_{db_type}", full_text,
+        intent_scope=intent_scope, topic=topic, service=service, tags=tags
+    )
 
 
-def process_website_source(source_id: str, url: str) -> int:
+def process_website_source(source_id: str, url: str,
+                           intent_scope: str = None, topic: str = None, service: str = None, tags: list = None) -> int:
     """
     Crawls a target website URL, extracts raw text content,
     chunks it, and stores the chunks in MongoDB.
@@ -133,14 +213,15 @@ def process_website_source(source_id: str, url: str) -> int:
     except Exception as e:
         raw_html = f"Website crawl failed for URL {url}. Error: {str(e)}"
 
-    # Clean HTML tags using a robust regex pattern
     text_content = re.sub(r'<script.*?</script>', ' ', raw_html, flags=re.DOTALL)
     text_content = re.sub(r'<style.*?</style>', ' ', text_content, flags=re.DOTALL)
     text_content = re.sub(r'<[^>]+>', ' ', text_content)
     text_content = re.sub(r'\s+', ' ', text_content).strip()
     
-    # Prepend source header
     formatted_content = f"Crawled content from Website Source: {url}\n\nExtracted Text Content:\n{text_content}"
     
     source_name = url.replace("https://", "").replace("http://", "").split("/")[0]
-    return process_and_chunk_source(source_id, source_name, "website", formatted_content)
+    return process_and_chunk_source(
+        source_id, source_name, "website", formatted_content,
+        intent_scope=intent_scope, topic=topic, service=service, tags=tags
+    )

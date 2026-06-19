@@ -35,7 +35,23 @@ def rerank_chunks(chunks: list[dict], query: str, analyzer_res: dict) -> list[di
         if query_lower in chunk.get("chunk_text", "").lower():
             score += 0.1
             
-        # 4. Limit score to max of 1.0
+        # 4. Metadata boosts (RAG improvements)
+        detected_topic = analyzer_res.get("detected_query_topic")
+        detected_service = analyzer_res.get("detected_query_service")
+        detected_intent = analyzer_res.get("detected_intent_scope")
+
+        ch_topic = chunk.get("topic", chunk.get("category", "general"))
+        ch_service = chunk.get("service", "general")
+        ch_intent = chunk.get("intent_scope", "all")
+
+        if detected_topic and ch_topic.lower() == detected_topic.lower():
+            score += 0.15
+        if detected_service and ch_service.lower() == detected_service.lower():
+            score += 0.10
+        if detected_intent and ch_intent.lower() == detected_intent.lower():
+            score += 0.10
+
+        # 5. Limit score to max of 1.0
         final_score = min(score, 1.0)
         
         # Create chunk copy with updated score

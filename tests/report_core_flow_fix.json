@@ -1,158 +1,301 @@
 {
   "suite_name": "CodeQlik chatbot multi-turn stabilization tests",
-  "run_at": "2026-06-13T05:10:09.733930Z",
+  "run_at": "2026-06-17T14:45:49.924714Z",
   "base_url": "http://localhost:8000",
   "total": 1,
   "passed": 0,
   "failed": 1,
   "thread_id": [
-    "test_FLOW_068_d5f5a87a"
+    "test_FLOW_013_6e88245d"
   ],
   "pass_rate": 0.0,
   "results": [
     {
-      "id": "FLOW_068",
-      "name": "Field answer plus question should save field and answer question",
-      "category": "mixed_field_question",
-      "thread_id": "test_FLOW_068_d5f5a87a",
+      "id": "FLOW_013",
+      "name": "Hiring candidate should not be asked client lead fields",
+      "category": "hiring_vs_lead",
+      "thread_id": "test_FLOW_013_6e88245d",
       "passed": false,
-      "error_count": 1,
+      "error_count": 7,
       "errors": [
-        "Turn 4: pending_field expected 'project_type', got 'requirements'"
+        "Turn 5: pending_field expected 'experience', got 'email_or_phone'",
+        "Turn 5: profile missing key 'role', expected 'python developer'",
+        "Turn 6: pending_field expected 'skills', got 'email_or_phone'",
+        "Turn 6: profile missing key 'experience', expected '1 year'",
+        "Turn 7: pending_field expected 'resume_or_portfolio', got 'email_or_phone'",
+        "Turn 7: profile missing key 'skills', expected 'python django fastapi'",
+        "Turn 8: profile missing key 'resume_or_portfolio', expected 'nikhil.dev/resume'"
       ],
       "turn_results": [
         {
           "turn": 1,
-          "message": "i need automation software",
+          "message": "i want to apply for python developer",
           "expected": {
             "turn": 1,
-            "active_collection": "client_lead",
+            "intent": "hiring_support",
+            "active_collection": "hiring_support",
             "pending_field": "name"
           },
           "actual": {
-            "reply": "Thanks. Please share your name so we can guide you better.",
-            "intent": "client_lead",
-            "primary_intent": "client_lead",
-            "active_collection": "client_lead",
+            "reply": "We're excited to hear that you're interested in joining our team as a Python developer. At CodeQlik, we're always looking for talented individuals to help us deliver innovative solutions to our clients. Please share your name.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
             "pending_field": "name",
-            "profile": {
-              "project_type": "i need automation software"
-            },
+            "profile": {},
             "missing_fields": [
               "name",
-              "email_or_phone",
-              "company",
-              "requirements",
-              "budget",
-              "timeline"
+              "email",
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
             ],
             "qualified": false,
-            "rag_confidence": 0.0
+            "rag_confidence": 0.905
           },
           "errors": []
         },
         {
           "turn": 2,
-          "message": "I am Mahesh , can i know about ai-powered automation tools",
+          "message": "Nikhil",
           "expected": {
             "turn": 2,
             "profile_contains": {
-              "name": "Mahesh"
+              "name": "Nikhil"
             },
-            "must_answer_about": "AI-powered automation tools",
-            "pending_field": "email_or_phone",
-            "should_not_only_ask_field": true
+            "pending_field": "email"
           },
           "actual": {
-            "reply": "Hi Mahesh, I'd be happy to help you with AI-powered automation tools. At CodeQlik, we offer a range of AI-driven solutions that can automate various business processes, such as workflow automation, data analysis, and predictive analytics. We can help you integrate AI into your existing systems or build a custom AI-powered solution tailored to your needs. Please share your email or phone number so we can guide you better.",
-            "intent": "client_lead",
-            "primary_intent": "client_lead",
-            "active_collection": "client_lead",
-            "pending_field": "email_or_phone",
+            "reply": "Thanks. Please share your email address.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "email",
             "profile": {
-              "project_type": "I am Mahesh , can i know about ai-powered automation tools",
-              "name": "Mahesh"
+              "name": "Nikhil"
             },
             "missing_fields": [
-              "email_or_phone",
-              "company",
-              "requirements",
-              "budget",
-              "timeline"
+              "email",
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
             ],
             "qualified": false,
-            "rag_confidence": 0.892
+            "rag_confidence": 0.905
           },
           "errors": []
         },
         {
           "turn": 3,
-          "message": "mahesh@gmail.com . can you explain automation tools",
+          "message": "nikhil@gmail.com",
           "expected": {
             "turn": 3,
             "profile_contains": {
-              "email_or_phone": "mahesh@gmail.com"
+              "email": "nikhil@gmail.com"
             },
-            "must_answer_about": "automation tools",
-            "pending_field": "company",
-            "should_not_only_ask_field": true
+            "pending_field": "phone"
           },
           "actual": {
-            "reply": "Automation tools can be a game-changer for businesses, helping streamline processes and increase efficiency. At CodeQlik, we've worked with various automation tools, including workflow automation, data analysis, and predictive analytics. We'd be happy to discuss how these tools can benefit your business. Please share your company name so we can guide you better.",
-            "intent": "client_lead",
-            "primary_intent": "client_lead",
-            "active_collection": "client_lead",
-            "pending_field": "company",
+            "reply": "Thanks. Please share your phone number.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "phone",
             "profile": {
-              "project_type": "mahesh@gmail.com . can you explain automation tools",
-              "name": "Mahesh",
-              "email_or_phone": "mahesh@gmail.com",
-              "email": "mahesh@gmail.com"
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com"
             },
             "missing_fields": [
-              "company",
-              "requirements",
-              "budget",
-              "timeline"
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
             ],
             "qualified": false,
-            "rag_confidence": 0.922
+            "rag_confidence": 0.905
           },
           "errors": []
         },
         {
           "turn": 4,
-          "message": "my company is AutoWorks",
+          "message": "9999999999",
           "expected": {
             "turn": 4,
             "profile_contains": {
-              "company": "AutoWorks"
+              "phone": "9999999999"
             },
-            "pending_field": "project_type"
+            "pending_field": "role"
           },
           "actual": {
-            "reply": "Thanks. Please share your main requirements so we can guide you better.",
+            "reply": "Thanks. Please share the role you want to apply for.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "role",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999"
+            },
+            "missing_fields": [
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.905
+          },
+          "errors": []
+        },
+        {
+          "turn": 5,
+          "message": "python developer",
+          "expected": {
+            "turn": 5,
+            "profile_contains": {
+              "role": "python developer"
+            },
+            "pending_field": "experience"
+          },
+          "actual": {
+            "reply": "We're looking for a Python developer to join our team. As a Python developer at CodeQlik, you'll be working on a variety of projects, from web applications to AI automation, and will have the opportunity to work with a range of technologies and tools. Please share your email or phone number so we can guide you better.",
             "intent": "client_lead",
             "primary_intent": "client_lead",
             "active_collection": "client_lead",
-            "pending_field": "requirements",
+            "pending_field": "email_or_phone",
             "profile": {
-              "project_type": "mahesh@gmail.com . can you explain automation tools",
-              "name": "Mahesh",
-              "email_or_phone": "mahesh@gmail.com",
-              "email": "mahesh@gmail.com",
-              "company": "AutoWorks"
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999"
             },
             "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
               "requirements",
               "budget",
               "timeline"
             ],
             "qualified": false,
+            "rag_confidence": 0.898
+          },
+          "errors": [
+            "pending_field expected 'experience', got 'email_or_phone'",
+            "profile missing key 'role', expected 'python developer'"
+          ]
+        },
+        {
+          "turn": 6,
+          "message": "1 year",
+          "expected": {
+            "turn": 6,
+            "profile_contains": {
+              "experience": "1 year"
+            },
+            "pending_field": "skills"
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget"
+            ],
+            "qualified": false,
             "rag_confidence": 0.0
           },
           "errors": [
-            "pending_field expected 'project_type', got 'requirements'"
+            "pending_field expected 'skills', got 'email_or_phone'",
+            "profile missing key 'experience', expected '1 year'"
+          ]
+        },
+        {
+          "turn": 7,
+          "message": "python django fastapi",
+          "expected": {
+            "turn": 7,
+            "profile_contains": {
+              "skills": "python django fastapi"
+            },
+            "pending_field": "resume_or_portfolio"
+          },
+          "actual": {
+            "reply": "We've worked with Django and FastAPI before, and both are great frameworks for building scalable and efficient web applications. FastAPI is particularly well-suited for building high-performance APIs. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget"
+            ],
+            "qualified": false,
+            "rag_confidence": 1.0
+          },
+          "errors": [
+            "pending_field expected 'resume_or_portfolio', got 'email_or_phone'",
+            "profile missing key 'skills', expected 'python django fastapi'"
+          ]
+        },
+        {
+          "turn": 8,
+          "message": "resume link is nikhil.dev/resume",
+          "expected": {
+            "turn": 8,
+            "profile_contains": {
+              "resume_or_portfolio": "nikhil.dev/resume"
+            }
+          },
+          "actual": {
+            "reply": "Thanks. Please share your experience.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "experience",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year",
+              "role": "resume link is nikhil.dev/resume"
+            },
+            "missing_fields": [
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 1.0
+          },
+          "errors": [
+            "profile missing key 'resume_or_portfolio', expected 'nikhil.dev/resume'"
           ]
         }
       ]
