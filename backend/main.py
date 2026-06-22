@@ -18,8 +18,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/login")
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecretkey_for_jwt_auth_12345")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjIQqiRQYq")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     # Check if hash is valid bcrypt hash, else fail
@@ -47,7 +45,11 @@ def require_admin(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         username: str = payload.get("sub")
-        if username is None or username != ADMIN_USERNAME:
+        if username is None:
+            raise credentials_exception
+        # Confirm the user still exists in the DB
+        from database import get_admin_user
+        if get_admin_user(username) is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
@@ -56,6 +58,11 @@ def require_admin(token: str = Depends(oauth2_scheme)):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    new_username: str = None  # optional: rename the admin at the same time
 
 
 # Setup logger
@@ -261,7 +268,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/admin/login")
 def login_admin(request: LoginRequest):
-    if not verify_password(request.password, ADMIN_PASSWORD_HASH) or request.username != ADMIN_USERNAME:
+    from database import get_admin_user
+    admin_user = get_admin_user(request.username)
+    if admin_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not verify_password(request.password, admin_user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -272,6 +287,45 @@ def login_admin(request: LoginRequest):
         data={"sub": request.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/api/admin/change-password")
+def change_admin_password(
+    payload: ChangePasswordRequest,
+    admin: str = Depends(require_admin)
+):
+    from database import get_admin_user, upsert_admin_user
+    import bcrypt
+
+    # Fetch current record
+    admin_user = get_admin_user(admin)
+    if admin_user is None:
+        raise HTTPException(status_code=404, detail="Admin user not found in database")
+
+    # Verify current password
+    if not verify_password(payload.current_password, admin_user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect"
+        )
+
+    # Validate new password
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+
+    new_username = (payload.new_username or "").strip() or admin
+    new_hash = bcrypt.hashpw(
+        payload.new_password.encode("utf-8"), bcrypt.gensalt(rounds=12)
+    ).decode("utf-8")
+
+    # If renaming, delete old record first then insert new one
+    if new_username != admin:
+        from database import admin_users_collection
+        admin_users_collection.delete_one({"username": admin})
+
+    upsert_admin_user(new_username, new_hash)
+    return {"message": f"Password updated successfully for '{new_username}'"}
+
 
 @app.post("/api/chat")
 def chat(req: ChatRequest, request: Request):

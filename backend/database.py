@@ -14,6 +14,7 @@ hiring_collection = db["hiring_candidates"]
 knowledge_sources_collection = db["knowledge_sources"]
 knowledge_chunks_collection = db["knowledge_chunks"]
 settings_collection = db["chatbot_settings"]
+admin_users_collection = db["admin_users"]
 
 # Aliases for compatibility
 sources_collection = knowledge_sources_collection
@@ -381,3 +382,28 @@ def initialize_knowledge_sources():
 
 initialize_knowledge_sources()
 get_chatbot_settings()
+
+
+# ---------------------------------------------------------------------------
+# Admin user helpers (credentials stored in DB, not in .env)
+# ---------------------------------------------------------------------------
+
+def get_admin_user(username: str):
+    """Return the admin user document for *username*, or None if not found."""
+    return admin_users_collection.find_one({"username": username})
+
+
+def upsert_admin_user(username: str, password_hash: str):
+    """Insert or replace the admin user record in the database."""
+    admin_users_collection.update_one(
+        {"username": username},
+        {
+            "$set": {
+                "username": username,
+                "password_hash": password_hash,
+                "updated_at": now_iso()
+            },
+            "$setOnInsert": {"created_at": now_iso()}
+        },
+        upsert=True
+    )
