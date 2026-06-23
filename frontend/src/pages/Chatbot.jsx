@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import React from "react";
 
-const CHAT_API = "http://localhost:8000/api/chat";
+const CHAT_API = "http://127.0.0.1:8000/api/chat";
 
 function Chatbot() {
     const [threadId, setThreadId] = useState(() => {

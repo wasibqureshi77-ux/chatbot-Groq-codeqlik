@@ -2,7 +2,7 @@ import { apiFetch } from "../api";
 import { useEffect, useState } from "react";
 import React from "react";
 
-const API_BASE = "http://localhost:8000/api/admin";
+const API_BASE = "http://127.0.0.1:8000/api/admin";
 // API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
 const API_ROOT = API_BASE.replace("/api/admin", "");
 
