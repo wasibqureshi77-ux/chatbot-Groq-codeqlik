@@ -7,5 +7,4 @@ venv/
 # Ignore backend environment variables
 /backend/.env
 
-# Ignore specific backend configuration file
-/backend/config.py
+

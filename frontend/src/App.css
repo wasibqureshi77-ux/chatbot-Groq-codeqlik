@@ -1139,6 +1139,351 @@ input:checked + .slider:before {
     word-break: break-all;
 }
 
+
+/* ==========================================================================
+   Admin Settings Tab Multi-Column Layout (Preview & Install Guide)
+   ========================================================================== */
+
+.settingsTabContainer {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 36px;
+    align-items: start;
+    width: 100%;
+}
+
+.settingsLeftColumn {
+    width: 100%;
+}
+
+.settingsRightColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    width: 100%;
+}
+
+/* Preview Panel */
+.previewPanel, .installGuidePanel {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 126, 33, 0.15);
+    border-radius: 24px;
+    padding: 32px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.previewPanel h3, .installGuidePanel h3 {
+    margin-top: 0;
+    margin-bottom: 6px;
+    font-size: 18px;
+}
+
+.previewSubtitle, .installSubtitle {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 0;
+    margin-bottom: 24px;
+}
+
+/* Interactive Widget Mockup */
+.previewWidgetMock {
+    width: 100%;
+    max-width: 400px;
+    height: 520px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+    margin: 0 auto;
+}
+
+.previewWidgetMock.theme-light {
+    background: #ffffff;
+    color: #111827;
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.previewWidgetMock.theme-dark {
+    background: rgba(13, 13, 17, 0.95);
+    color: #f3f4f6;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mockHeader {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #ffffff;
+}
+
+.mockLogo {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mockLogo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mockHeaderText {
+    flex: 1;
+}
+
+.mockTitle {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.2;
+}
+
+.mockSubtitle {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mockSubtitle::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+}
+
+.mockNewBtn {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.mockMsgs {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.mockMsgRow {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.mockUserRow {
+    justify-content: flex-end;
+}
+
+.mockBotRow {
+    justify-content: flex-start;
+}
+
+.mockMsgAvatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.theme-light .mockMsgAvatar {
+    background: #f3f4f6;
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mockMsg {
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: 80%;
+}
+
+.mockUser {
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+}
+
+.mockBot {
+    border-bottom-left-radius: 4px;
+}
+
+.theme-dark .mockBot {
+    background: rgba(255, 255, 255, 0.06);
+    color: #f3f4f6;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-light .mockBot {
+    background: #f3f4f6;
+    color: #111827;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.mockSuggestions {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 10px;
+    overflow-x: auto;
+}
+
+.mockSuggestionBtn {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 99px;
+    padding: 5px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+
+.theme-light .mockSuggestionBtn {
+    border-color: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.02);
+    color: #4b5563;
+}
+
+.mockForm {
+    display: flex;
+    padding: 10px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 8px;
+    align-items: center;
+}
+
+.theme-light .mockForm {
+    border-top-color: rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+}
+
+.theme-dark .mockForm {
+    background: rgba(20, 20, 26, 0.95);
+}
+
+.mockInput {
+    flex: 1;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.05);
+    color: inherit;
+    outline: none;
+}
+
+.theme-light .mockInput {
+    border-color: rgba(0, 0, 0, 0.15);
+    background: #f9fafb;
+}
+
+.mockSendBtn {
+    color: #ffffff;
+    border: 0;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.mockFooter {
+    font-size: 10px;
+    text-align: center;
+    padding: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-dark .mockFooter {
+    color: rgba(255, 255, 255, 0.3);
+    background: rgba(5, 5, 7, 0.5);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.theme-light .mockFooter {
+    color: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.02);
+    border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Install Guide */
+.guideTabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+.guideTabBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+}
+
+.guideTabBtn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.guideContent p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.codeBlock {
+    background: #07090e;
+    border: 1px solid rgba(255, 126, 33, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    color: #38bdf8;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+}
+
+@media (max-width: 1200px) {
+    .settingsTabContainer {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Chat Avatars in Chatbot page */
 .chatAvatar {
     width: 36px;

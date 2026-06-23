@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import React from "react";
 
 const API_BASE = "http://localhost:8000/api/admin";
+// API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
+const API_ROOT = API_BASE.replace("/api/admin", "");
 
 function Admin() {
 
@@ -157,7 +159,7 @@ function Admin() {
                 }
             } else if (activeTab === "settings") {
                 setSettingsLoading(true);
-                const res = await apiFetch(`http://localhost:8000/api/settings`);
+                const res = await apiFetch(`${API_ROOT}/api/settings`);
                 if (res.ok) {
                     setSettings(await res.json());
                 }
@@ -271,7 +273,7 @@ function Admin() {
     async function saveSettings(e) {
         e.preventDefault();
         try {
-            const res = await apiFetch("http://localhost:8000/api/settings", {
+            const res = await apiFetch(`${API_ROOT}/api/settings`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(settings)
@@ -1356,290 +1358,361 @@ function Admin() {
                     settingsLoading ? (
                         <p style={{ padding: "20px", color: "var(--text-muted)" }}>Loading configurations...</p>
                     ) : (
-                        <form className="settingsForm" onSubmit={saveSettings}>
-                            <div className="settingsSection">
-                                <h4>Corporate Branding</h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                                    <div className="formGroup">
-                                        <label>Company Name</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.companyName || settings.company_name || ""}
-                                            onChange={(e) => setSettings({ ...settings, companyName: e.target.value, company_name: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Branding / Description Summary</label>
-                                        <textarea 
-                                            rows="2"
-                                            value={settings.companyDescription || settings.company_description || ""}
-                                            onChange={(e) => setSettings({ ...settings, companyDescription: e.target.value, company_description: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>General Email</label>
-                                        <input 
-                                            type="email" 
-                                            value={settings.generalEmail || settings.contact_email || ""}
-                                            onChange={(e) => setSettings({ ...settings, generalEmail: e.target.value, contact_email: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>General Phone</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.generalPhone || settings.contact_phone || ""}
-                                            onChange={(e) => setSettings({ ...settings, generalPhone: e.target.value, contact_phone: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Support Email</label>
-                                        <input 
-                                            type="email" 
-                                            value={settings.supportEmail || settings.support_email || ""}
-                                            onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value, support_email: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Support Phone</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.supportPhone || settings.support_phone || ""}
-                                            onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value, support_phone: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="settingsSection">
-                                <h4>Chatbot & Widget Customization</h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                                    <div className="formGroup">
-                                        <label>Title</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.title || ""}
-                                            onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Subtitle</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.subtitle || ""}
-                                            onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Welcome Message</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.welcomeMessage || settings.chatbot_greeting || ""}
-                                            onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value, chatbot_greeting: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Input Placeholder</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.placeholder || ""}
-                                            onChange={(e) => setSettings({ ...settings, placeholder: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Theme</label>
-                                        <select 
-                                            value={settings.theme || "light"} 
-                                            onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
-                                        >
-                                            <option value="light">Light</option>
-                                            <option value="dark">Dark</option>
-                                        </select>
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Position</label>
-                                        <select 
-                                            value={settings.position || "bottom-right"} 
-                                            onChange={(e) => setSettings({ ...settings, position: e.target.value })}
-                                        >
-                                            <option value="bottom-right">Bottom Right</option>
-                                            <option value="bottom-left">Bottom Left</option>
-                                        </select>
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Storage Mechanism</label>
-                                        <select 
-                                            value={settings.storage || "local"} 
-                                            onChange={(e) => setSettings({ ...settings, storage: e.target.value })}
-                                        >
-                                            <option value="local">Local Storage</option>
-                                            <option value="session">Session Storage</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Widget Width</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.width ?? "480px"}
-                                            onChange={(e) => setSettings({ ...settings, width: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Widget Height</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.height ?? "680px"}
-                                            onChange={(e) => setSettings({ ...settings, height: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Logo URL</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.logoUrl || ""}
-                                            onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
-                                            placeholder="https://example.com/logo.png"
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Bot Avatar Initials/Text</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.botAvatar ?? "CQ"}
-                                            onChange={(e) => setSettings({ ...settings, botAvatar: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Launcher Icon</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.launcherIcon ?? "💬"}
-                                            onChange={(e) => setSettings({ ...settings, launcherIcon: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Launcher Text</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.launcherText || ""}
-                                            onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
-                                            placeholder="Optional button text"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Primary Color</label>
-                                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                            <input 
-                                                type="color" 
-                                                value={settings.primaryColor || "#ff7e21"}
-                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                                                style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
-                                            />
-                                            <input 
-                                                type="text" 
-                                                value={settings.primaryColor || ""}
-                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                                                placeholder="#ff7e21"
-                                                required
-                                                style={{ flex: 1 }}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Show New Chat Button</label>
-                                        <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
-                                            <label className="switch">
+                        <div className="settingsTabContainer">
+                            <div className="settingsLeftColumn">
+                                <form className="settingsForm" onSubmit={saveSettings} style={{ maxWidth: "100%", width: "100%" }}>
+                                    <div className="settingsSection">
+                                        <h4>Corporate Branding</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                            <div className="formGroup">
+                                                <label>Company Name</label>
                                                 <input 
-                                                    type="checkbox" 
-                                                    checked={!!settings.showNewChat} 
-                                                    onChange={(e) => setSettings({ ...settings, showNewChat: e.target.checked })}
+                                                    type="text" 
+                                                    value={settings.companyName || settings.company_name || ""}
+                                                    onChange={(e) => setSettings({ ...settings, companyName: e.target.value, company_name: e.target.value })}
+                                                    required
                                                 />
-                                                <span className="slider"></span>
-                                            </label>
-                                            <span style={{ marginLeft: "10px", fontSize: "14px" }}>
-                                                {settings.showNewChat ? "Enabled" : "Disabled"}
-                                            </span>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Branding / Description Summary</label>
+                                                <textarea 
+                                                    rows="2"
+                                                    value={settings.companyDescription || settings.company_description || ""}
+                                                    onChange={(e) => setSettings({ ...settings, companyDescription: e.target.value, company_description: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>General Email</label>
+                                                <input 
+                                                    type="email" 
+                                                    value={settings.generalEmail || settings.contact_email || ""}
+                                                    onChange={(e) => setSettings({ ...settings, generalEmail: e.target.value, contact_email: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>General Phone</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.generalPhone || settings.contact_phone || ""}
+                                                    onChange={(e) => setSettings({ ...settings, generalPhone: e.target.value, contact_phone: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Support Email</label>
+                                                <input 
+                                                    type="email" 
+                                                    value={settings.supportEmail || settings.support_email || ""}
+                                                    onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value, support_email: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Support Phone</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.supportPhone || settings.support_phone || ""}
+                                                    onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value, support_phone: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
                                         </div>
                                     </div>
+
+                                    <div className="settingsSection">
+                                        <h4>Chatbot & Widget Customization</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                            <div className="formGroup">
+                                                <label>Title</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.title || ""}
+                                                    onChange={(e) => setSettings({ ...settings, title: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Subtitle</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.subtitle || ""}
+                                                    onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Welcome Message</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.welcomeMessage || settings.chatbot_greeting || ""}
+                                                    onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value, chatbot_greeting: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Input Placeholder</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.placeholder || ""}
+                                                    onChange={(e) => setSettings({ ...settings, placeholder: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Theme</label>
+                                                <select 
+                                                    value={settings.theme || "light"} 
+                                                    onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
+                                                >
+                                                    <option value="light">Light</option>
+                                                    <option value="dark">Dark</option>
+                                                </select>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Position</label>
+                                                <select 
+                                                    value={settings.position || "bottom-right"} 
+                                                    onChange={(e) => setSettings({ ...settings, position: e.target.value })}
+                                                >
+                                                    <option value="bottom-right">Bottom Right</option>
+                                                    <option value="bottom-left">Bottom Left</option>
+                                                </select>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Storage Mechanism</label>
+                                                <select 
+                                                    value={settings.storage || "local"} 
+                                                    onChange={(e) => setSettings({ ...settings, storage: e.target.value })}
+                                                >
+                                                    <option value="local">Local Storage</option>
+                                                    <option value="session">Session Storage</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Widget Width</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.width ?? "480px"}
+                                                    onChange={(e) => setSettings({ ...settings, width: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Widget Height</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.height ?? "680px"}
+                                                    onChange={(e) => setSettings({ ...settings, height: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Logo URL</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.logoUrl || ""}
+                                                    onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
+                                                    placeholder="https://example.com/logo.png"
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Bot Avatar Initials/Text</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.botAvatar ?? "CQ"}
+                                                    onChange={(e) => setSettings({ ...settings, botAvatar: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Launcher Icon</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.launcherIcon ?? "💬"}
+                                                    onChange={(e) => setSettings({ ...settings, launcherIcon: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Launcher Text</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.launcherText || ""}
+                                                    onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
+                                                    placeholder="Optional button text"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Primary Color</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input 
+                                                        type="color" 
+                                                        value={settings.primaryColor || "#ff7e21"}
+                                                        onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input 
+                                                        type="text" 
+                                                        value={settings.primaryColor || ""}
+                                                        onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                                                        placeholder="#ff7e21"
+                                                        required
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Show New Chat Button</label>
+                                                <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
+                                                    <label className="switch">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={!!settings.showNewChat} 
+                                                            onChange={(e) => setSettings({ ...settings, showNewChat: e.target.checked })}
+                                                        />
+                                                        <span className="slider"></span>
+                                                    </label>
+                                                    <span style={{ marginLeft: "10px", fontSize: "14px" }}>
+                                                        {settings.showNewChat ? "Enabled" : "Disabled"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Footer Text</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={settings.footerText || ""}
+                                                    onChange={(e) => setSettings({ ...settings, footerText: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Suggestions (comma-separated)</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={Array.isArray(settings.suggestions) ? settings.suggestions.join(", ") : ""}
+                                                    onChange={(e) => setSettings({ 
+                                                        ...settings, 
+                                                        suggestions: e.target.value.split(",").map(s => s.trim()).filter(s => s !== "")
+                                                    })}
+                                                    placeholder="e.g. Build a Website, Pricing, Hire Developers"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="settingsSection">
+                                        <h4>Fallback & Bound Redirection</h4>
+                                        <div className="formGroup">
+                                            <label>Default Fallback / Bound Restriction Redirect Message</label>
+                                            <textarea 
+                                                rows="3"
+                                                value={settings.fallbackMessage || settings.fallback_message || ""}
+                                                onChange={(e) => setSettings({ ...settings, fallbackMessage: e.target.value, fallback_message: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button className="primaryBtn" type="submit">Save Configurations</button>
+                                </form>
+                            </div>
+
+                            <div className="settingsRightColumn">
+                                {/* Live Preview Card */}
+                                <div className="previewPanel">
+                                    <h3>Widget Preview Look</h3>
+                                    <p className="previewSubtitle">Interactive Mockup aligned to current customizing parameters</p>
+                                    
+                                    <div className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} style={{ height: "450px" }}>
+                                        <div className="mockHeader" style={{ backgroundColor: settings.theme === "dark" ? "rgba(20, 20, 26, 0.95)" : (settings.primaryColor || "#ff7e21") }}>
+                                            <div className="mockLogo">{settings.logoUrl ? <img src={settings.logoUrl} alt="Logo" /> : (settings.botAvatar || "CQ")}</div>
+                                            <div className="mockHeaderText">
+                                                <div className="mockTitle">{settings.title || "CodeQlik Assistant"}</div>
+                                                <div className="mockSubtitle">{settings.subtitle || "Usually replies instantly"}</div>
+                                            </div>
+                                            {settings.showNewChat && <button className="mockNewBtn" type="button">New</button>}
+                                        </div>
+                                        
+                                        <div className="mockMsgs">
+                                            <div className="mockMsgRow mockBotRow">
+                                                <div className="mockMsgAvatar">{settings.botAvatar || "CQ"}</div>
+                                                <div className="mockMsg mockBot">{settings.welcomeMessage || settings.chatbot_greeting || "Hi! How can we help you today?"}</div>
+                                            </div>
+                                        </div>
+
+                                        {settings.suggestions && settings.suggestions.length > 0 && (
+                                            <div className="mockSuggestions">
+                                                {settings.suggestions.slice(0, 3).map((suggestion, idx) => (
+                                                    <span className="mockSuggestionBtn" key={idx}>{suggestion}</span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="mockForm">
+                                            <input className="mockInput" type="text" placeholder={settings.placeholder || "Type your message..."} readOnly />
+                                            <button className="mockSendBtn" type="button" style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}>Send</button>
+                                        </div>
+
+                                        {settings.footerText && (
+                                            <div className="mockFooter">{settings.footerText}</div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                    <div className="formGroup">
-                                        <label>Footer Text</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.footerText || ""}
-                                            onChange={(e) => setSettings({ ...settings, footerText: e.target.value })}
-                                        />
+                                {/* Installation Guide */}
+                                <div className="installGuidePanel">
+                                    <h3>Installation Guide</h3>
+                                    <p className="installSubtitle">Add this chat widget to your corporate websites and applications</p>
+                                    
+                                    <div className="guideTabs">
+                                        <button className="guideTabBtn active" type="button">HTML Script</button>
                                     </div>
-                                    <div className="formGroup">
-                                        <label>Suggestions (comma-separated)</label>
-                                        <input 
-                                            type="text" 
-                                            value={Array.isArray(settings.suggestions) ? settings.suggestions.join(", ") : ""}
-                                            onChange={(e) => setSettings({ 
-                                                ...settings, 
-                                                suggestions: e.target.value.split(",").map(s => s.trim()).filter(s => s !== "")
-                                            })}
-                                            placeholder="e.g. Build a Website, Pricing, Hire Developers"
-                                        />
+
+                                    <div className="guideContent">
+                                        <p>Paste the following script inside the <code>&lt;body&gt;</code> element of your HTML pages. The widget automatically binds settings configured above.</p>
+                                        <pre className="codeBlock">
+{`<!-- CodeQlik Chat Widget -->
+<script src="${API_ROOT}/dist/widget.js"></script>
+<script>
+  CodeQlikChat.init({
+    apiUrl: "${API_ROOT}/api/chat",
+    settingsUrl: "${API_ROOT}/api/public/settings"
+  });
+</script>`}
+                                        </pre>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="settingsSection">
-                                <h4>Fallback & Bound Redirection</h4>
-                                <div className="formGroup">
-                                    <label>Default Fallback / Bound Restriction Redirect Message</label>
-                                    <textarea 
-                                        rows="3"
-                                        value={settings.fallbackMessage || settings.fallback_message || ""}
-                                        onChange={(e) => setSettings({ ...settings, fallbackMessage: e.target.value, fallback_message: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <button className="primaryBtn" type="submit">Save Configurations</button>
-                        </form>
+                        </div>
                     )
                 )}
             </main>
