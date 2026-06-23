@@ -6,7 +6,7 @@ load_dotenv()
 API_KEY_1 = os.getenv("API_KEY_1")
 API_KEY_2 = os.getenv("API_KEY_2")
 API_KEY = API_KEY_1 or os.getenv("API_KEY")    
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://anuraglawaniya0001_db_user:Anurag2233@chatbot.chrf9fs.mongodb.net/?appName=chatbot")
 MONGO_DB = os.getenv("MONGO_DB", "company_chatbot")
 
 if not API_KEY_1 and not API_KEY:

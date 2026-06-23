@@ -124,6 +124,14 @@ import asyncio
 
 app = FastAPI(title="Enterprise AI Support Platform API")
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+BASE_DIR = Path(__file__).resolve().parent
+WIDGET_DIST_DIR = BASE_DIR / "dist"
+
+app.mount("/dist", StaticFiles(directory=str(WIDGET_DIST_DIR)), name="dist")
+
 @app.on_event("startup")
 async def startup_event():
     manager.loop = asyncio.get_running_loop()

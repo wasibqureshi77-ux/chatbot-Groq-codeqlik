@@ -9,3 +9,9 @@ typing-extensions
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
+pypdf
+python-docx
+openpyxl
+scikit-learn
+numpy
+rank_bm25
