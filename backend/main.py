@@ -136,9 +136,14 @@ app.mount("/dist", StaticFiles(directory=str(WIDGET_DIST_DIR)), name="dist")
 async def startup_event():
     manager.loop = asyncio.get_running_loop()
 
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,https://chatbot.codeqlik.cloud",
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

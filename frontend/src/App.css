@@ -280,9 +280,10 @@ h1, h2, h3, h4, h5 {
    ========================================================================== */
 
 .adminPage {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     background: var(--bg-primary);
+    overflow: hidden;
 }
 
 .sidebar {
@@ -291,6 +292,8 @@ h1, h2, h3, h4, h5 {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 .sidebarBrand {

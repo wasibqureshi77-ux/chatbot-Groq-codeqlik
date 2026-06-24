@@ -2,9 +2,10 @@ import { apiFetch } from "../api";
 import { useEffect, useState } from "react";
 import React from "react";
 
-const API_BASE = "http://127.0.0.1:8000/api/admin";
+const API_BASE = "/api/admin";
 // API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
 const API_ROOT = API_BASE.replace("/api/admin", "");
+const PUBLIC_ROOT = window.location.origin;
 
 function Admin() {
 
@@ -1701,11 +1702,11 @@ function Admin() {
                                         <p>Paste the following script inside the <code>&lt;body&gt;</code> element of your HTML pages. The widget automatically binds settings configured above.</p>
                                         <pre className="codeBlock">
 {`<!-- CodeQlik Chat Widget -->
-<script src="${API_ROOT}/dist/widget.js"></script>
+<script src="${PUBLIC_ROOT}/dist/widget.js"></script>
 <script>
   CodeQlikChat.init({
-    apiUrl: "${API_ROOT}/api/chat",
-    settingsUrl: "${API_ROOT}/api/public/settings"
+    apiUrl: "${PUBLIC_ROOT}/api/chat",
+    settingsUrl: "${PUBLIC_ROOT}/api/public/settings"
   });
 </script>`}
                                         </pre>
