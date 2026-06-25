@@ -2367,8 +2367,6 @@ def unrelated_query_node(state: ChatState) -> dict:
     allowed = REQUIRED_FIELDS.get(active_collection or "", [])
     filtered_profile = {k: v for k, v in profile.items() if k in allowed} if allowed else {}
 
-    save_chat_to_mongo(thread_id, user_text, response, "unrelated_query", filtered_profile)
-
     return {
         "response_text": response,
         "messages": [AIMessage(content=response)],
@@ -2771,15 +2769,27 @@ def send_message(user_input: str, thread_id: str = "test_user"):
     )
 
     print("STATE AFTER PROFILE:", response.get("profile"))
+
+    bot_text = ""
+    if response.get("messages"):
+        bot_text = getattr(response["messages"][-1], "content", "")
+
+    intent = response.get("intent") or response.get("primary_intent") or "general_chat"
+    profile = response.get("profile") or {}
+    try:
+        save_chat_to_mongo(thread_id, user_input, bot_text, intent, profile)
+    except Exception as exc:
+        print(f"[database] Failed to save chat for thread={thread_id}: {exc}")
+
     print("="*80 + "\n")
     return {
-        "reply": response["messages"][-1].content,
+        "reply": bot_text,
         "intent": response.get("intent"),
         "primary_intent": response.get("primary_intent"),
         "active_collection": response.get("active_collection"),
         "pending_field": response.get("pending_field"),
         "user_goal": response.get("user_goal"),
-        "profile": response.get("profile"),
+        "profile": profile,
         "missing_fields": response.get("missing_fields"),
         "qualified": response.get("qualified"),
         "current_question": response.get("current_question"),

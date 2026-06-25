@@ -210,11 +210,18 @@ class ManualSourceUpdate(BaseModel):
     title: str = None
     category: str = None
     content: str = None
+    full_content: str = None
     enabled: bool = None
     intent_scope: str = None
     topic: str = None
     service: str = None
     tags: str = None
+    url: str = None
+    connection_name: str = None
+    db_type: str = None
+    connection_string: str = None
+    db_name: str = None
+    target_collection: str = None
 
 
 class DatabaseConnectionRequest(BaseModel):
@@ -757,30 +764,104 @@ def update_knowledge_source(id: str, payload: ManualSourceUpdate, admin: str = D
         update_fields["service"] = payload.service
     if payload.tags is not None:
         update_fields["tags"] = [t.strip() for t in payload.tags.split(",") if t.strip()] if payload.tags else []
+    if payload.url is not None:
+        update_fields["url"] = payload.url
+    if payload.connection_name is not None:
+        update_fields["connection_name"] = payload.connection_name
+    if payload.db_type is not None:
+        update_fields["db_type"] = payload.db_type
+    if payload.connection_string is not None:
+        update_fields["connection_string"] = payload.connection_string
+    if payload.db_name is not None:
+        update_fields["db_name"] = payload.db_name
+    if payload.target_collection is not None:
+        update_fields["target_collection"] = payload.target_collection
+    if payload.full_content is not None:
+        update_fields["full_content"] = payload.full_content
 
     sources_collection.update_one({"_id": ObjectId(id)}, {"$set": update_fields})
 
-    # If content changed for a manual source, re-chunk
-    if payload.content is not None and current.get("type") == "manual":
-        from rag.source_manager import process_and_chunk_source
-        intent_scope = payload.intent_scope if payload.intent_scope is not None else current.get("intent_scope")
-        topic = payload.topic if payload.topic is not None else current.get("topic")
-        service = payload.service if payload.service is not None else current.get("service")
-        tags = [t.strip() for t in payload.tags.split(",") if t.strip()] if payload.tags is not None else current.get("tags")
+    from rag.source_manager import process_and_chunk_source, process_database_source, process_website_source
 
+    current_updated = sources_collection.find_one({"_id": ObjectId(id)})
+    source_type = current_updated.get("type", "manual")
+    intent_scope = current_updated.get("intent_scope")
+    topic = current_updated.get("topic")
+    service = current_updated.get("service")
+    tags = current_updated.get("tags")
+
+    num_chunks = None
+    if source_type == "manual":
+        content = current_updated.get("content", "")
         num_chunks = process_and_chunk_source(
             id,
-            payload.title or current.get("title"),
+            current_updated.get("title"),
             "manual",
-            payload.content,
+            content,
             intent_scope=intent_scope,
             topic=topic,
             service=service,
             tags=tags
         )
+    elif source_type == "document":
+        title = current_updated.get("title", "")
+        ext = os.path.splitext(title)[1].lower().replace(".", "") or "txt"
+        content_to_use = current_updated.get("full_content") or current_updated.get("content") or ""
+        num_chunks = process_and_chunk_source(
+            id,
+            title,
+            ext,
+            content_to_use,
+            intent_scope=intent_scope,
+            topic=topic,
+            service=service,
+            tags=tags
+        )
+    elif source_type == "database" or source_type.startswith("db_"):
+        num_chunks = process_database_source(
+            source_id=id,
+            conn_name=current_updated.get("connection_name") or current_updated.get("title"),
+            conn_string=current_updated.get("connection_string"),
+            db_type=current_updated.get("db_type"),
+            db_name=current_updated.get("db_name"),
+            target_collection=current_updated.get("target_collection"),
+            intent_scope=intent_scope,
+            topic=topic,
+            service=service,
+            tags=tags
+        )
+    elif source_type == "website":
+        website_content = current_updated.get("content")
+        if website_content:
+            num_chunks = process_and_chunk_source(
+                id,
+                current_updated.get("url"),
+                "website",
+                website_content,
+                intent_scope=intent_scope,
+                topic=topic,
+                service=service,
+                tags=tags
+            )
+        else:
+            num_chunks = process_website_source(
+                id,
+                current_updated.get("url"),
+                intent_scope=intent_scope,
+                topic=topic,
+                service=service,
+                tags=tags
+            )
+
+    if num_chunks is not None:
         sources_collection.update_one(
             {"_id": ObjectId(id)},
-            {"$set": {"num_chunks": num_chunks}}
+            {"$set": {"num_chunks": num_chunks, "updated_at": datetime.utcnow().isoformat()}}
+        )
+    else:
+        sources_collection.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"updated_at": datetime.utcnow().isoformat()}}
         )
 
     updated = sources_collection.find_one({"_id": ObjectId(id)})
@@ -933,11 +1014,15 @@ def create_database_source(payload: DatabaseConnectionRequest, admin: str = Depe
 def create_website_source(payload: WebsiteSourceRequest, admin: str = Depends(require_admin)):
     tags_list = [t.strip() for t in payload.tags.split(",") if t.strip()] if payload.tags else []
 
+    from rag.source_manager import process_website_source, build_website_content
+    formatted_content = build_website_content(payload.url)
+
     source_doc = {
         "title": payload.url,
         "type": "website",
         "category": payload.category,
         "url": payload.url,
+        "content": formatted_content,
         "enabled": True,
         "intent_scope": payload.intent_scope,
         "topic": payload.topic,
@@ -949,7 +1034,6 @@ def create_website_source(payload: WebsiteSourceRequest, admin: str = Depends(re
     res = sources_collection.insert_one(source_doc)
     source_id = str(res.inserted_id)
 
-    from rag.source_manager import process_website_source
     num_chunks = process_website_source(
         source_id=source_id,
         url=payload.url,

@@ -87,7 +87,23 @@ function Admin() {
     // Knowledge Editor Modal States
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingSourceId, setEditingSourceId] = useState(null);
-    const [editForm, setEditForm] = useState({ title: "", category: "Company Information", content: "" });
+    const [editForm, setEditForm] = useState({
+        title: "",
+        category: "Company Information",
+        content: "",
+        full_content: "",
+        intent_scope: "Auto",
+        topic: "Auto",
+        service: "Auto",
+        tags: "",
+        url: "",
+        connection_name: "",
+        db_type: "mongodb",
+        connection_string: "",
+        db_name: "",
+        target_collection: "",
+        type: "manual"
+    });
 
     // Core Fetch Tab function
     async function fetchData() {
@@ -437,9 +453,21 @@ function Admin() {
     function openEditModal(source) {
         setEditingSourceId(source._id);
         setEditForm({
-            title: source.title,
-            category: source.category,
-            content: source.content
+            title: source.title || "",
+            category: source.category || "Company Information",
+            content: source.content || "",
+            full_content: source.full_content || source.content || "",
+            intent_scope: source.intent_scope || "Auto",
+            topic: source.topic || "Auto",
+            service: source.service || "Auto",
+            tags: (source.tags || []).join(", "),
+            url: source.url || "",
+            connection_name: source.connection_name || source.title || "",
+            db_type: source.db_type || "mongodb",
+            connection_string: source.connection_string || "",
+            db_name: source.db_name || "",
+            target_collection: source.target_collection || "",
+            type: source.type || "manual"
         });
         setIsEditModalOpen(true);
     }
@@ -447,10 +475,17 @@ function Admin() {
     async function handleSaveEdit(e) {
         e.preventDefault();
         try {
+            const body = {
+                ...editForm,
+                tags: editForm.tags,
+                intent_scope: editForm.intent_scope === "Auto" ? "" : editForm.intent_scope,
+                topic: editForm.topic === "Auto" ? "" : editForm.topic,
+                service: editForm.service === "Auto" ? "" : editForm.service
+            };
             const res = await apiFetch(`${API_BASE}/knowledge/${editingSourceId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(editForm)
+                body: JSON.stringify(body)
             });
             if (res.ok) {
                 setIsEditModalOpen(false);
@@ -1330,11 +1365,9 @@ function Admin() {
                                                     <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => handleReindexSource(source._id)}>
                                                         Re-index
                                                     </button>
-                                                    {source.type === "manual" && (
-                                                        <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => openEditModal(source)}>
-                                                            Edit
-                                                        </button>
-                                                    )}
+                                                    <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => openEditModal(source)}>
+                                                        Edit
+                                                    </button>
                                                     <button 
                                                         className="secondaryBtn" 
                                                         style={{padding:"4px 10px", fontSize:"12px", color:"var(--danger)", borderColor:"rgba(239,68,68,0.2)"}} 
@@ -1724,7 +1757,7 @@ function Admin() {
             {isEditModalOpen && (
                 <div className="modalOverlay">
                     <div className="modalContent">
-                        <h3>Modify Manual Source Context</h3>
+                        <h3>Modify Knowledge Source</h3>
                         <form onSubmit={handleSaveEdit}>
                             <div className="formGroup">
                                 <label>Title</label>
@@ -1747,13 +1780,128 @@ function Admin() {
                                     <option value="Hiring Information">Hiring Information</option>
                                 </select>
                             </div>
+                            {editForm.type === "website" && (
+                                <div className="formGroup">
+                                    <label>Website URL</label>
+                                    <input
+                                        type="url"
+                                        value={editForm.url}
+                                        onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            )}
+                            {editForm.type === "database" && (
+                                <>
+                                    <div className="formGroup">
+                                        <label>Connection Name</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.connection_name}
+                                            onChange={(e) => setEditForm({ ...editForm, connection_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Database Type</label>
+                                        <select value={editForm.db_type} onChange={(e) => setEditForm({ ...editForm, db_type: e.target.value })}>
+                                            <option value="mongodb">MongoDB</option>
+                                            <option value="mysql">MySQL</option>
+                                            <option value="postgres">PostgreSQL</option>
+                                            <option value="mssql">MSSQL</option>
+                                        </select>
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Connection String</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.connection_string}
+                                            onChange={(e) => setEditForm({ ...editForm, connection_string: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Database Name</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.db_name}
+                                            onChange={(e) => setEditForm({ ...editForm, db_name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="formGroup">
+                                        <label>Target Collection/Table</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.target_collection}
+                                            onChange={(e) => setEditForm({ ...editForm, target_collection: e.target.value })}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            {(editForm.type === "manual" || editForm.type === "website") && (
+                                <div className="formGroup">
+                                    <label>Content Context</label>
+                                    <textarea 
+                                        rows="6"
+                                        value={editForm.content}
+                                        onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            )}
+                            {editForm.type === "document" && (
+                                <div className="formGroup">
+                                    <label>Document Text</label>
+                                    <textarea 
+                                        rows="10"
+                                        value={editForm.full_content}
+                                        onChange={(e) => setEditForm({ ...editForm, full_content: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            )}
                             <div className="formGroup">
-                                <label>Content Context</label>
-                                <textarea 
-                                    rows="6"
-                                    value={editForm.content}
-                                    onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-                                    required
+                                <label>Intent Scope</label>
+                                <select value={editForm.intent_scope} onChange={(e) => setEditForm({ ...editForm, intent_scope: e.target.value })}>
+                                    <option value="Auto">Auto</option>
+                                    <option value="all">all</option>
+                                    <option value="client">client</option>
+                                    <option value="support">support</option>
+                                    <option value="hiring">hiring</option>
+                                    <option value="greet">greet</option>
+                                </select>
+                            </div>
+                            <div className="formGroup">
+                                <label>Topic</label>
+                                <select value={editForm.topic} onChange={(e) => setEditForm({ ...editForm, topic: e.target.value })}>
+                                    <option value="Auto">Auto</option>
+                                    <option value="general">general</option>
+                                    <option value="services">services</option>
+                                    <option value="technologies">technologies</option>
+                                    <option value="pricing">pricing</option>
+                                    <option value="contact">contact</option>
+                                    <option value="portfolio">portfolio</option>
+                                    <option value="faq">faq</option>
+                                    <option value="policies">policies</option>
+                                </select>
+                            </div>
+                            <div className="formGroup">
+                                <label>Service</label>
+                                <select value={editForm.service} onChange={(e) => setEditForm({ ...editForm, service: e.target.value })}>
+                                    <option value="Auto">Auto</option>
+                                    <option value="client">client</option>
+                                    <option value="support">support</option>
+                                    <option value="hiring">hiring</option>
+                                    <option value="sales">sales</option>
+                                </select>
+                            </div>
+                            <div className="formGroup">
+                                <label>Tags</label>
+                                <input
+                                    type="text"
+                                    value={editForm.tags}
+                                    onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                                    placeholder="tag1, tag2"
                                 />
                             </div>
                             <div className="formActions">

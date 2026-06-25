@@ -1,7 +1,7 @@
 (function () {
   window.CodeQlikChat = {
     async init(config = {}) {
-      const settingsUrl = config.settingsUrl || "http://localhost:8000/api/public/settings";
+      const settingsUrl = config.settingsUrl || "https://chatbot.codeqlik.cloud/api/public/settings";
       
       let fetchedSettings = {};
       try {

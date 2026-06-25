@@ -1,11 +1,13 @@
 import os
 import re
 import urllib.request
+from urllib.parse import urljoin, urlparse, urldefrag
 import json
 from datetime import datetime
 from bson import ObjectId
 from database import db, knowledge_sources_collection, knowledge_chunks_collection
 from rag.chunker import chunk_document
+from bs4 import BeautifulSoup
 
 sources_collection = knowledge_sources_collection
 chunks_collection = knowledge_chunks_collection
@@ -196,32 +198,341 @@ def process_database_source(source_id: str, conn_name: str, conn_string: str, db
     )
 
 
-def process_website_source(source_id: str, url: str,
-                           intent_scope: str = None, topic: str = None, service: str = None, tags: list = None) -> int:
+
+
+# -----------------------------
+# Website scraping helpers
+# -----------------------------
+
+SKIP_URL_EXTENSIONS = (
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico",
+    ".pdf", ".zip", ".rar", ".7z",
+    ".mp4", ".mp3", ".avi", ".mov", ".webm",
+    ".css", ".js", ".map",
+    ".woff", ".woff2", ".ttf", ".eot",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"
+)
+
+
+def _clean_space(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _normalize_url(url: str) -> str:
+    url, _fragment = urldefrag(url)
+    parsed = urlparse(url)
+
+    scheme = parsed.scheme or "https"
+    netloc = parsed.netloc.lower()
+    path = re.sub(r"/+", "/", parsed.path or "/")
+
+    if path != "/" and path.endswith("/"):
+        path = path[:-1]
+
+    # Remove tracking params
+    query = parsed.query
+    if query:
+        kept = []
+        for part in query.split("&"):
+            key = part.split("=", 1)[0].lower()
+            if not (key.startswith("utm_") or key in {"fbclid", "gclid", "mc_cid", "mc_eid"}):
+                kept.append(part)
+        query = "&".join(kept)
+
+    return f"{scheme}://{netloc}{path}" + (f"?{query}" if query else "")
+
+
+def _same_domain(url: str, base_domain: str) -> bool:
+    netloc = urlparse(url).netloc.lower().replace("www.", "")
+    return netloc == base_domain
+
+
+def _is_scrapable_url(url: str, base_domain: str) -> bool:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    if not _same_domain(url, base_domain):
+        return False
+
+    lower_url = url.lower()
+    if lower_url.endswith(SKIP_URL_EXTENSIONS):
+        return False
+
+    skip_parts = [
+        "/wp-admin", "/admin", "/login", "/signup",
+        "/cart", "/checkout", "/account",
+        "mailto:", "tel:", "javascript:",
+    ]
+    if any(part in lower_url for part in skip_parts):
+        return False
+
+    return True
+
+
+def _fetch_html(url: str, timeout: int = 10):
     """
-    Crawls a target website URL, extracts raw text content,
-    chunks it, and stores the chunks in MongoDB.
+    Returns: (status_code, content_type, html_text)
+    Uses urllib so this file does not require requests.
     """
-    raw_html = ""
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "ChatbotCrawler/1.0"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        status_code = getattr(response, "status", 200)
+        content_type = response.headers.get("Content-Type", "")
+        if "text/html" not in content_type.lower():
+            return status_code, content_type, ""
+        raw = response.read()
+        html = raw.decode("utf-8", errors="ignore")
+        return status_code, content_type, html
+
+
+def _extract_website_text(html: str, url: str) -> str:
+    """
+    Extracts structured, RAG-friendly text from one HTML page.
+    Requires: beautifulsoup4
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove noise
+    for tag in soup([
+        "script", "style", "noscript", "iframe", "svg",
+        "header", "footer", "nav",
+    ]):
+        tag.decompose()
+
+    title = _clean_space(soup.title.get_text(" ")) if soup.title else ""
+
+    meta_description = ""
+    meta = soup.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    if meta and meta.get("content"):
+        meta_description = _clean_space(meta.get("content"))
+
+    headings = []
+    for tag in soup.find_all(["h1", "h2", "h3"]):
+        txt = _clean_space(tag.get_text(" "))
+        if txt:
+            headings.append(txt)
+
+    paragraphs = []
+    for tag in soup.find_all("p"):
+        txt = _clean_space(tag.get_text(" "))
+        if len(txt) >= 25:
+            paragraphs.append(txt)
+
+    list_items = []
+    for tag in soup.find_all("li"):
+        txt = _clean_space(tag.get_text(" "))
+        if len(txt) >= 3:
+            list_items.append(txt)
+
+    table_texts = []
+    for table in soup.find_all("table"):
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [_clean_space(cell.get_text(" ")) for cell in tr.find_all(["th", "td"])]
+            cells = [c for c in cells if c]
+            if cells:
+                rows.append(" | ".join(cells))
+        if rows:
+            table_texts.append("\n".join(rows))
+
+    image_alts = []
+    for img in soup.find_all("img"):
+        alt = _clean_space(img.get("alt", ""))
+        if alt:
+            image_alts.append(alt)
+
+    def dedupe(items):
+        seen = set()
+        result = []
+        for item in items:
+            key = item.lower()
+            if key not in seen:
+                result.append(item)
+                seen.add(key)
+        return result
+
+    headings = dedupe(headings)
+    paragraphs = dedupe(paragraphs)
+    list_items = dedupe(list_items)
+    image_alts = dedupe(image_alts)
+
+    page_text = f"""
+Website URL: {url}
+
+Page Title:
+{title}
+
+Meta Description:
+{meta_description}
+
+Headings:
+{chr(10).join("- " + h for h in headings)}
+
+Paragraphs:
+{chr(10).join(paragraphs)}
+
+List Items:
+{chr(10).join("- " + item for item in list_items)}
+
+Tables:
+{chr(10).join(table_texts)}
+
+Image Alt Text:
+{chr(10).join("- " + alt for alt in image_alts)}
+"""
+
+    return _clean_space(page_text)
+
+
+def _extract_internal_links(html: str, current_url: str, base_domain: str, limit: int = 100):
+    soup = BeautifulSoup(html, "html.parser")
+    links = []
+    seen = set()
+
+    for a in soup.find_all("a", href=True):
+        absolute = _normalize_url(urljoin(current_url, a["href"].strip()))
+        if absolute in seen:
+            continue
+        if _is_scrapable_url(absolute, base_domain):
+            links.append(absolute)
+            seen.add(absolute)
+        if len(links) >= limit:
+            break
+
+    return links
+
+
+def _discover_sitemap_urls(start_url: str, base_domain: str, timeout: int = 10, max_urls: int = 100):
+    """
+    Basic sitemap.xml reader. Keeps same-domain HTML-looking URLs only.
+    """
+    parsed = urlparse(start_url)
+    sitemap_url = f"{parsed.scheme}://{parsed.netloc}/sitemap.xml"
+
     try:
         req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChatbotCrawler/1.0'}
+            sitemap_url,
+            headers={"User-Agent": "Mozilla/5.0 ChatbotCrawler/1.0"}
         )
-        with urllib.request.urlopen(req, timeout=5) as response:
-            raw_html = response.read().decode('utf-8', errors='ignore')
-    except Exception as e:
-        raw_html = f"Website crawl failed for URL {url}. Error: {str(e)}"
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            xml_text = response.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return []
 
-    text_content = re.sub(r'<script.*?</script>', ' ', raw_html, flags=re.DOTALL)
-    text_content = re.sub(r'<style.*?</style>', ' ', text_content, flags=re.DOTALL)
-    text_content = re.sub(r'<[^>]+>', ' ', text_content)
-    text_content = re.sub(r'\s+', ' ', text_content).strip()
-    
-    formatted_content = f"Crawled content from Website Source: {url}\n\nExtracted Text Content:\n{text_content}"
-    
-    source_name = url.replace("https://", "").replace("http://", "").split("/")[0]
+    urls = re.findall(r"<loc>\s*(.*?)\s*</loc>", xml_text, flags=re.I)
+    cleaned = []
+    seen = set()
+
+    for u in urls:
+        u = _normalize_url(u)
+        if u.endswith(".xml"):
+            continue
+        if u not in seen and _is_scrapable_url(u, base_domain):
+            cleaned.append(u)
+            seen.add(u)
+        if len(cleaned) >= max_urls:
+            break
+
+    return cleaned
+
+
+def build_website_content(url: str, max_pages: int = 15, timeout: int = 10, delay_seconds: float = 0.3) -> str:
+    """Fetches and formats website content without storing chunks."""
+    if not url:
+        return ""
+
+    url = _normalize_url(url)
+    parsed = urlparse(url)
+
+    if not parsed.netloc:
+        print(f"[Website Build Skipped] Invalid URL: {url}")
+        return ""
+
+    base_domain = parsed.netloc.lower().replace("www.", "")
+    queue = [url]
+    visited = set()
+    page_texts = []
+
+    for sitemap_url in _discover_sitemap_urls(url, base_domain, timeout=timeout, max_urls=max_pages * 3):
+        if sitemap_url not in queue:
+            queue.append(sitemap_url)
+
+    while queue and len(page_texts) < max_pages:
+        current_url = queue.pop(0)
+
+        if current_url in visited:
+            continue
+        visited.add(current_url)
+
+        if not _is_scrapable_url(current_url, base_domain):
+            continue
+
+        try:
+            status_code, content_type, html = _fetch_html(current_url, timeout=timeout)
+
+            if status_code != 200:
+                print(f"[Website Build Skipped] URL={current_url}, Status={status_code}")
+                continue
+
+            if not html:
+                print(f"[Website Build Skipped] URL={current_url}, Content-Type={content_type}")
+                continue
+
+            extracted_text = _extract_website_text(html, current_url)
+            if len(extracted_text.split()) >= 30:
+                page_texts.append(extracted_text)
+                print(f"[Website Build Saved] {current_url}")
+
+            for link in _extract_internal_links(html, current_url, base_domain):
+                if link not in visited and link not in queue:
+                    queue.append(link)
+
+        except Exception as e:
+            print(f"[Website Build Error] URL={current_url}, Error={str(e)}")
+            continue
+
+        if delay_seconds and delay_seconds > 0:
+            try:
+                import time
+                time.sleep(delay_seconds)
+            except Exception:
+                pass
+
+    if not page_texts:
+        print(f"[Website Build Failed] No useful content extracted from {url}")
+        return ""
+
+    return (
+        f"Crawled content from Website Source: {url}\n"
+        f"Pages crawled: {len(page_texts)}\n\n"
+        + "\n\n--- PAGE BREAK ---\n\n".join(page_texts)
+    )
+
+
+def process_website_source(source_id: str, url: str,
+                           intent_scope: str = None, topic: str = None, service: str = None, tags: list = None,
+                           max_pages: int = 15, timeout: int = 10, delay_seconds: float = 0.3) -> int:
+    """
+    Crawls a target website URL, extracts clean structured text,
+    chunks it, and stores the chunks in MongoDB.
+    """
+    formatted_content = build_website_content(url, max_pages=max_pages, timeout=timeout, delay_seconds=delay_seconds)
+    if not formatted_content:
+        return 0
+
     return process_and_chunk_source(
-        source_id, source_name, "website", formatted_content,
+        source_id, urlparse(url).netloc.lower().replace("www.", ""), "website", formatted_content,
         intent_scope=intent_scope, topic=topic, service=service, tags=tags
     )
+

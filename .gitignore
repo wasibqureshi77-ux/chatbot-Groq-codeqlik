@@ -7,5 +7,9 @@ venv/
 # Ignore backend environment variables
 /backend/.env
 
+# Ignore mail service environment variables and local dependencies
+/mail-service/.env
+/mail-service/node_modules/
+
 # Ignore backend config (contains sensitive keys)
 backend/config.py

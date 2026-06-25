@@ -1015,12 +1015,16 @@ input:checked + .slider:before {
 .modalContent {
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(255, 126, 33, 0.3);
-    width: 100%;
-    max-width: 580px;
+    width: min(100%, 680px);
+    max-width: 680px;
+    max-height: 92vh;
     border-radius: 24px;
-    padding: 32px;
+    padding: 24px;
     backdrop-filter: blur(20px);
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .modalContent h3 {
@@ -1067,11 +1071,40 @@ input:checked + .slider:before {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    margin-top: 28px;
+    margin-top: 18px;
 }
 
-.settingsForm {
-    max-width: 750px;
+.modalContent > form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: auto;
+}
+
+.modalContent > form::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modalContent > form::-webkit-scrollbar-thumb {
+    background: rgba(255, 126, 33, 0.35);
+    border-radius: 999px;
+}
+
+@media (max-width: 720px) {
+    .modalContent {
+        max-width: 92vw;
+        padding: 18px;
+        border-radius: 18px;
+    }
+
+    .modalContent h3 {
+        font-size: 20px;
+        margin-bottom: 18px;
+    }
+
+    .formGroup {
+        margin-bottom: 16px;
+    }
     background: rgba(15, 23, 42, 0.45);
     border: 1px solid rgba(255, 126, 33, 0.15);
     border-radius: 24px;

@@ -3,6 +3,8 @@ from datetime import datetime
 from bson import ObjectId
 import asyncio
 from config import MONGO_URI, MONGO_DB
+from email_body_generator import build_email_content
+from mail_service import send_email
 
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client[MONGO_DB]
@@ -290,8 +292,62 @@ def update_chatbot_settings(data: dict):
 
 
 
+def _get_admin_notification_email(settings: dict) -> str:
+    if not settings:
+        return ""
+    return (
+        settings.get("support_email")
+        or settings.get("general_email")
+        or settings.get("contact_email")
+        or settings.get("supportEmail")
+        or settings.get("generalEmail")
+        or settings.get("contactEmail")
+        or ""
+    )
+
+
+def _is_email(value) -> bool:
+    return isinstance(value, str) and "@" in value and "." in value
+
+
+def _send_email_safe(to_email: str, subject: str, html: str, text: str = ""):
+    if not to_email:
+        print(f"[email] Skipping send: no recipient for subject={subject}")
+        return
+    print(f"[email] Sending to={to_email} subject={subject}")
+    try:
+        resp = send_email(to_email, subject, html, text=text)
+        print(f"[email] Sent to={to_email}; response={resp}")
+    except Exception as exc:
+        print(f"[email] Failed to send email to {to_email}: {exc}")
+
+
+def _notify_new_chat(thread_id: str, profile: dict, user_message: str):
+    settings = get_chatbot_settings()
+    admin_email = _get_admin_notification_email(settings)
+    if not admin_email:
+        return
+    subject, text, html = build_email_content("new_chat_start", thread_id, profile or {}, user_message)
+    _send_email_safe(admin_email, subject, html, text=text)
+
+
+def _notify_collection_complete(intent: str, thread_id: str, profile: dict):
+    settings = get_chatbot_settings()
+    admin_email = _get_admin_notification_email(settings)
+    if admin_email:
+        subject, text, html = build_email_content(f"{intent}_complete_admin", thread_id, profile or {})
+        _send_email_safe(admin_email, subject, html, text=text)
+
+    user_email = profile.get("email") or profile.get("email_or_phone")
+    if _is_email(user_email):
+        subject, text, html = build_email_content(f"{intent}_complete_user", thread_id, profile or {})
+        _send_email_safe(user_email, subject, html, text=text)
+
+
 def save_chat_to_mongo(thread_id, user_message, bot_message, intent, profile):
     created_at = now_iso()
+    thread_id = thread_id or "default"
+    is_first_thread = chats_collection.count_documents({"thread_id": thread_id}) == 0
     doc = {
         "thread_id": thread_id,
         "user_message": user_message,
@@ -301,10 +357,16 @@ def save_chat_to_mongo(thread_id, user_message, bot_message, intent, profile):
         "created_at": created_at
     }
     chats_collection.insert_one(doc)
-    
+
     # Clean ID for serialization
     doc["_id"] = str(doc["_id"])
     broadcast_event("chat_created", doc)
+
+    if is_first_thread:
+        try:
+            _notify_new_chat(thread_id, profile, user_message)
+        except Exception as exc:
+            print(f"[email] New chat notification failed: {exc}")
 
 
 def save_collection_data(intent, thread_id, profile):
@@ -332,22 +394,41 @@ def save_collection_data(intent, thread_id, profile):
     }
 
     if intent == "client_lead":
+        existing = leads_collection.find_one({"thread_id": thread_id})
         leads_collection.update_one({"thread_id": thread_id}, update, upsert=True)
         saved = leads_collection.find_one({"thread_id": thread_id})
         saved["_id"] = str(saved["_id"])
         broadcast_event("lead_created_or_updated", saved)
+        if not saved.get("notified", False):
+            try:
+                _notify_collection_complete("client_lead", thread_id, saved.get("profile", {}))
+                leads_collection.update_one({"thread_id": thread_id}, {"$set": {"notified": True}})
+            except Exception as exc:
+                print(f"[email] Lead complete notification failed: {exc}")
 
     elif intent == "customer_support":
         support_collection.update_one({"thread_id": thread_id}, update, upsert=True)
         saved = support_collection.find_one({"thread_id": thread_id})
         saved["_id"] = str(saved["_id"])
         broadcast_event("support_created_or_updated", saved)
+        if not saved.get("notified", False):
+            try:
+                _notify_collection_complete("customer_support", thread_id, saved.get("profile", {}))
+                support_collection.update_one({"thread_id": thread_id}, {"$set": {"notified": True}})
+            except Exception as exc:
+                print(f"[email] Support complete notification failed: {exc}")
 
     elif intent == "hiring_support":
         hiring_collection.update_one({"thread_id": thread_id}, update, upsert=True)
         saved = hiring_collection.find_one({"thread_id": thread_id})
         saved["_id"] = str(saved["_id"])
         broadcast_event("hiring_created_or_updated", saved)
+        if not saved.get("notified", False):
+            try:
+                _notify_collection_complete("hiring_support", thread_id, saved.get("profile", {}))
+                hiring_collection.update_one({"thread_id": thread_id}, {"$set": {"notified": True}})
+            except Exception as exc:
+                print(f"[email] Hiring complete notification failed: {exc}")
 
 
 # Initialize default settings and default knowledge sources + chunks if empty
