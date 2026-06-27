@@ -22,7 +22,7 @@
       } catch (err) {
         console.error("Failed to fetch widget settings:", err);
       }
-
+      
       const cfg = {
         apiUrl: defaultOrigin + "/api/chat",
         title: "CodeQlik Assistant",

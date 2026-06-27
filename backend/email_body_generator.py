@@ -165,6 +165,7 @@ def _profile_summary_html(profile: Dict[str, str]) -> str:
 # -----------------------------
 
 def _event_context(event_type: str) -> Dict[str, str]:
+    # --- New Chat Started ---
     if event_type == "new_chat_start":
         return {
             "audience": "admin",
@@ -174,24 +175,64 @@ def _event_context(event_type: str) -> Dict[str, str]:
             "must_avoid": "do not call it a completed lead; do not invent contact details",
         }
 
-    if event_type == "lead_complete_admin":
+    # --- Client Lead Captured ---
+    if event_type == "client_lead_complete_admin" or event_type == "lead_complete_admin":
         return {
             "audience": "admin",
-            "purpose": "Notify company management that a new qualified lead has been captured by the chatbot.",
-            "tone": "professional, concise, business-focused",
-            "must_include": "lead name, contact, requirement, project type, budget, timeline if available",
-            "must_avoid": "do not write a long marketing email; do not hide important lead details",
+            "purpose": "Notify company management/admin that a new qualified sales lead has been captured by the chatbot.",
+            "tone": "professional, structured, concise",
+            "must_include": "Lead's name, email, phone, company, project requirements, budget, timeline (if provided), and a link to view details in the admin panel.",
+            "must_avoid": "do not write a long marketing email; do not invent or hallucinate profile details.",
         }
 
-    if event_type == "lead_complete_user":
+    if event_type == "client_lead_complete_user" or event_type == "lead_complete_user":
         return {
-            "audience": "user",
-            "purpose": "Send a polite confirmation email to the visitor after their lead details were captured.",
-            "tone": "friendly, reassuring, simple",
-            "must_include": "thank the visitor, confirm the request was received, say the team will contact them shortly",
-            "must_avoid": "do not include internal thread IDs, admin notes, raw JSON, or technical details",
+            "audience": "visitor",
+            "purpose": "Send a warm, professional lead confirmation and thank-you email to the visitor.",
+            "tone": "friendly, polite, reassuring, simple",
+            "must_include": "thank them for showing interest in our services, summarize their project requirement, and state that our team will reach out to them shortly.",
+            "must_avoid": "do not include internal thread IDs, admin panel links, raw system JSON, or technical jargon.",
         }
 
+    # --- Customer Support Ticket Raised ---
+    if event_type == "customer_support_complete_admin":
+        return {
+            "audience": "admin",
+            "purpose": "Notify the support team/admin that a new customer support ticket has been created by the chatbot.",
+            "tone": "urgent, structured, clear",
+            "must_include": "Customer name, email, phone, specific issue details, priority, and a call-to-action to resolve the ticket in the admin panel.",
+            "must_avoid": "do not write fluffy introductory sentences; present the details clearly.",
+        }
+
+    if event_type == "customer_support_complete_user":
+        return {
+            "audience": "visitor",
+            "purpose": "Send a support ticket confirmation/receipt email to the customer.",
+            "tone": "helpful, polite, reassuring, clear",
+            "must_include": "polite thank-you, confirm that we have logged their support ticket, specify their issue summary, and assure them that a support agent is reviewing it.",
+            "must_avoid": "do not include internal thread IDs, database keys, or admin-only details.",
+        }
+
+    # --- Hiring/Candidate Application Submitted ---
+    if event_type == "hiring_support_complete_admin":
+        return {
+            "audience": "admin",
+            "purpose": "Notify the HR/hiring team that a new job candidate application has been submitted through the chatbot.",
+            "tone": "professional, structured, evaluation-focused",
+            "must_include": "Candidate name, email, phone, applied role, experience level, key skills, and a link to review the application in the admin panel.",
+            "must_avoid": "do not write speculative feedback; present the facts directly.",
+        }
+
+    if event_type == "hiring_support_complete_user":
+        return {
+            "audience": "visitor",
+            "purpose": "Send a candidate acknowledgment email to the applicant.",
+            "tone": "professional, welcoming, encouraging, simple",
+            "must_include": "thank them for applying, acknowledge the specific role they applied for, and explain that the hiring team will review their profile and contact them if there's a match.",
+            "must_avoid": "do not make job offers or set internal workflow statuses.",
+        }
+
+    # --- Generic Fallbacks ---
     if event_type.endswith("_complete_admin"):
         label = event_type.replace("_complete_admin", "").replace("_", " ").title()
         return {
@@ -204,7 +245,7 @@ def _event_context(event_type: str) -> Dict[str, str]:
 
     if event_type.endswith("_complete_user"):
         return {
-            "audience": "user",
+            "audience": "visitor",
             "purpose": "Send a polite confirmation email to the visitor after their details were submitted.",
             "tone": "friendly, simple, reassuring",
             "must_include": "thank the visitor and mention the team will contact them shortly",
