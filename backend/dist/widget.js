@@ -1,7 +1,17 @@
 (function () {
+  // Capture currentScript src outside init in case it's run asynchronously
+  const scriptElement = document.currentScript;
+  const scriptSrc = scriptElement ? scriptElement.src : "";
+  let defaultOrigin = "https://chatbot.codeqlik.cloud";
+  if (scriptSrc) {
+    try {
+      defaultOrigin = new URL(scriptSrc).origin;
+    } catch (e) {}
+  }
+
   window.CodeQlikChat = {
     async init(config = {}) {
-      const settingsUrl = config.settingsUrl || "https://chatbot.codeqlik.cloud/api/public/settings";
+      const settingsUrl = config.settingsUrl || (defaultOrigin + "/api/public/settings");
       
       let fetchedSettings = {};
       try {
@@ -14,7 +24,7 @@
       }
 
       const cfg = {
-        apiUrl: "http://localhost:8000/api/chat",
+        apiUrl: defaultOrigin + "/api/chat",
         title: "CodeQlik Assistant",
         subtitle: "Usually replies instantly",
         welcomeMessage: "Hi! How can we help you today?",

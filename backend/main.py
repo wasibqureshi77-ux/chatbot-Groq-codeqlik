@@ -138,7 +138,7 @@ async def startup_event():
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,https://chatbot.codeqlik.cloud",
+    "http://localhost:5173,https://chatbot.codeqlik.cloud,http://127.0.0.1:5500,https://codeqlik.com",
 )
 
 app.add_middleware(
