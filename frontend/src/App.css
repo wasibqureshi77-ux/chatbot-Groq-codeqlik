@@ -1509,6 +1509,79 @@ input:checked + .slider:before {
     font-weight: 800;
 }
 
+.mockLauncherPreview {
+    position: relative;
+    width: 236px;
+    height: 132px;
+    margin: 14px 0 0 auto;
+}
+
+.mockLauncherGreetingBadge {
+    position: absolute;
+    right: var(--mock-launcher-greeting-offset-x, 52px);
+    bottom: var(--mock-launcher-greeting-offset-y, 54px);
+    width: var(--mock-launcher-greeting-width, 112px);
+    box-sizing: border-box;
+    padding: 8px 11px;
+    border-radius: var(--mock-launcher-greeting-radius, 20px);
+    background: linear-gradient(135deg, var(--mock-launcher-greeting-bg-start, #ff7e21), var(--mock-launcher-greeting-bg-end, #ff477e));
+    color: var(--mock-launcher-greeting-color, #ffffff);
+    font-size: var(--mock-launcher-greeting-size, 8.5px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    pointer-events: none;
+    box-shadow: 0 12px 28px rgba(255, 126, 33, 0.26), 0 5px 16px rgba(15, 23, 42, 0.14);
+    transform: translateY(-2px);
+}
+
+.mockLauncherGreetingBadge::after {
+    content: "";
+    position: absolute;
+    right: 16px;
+    bottom: -5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, var(--mock-launcher-greeting-bg-start, #ff7e21), var(--mock-launcher-greeting-bg-end, #ff477e));
+    transform: rotate(45deg);
+    box-shadow: 4px 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.mockLauncherButton {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background-image: radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.34), transparent 30%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 20px;
+    box-shadow: 0 14px 34px rgba(255, 126, 33, 0.34), 0 5px 14px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+}
+
+.mockLauncherChatIcon {
+    width: 28px;
+    height: 28px;
+    display: block;
+    filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
+}
+
+.mockLauncherCustomIcon {
+    display: block;
+    font-size: 22px;
+    line-height: 1;
+}
+
 /* Install Guide */
 .guideTabs {
     display: flex;

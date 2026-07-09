@@ -212,6 +212,15 @@ class SettingsUpdate(BaseModel):
     botAvatar: Optional[str] = None
     launcherIcon: Optional[str] = None
     launcherText: Optional[str] = None
+    launcherGreeting: Optional[str] = None
+    launcherGreetingColor: Optional[str] = None
+    launcherGreetingFontSize: Optional[float] = None
+    launcherGreetingBgStart: Optional[str] = None
+    launcherGreetingBgEnd: Optional[str] = None
+    launcherGreetingWidth: Optional[float] = None
+    launcherGreetingBorderRadius: Optional[float] = None
+    launcherGreetingOffsetX: Optional[float] = None
+    launcherGreetingOffsetY: Optional[float] = None
     showNewChat: Optional[bool] = None
     footerText: Optional[str] = None
     suggestions: Optional[List[str]] = None
@@ -549,7 +558,9 @@ def get_public_settings(response: Response):
         "generalEmail", "generalPhone", "supportEmail", "supportPhone",
         "title", "subtitle", "welcomeMessage", "placeholder", "primaryColor",
         "theme", "position", "width", "height", "logoUrl", "logoUrlLight", "logoUrlDark", "botAvatar",
-        "launcherIcon", "launcherText", "showNewChat", "footerText",
+        "launcherIcon", "launcherText", "launcherGreeting", "launcherGreetingColor", "launcherGreetingFontSize",
+        "launcherGreetingBgStart", "launcherGreetingBgEnd", "launcherGreetingWidth", "launcherGreetingBorderRadius",
+        "launcherGreetingOffsetX", "launcherGreetingOffsetY", "showNewChat", "footerText",
         "suggestions", "storage"
     ]
     # Build safe settings dictionary
@@ -915,6 +926,22 @@ def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)
     if "primaryColor" in data:
         if not re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", data["primaryColor"]):
             raise HTTPException(status_code=400, detail="primaryColor must be a valid hex color like #ff7e21")
+    for color_key in ["launcherGreetingColor", "launcherGreetingBgStart", "launcherGreetingBgEnd"]:
+        if data.get(color_key):
+            if not re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", data[color_key]):
+                raise HTTPException(status_code=400, detail=f"{color_key} must be a valid hex color like #ff7e21")
+    numeric_ranges = {
+        "launcherGreetingFontSize": (7, 18),
+        "launcherGreetingWidth": (72, 180),
+        "launcherGreetingBorderRadius": (6, 40),
+        "launcherGreetingOffsetX": (0, 180),
+        "launcherGreetingOffsetY": (24, 140),
+    }
+    for numeric_key, (min_value, max_value) in numeric_ranges.items():
+        if numeric_key in data:
+            value = data[numeric_key]
+            if value is None or value < min_value or value > max_value:
+                raise HTTPException(status_code=400, detail=f"{numeric_key} must be between {min_value} and {max_value}")
     if "showNewChat" in data and not isinstance(data["showNewChat"], bool):
         raise HTTPException(status_code=400, detail="showNewChat must be a boolean")
     if "suggestions" in data:

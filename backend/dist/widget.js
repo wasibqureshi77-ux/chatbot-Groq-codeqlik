@@ -80,6 +80,15 @@
         botAvatar: "CQ",
         launcherIcon: "💬",
         launcherText: "",
+        launcherGreeting: "Hello! Welcome to CodeQlik",
+        launcherGreetingColor: "#ffffff",
+        launcherGreetingFontSize: 9.5,
+        launcherGreetingBgStart: "#ff7e21",
+        launcherGreetingBgEnd: "#ff477e",
+        launcherGreetingWidth: 112,
+        launcherGreetingBorderRadius: 20,
+        launcherGreetingOffsetX: 52,
+        launcherGreetingOffsetY: 54,
         showNewChat: true,
         footerText: "",
         suggestions: [],
@@ -114,8 +123,26 @@
         }
       }
 
-      const primary = cfg.primaryColor || "#ff7e21";
+      function safeHexColor(value, fallback) {
+        const raw = String(value || "").trim();
+        return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(raw) ? raw : fallback;
+      }
+
+      function clampNumber(value, min, max, fallback) {
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) ? Math.min(max, Math.max(min, numberValue)) : fallback;
+      }
+
+      const primary = safeHexColor(cfg.primaryColor, "#ff7e21");
       const isDark = cfg.theme === "dark";
+      const launcherGreetingColor = safeHexColor(cfg.launcherGreetingColor, "#ffffff");
+      const launcherGreetingBgStart = safeHexColor(cfg.launcherGreetingBgStart, primary);
+      const launcherGreetingBgEnd = safeHexColor(cfg.launcherGreetingBgEnd, "#ff477e");
+      const launcherGreetingFontSize = clampNumber(cfg.launcherGreetingFontSize, 7, 18, 9.5);
+      const launcherGreetingWidth = clampNumber(cfg.launcherGreetingWidth, 72, 180, 112);
+      const launcherGreetingBorderRadius = clampNumber(cfg.launcherGreetingBorderRadius, 6, 40, 20);
+      const launcherGreetingOffsetX = clampNumber(cfg.launcherGreetingOffsetX, 0, 180, 52);
+      const launcherGreetingOffsetY = clampNumber(cfg.launcherGreetingOffsetY, 24, 140, 54);
       const fallbackLogo = resolveAssetUrl(isDark ? DEFAULT_LOGO_DARK : DEFAULT_LOGO_LIGHT);
       const configuredLogo = isDark
         ? (cfg.logoUrlDark || cfg.logoUrl || DEFAULT_LOGO_DARK)
@@ -143,6 +170,27 @@
         return escapeHtml(value || "").replace(/CodeQlik/gi, '<span class="cq-footer-brand">$&</span>');
       }
 
+      function renderLauncherIcon() {
+        const customIcon = String(cfg.launcherIcon || "").trim();
+        if (customIcon && customIcon !== "💬") {
+          return `<span class="cq-launcher-custom-icon">${escapeHtml(customIcon)}</span>`;
+        }
+        return `
+          <svg class="cq-launcher-chat-icon" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+            <path d="M14 5.5c-5.5 0-10 3.35-10 7.48 0 2.55 1.72 4.8 4.35 6.15l-.62 3.12 3.42-2.03c.9.16 1.85.25 2.85.25 5.5 0 10-3.35 10-7.49S19.5 5.5 14 5.5Z" fill="#f8fbff"></path>
+            <path d="M18.4 18.95c-1.28.66-2.78 1.02-4.4 1.02-1 0-1.95-.09-2.85-.25l-3.42 2.03.62-3.12c-1.04-.53-1.94-1.22-2.63-2.03 1.74.92 3.92 1.45 6.26 1.45 2.42 0 4.66-.56 6.42-1.52v2.42Z" fill="#c7d2fe" opacity="0.95"></path>
+          </svg>
+        `;
+      }
+
+      function renderLauncherGreetingBadge() {
+        const greeting = String(cfg.launcherGreeting || "").trim();
+        if (!greeting) return "";
+        return `
+          <div id="cq-launcher-greeting" aria-hidden="true">${escapeHtml(greeting)}</div>
+        `;
+      }
+
       document.head.insertAdjacentHTML("beforeend", `
         <style>
           #cq-msgs::-webkit-scrollbar { width: 6px; }
@@ -160,27 +208,81 @@
             ${sideCss}
             bottom: 20px;
             min-width: 60px;
+            width: 60px;
             height: 60px;
             border-radius: 999px;
-            border: 0;
-            background: ${primary};
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.34), transparent 30%), ${primary};
             color: #fff;
             font-size: 22px;
             cursor: pointer;
             z-index: 2147483647 !important;
-            padding: 0 20px;
-            box-shadow: 0 8px 32px rgba(255, 126, 33, 0.25);
+            padding: 0;
+            box-shadow: 0 14px 34px rgba(255, 126, 33, 0.34), 0 5px 14px rgba(15, 23, 42, 0.16);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
             font-family: inherit;
             font-weight: 600;
+            overflow: hidden;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          #cq-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+          #cq-btn .cq-launcher-chat-icon {
+            width: 28px;
+            height: 28px;
+            display: block;
+            filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
+          }
+          #cq-btn .cq-launcher-custom-icon {
+            display: block;
+            font-size: 22px;
+            line-height: 1;
           }
           #cq-btn:hover {
             transform: scale(1.05) translateY(-2px);
-            box-shadow: 0 12px 36px rgba(255, 126, 33, 0.35);
+            box-shadow: 0 18px 40px rgba(255, 126, 33, 0.42), 0 8px 18px rgba(15, 23, 42, 0.18);
+          }
+          #cq-launcher-greeting {
+            position: fixed;
+            ${right ? `right:${20 + launcherGreetingOffsetX}px;` : `left:${20 + launcherGreetingOffsetX}px;`}
+            bottom: ${20 + launcherGreetingOffsetY}px;
+            width: ${launcherGreetingWidth}px;
+            max-width: calc(100vw - 96px);
+            box-sizing: border-box;
+            padding: 8px 11px;
+            border-radius: ${launcherGreetingBorderRadius}px;
+            background: linear-gradient(135deg, ${launcherGreetingBgStart}, ${launcherGreetingBgEnd});
+            color: ${launcherGreetingColor};
+            font-size: ${launcherGreetingFontSize}px;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: 0;
+            text-align: center;
+            overflow-wrap: break-word;
+            white-space: normal;
+            pointer-events: none;
+            z-index: 2147483647 !important;
+            box-shadow: 0 12px 28px rgba(255, 126, 33, 0.26), 0 5px 16px rgba(15, 23, 42, 0.14);
+            font-family: system-ui, -apple-system, sans-serif;
+            transform: translateY(-2px);
+          }
+          #cq-launcher-greeting::after {
+            content: "";
+            position: absolute;
+            ${right ? "right:16px;" : "left:16px;"}
+            bottom: -5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            background: linear-gradient(135deg, ${launcherGreetingBgStart}, ${launcherGreetingBgEnd});
+            transform: rotate(45deg);
+            box-shadow: 4px 4px 10px rgba(15, 23, 42, 0.08);
           }
 
           #cq-box {
@@ -525,12 +627,17 @@
               ${right ? "right:12px" : "left:12px"};
               bottom: 14px;
             }
+            #cq-launcher-greeting {
+              ${right ? `right:${12 + launcherGreetingOffsetX}px` : `left:${12 + launcherGreetingOffsetX}px`};
+              bottom: ${14 + launcherGreetingOffsetY}px;
+            }
           }
         </style>
       `);
 
       document.body.insertAdjacentHTML("beforeend", `
-        <button id="cq-btn">${cfg.launcherText ? `<span>${cfg.launcherIcon}</span> <span>${cfg.launcherText}</span>` : cfg.launcherIcon}</button>
+        ${renderLauncherGreetingBadge()}
+        <button id="cq-btn" title="${escapeAttribute(cfg.launcherGreeting || "Open chat")}" aria-label="${escapeAttribute(cfg.launcherGreeting || "Open chat")}">${renderLauncherIcon()}</button>
         <div id="cq-box">
           <div id="cq-head">
             <div id="cq-logo">${renderLogoImage("CodeQlik logo")}</div>

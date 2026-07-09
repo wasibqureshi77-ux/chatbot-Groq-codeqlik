@@ -74,6 +74,15 @@ function Admin() {
         botAvatar: "",
         launcherIcon: "",
         launcherText: "",
+        launcherGreeting: "Hello! Welcome to CodeQlik",
+        launcherGreetingColor: "#ffffff",
+        launcherGreetingFontSize: 9.5,
+        launcherGreetingBgStart: "#ff7e21",
+        launcherGreetingBgEnd: "#ff477e",
+        launcherGreetingWidth: 112,
+        launcherGreetingBorderRadius: 20,
+        launcherGreetingOffsetX: 52,
+        launcherGreetingOffsetY: 54,
         showNewChat: true,
         footerText: "",
         suggestions: [],
@@ -689,6 +698,21 @@ function Admin() {
             ? (settings.logoUrlDark || settings.logoUrl || DEFAULT_LOGO_DARK)
             : (settings.logoUrlLight || settings.logoUrl || DEFAULT_LOGO_LIGHT)
     );
+    const clampNumber = (value, min, max, fallback) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) ? Math.min(max, Math.max(min, numericValue)) : fallback;
+    };
+    const launcherGreetingColor = settings.launcherGreetingColor || "#ffffff";
+    const launcherGreetingBgStart = settings.launcherGreetingBgStart || settings.primaryColor || "#ff7e21";
+    const launcherGreetingBgEnd = settings.launcherGreetingBgEnd || "#ff477e";
+    const launcherGreetingFontSize = clampNumber(settings.launcherGreetingFontSize, 7, 18, 9.5);
+    const launcherGreetingWidth = clampNumber(settings.launcherGreetingWidth, 72, 180, 112);
+    const launcherGreetingBorderRadius = clampNumber(settings.launcherGreetingBorderRadius, 6, 40, 20);
+    const launcherGreetingOffsetX = clampNumber(settings.launcherGreetingOffsetX, 0, 180, 52);
+    const launcherGreetingOffsetY = clampNumber(settings.launcherGreetingOffsetY, 24, 140, 54);
+    const launcherGreetingText = settings.launcherGreeting || "Hello! Welcome to CodeQlik";
+    const launcherPreviewWidth = Math.max(150, launcherGreetingWidth + launcherGreetingOffsetX + 72);
+    const launcherPreviewHeight = Math.max(112, launcherGreetingOffsetY + 78);
 
     return (
         <div className="adminPage">
@@ -1825,6 +1849,138 @@ function Admin() {
                                             </div>
                                         </div>
 
+                                        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.8fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Launcher Greeting</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.launcherGreeting ?? "Hello! Welcome to CodeQlik"}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreeting: e.target.value })}
+                                                    placeholder="Hello! Welcome to CodeQlik"
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Launcher Greeting Color</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input
+                                                        type="color"
+                                                        value={launcherGreetingColor}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingColor: e.target.value })}
+                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherGreetingColor || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingColor: e.target.value })}
+                                                        placeholder={launcherGreetingColor}
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Launcher Text Size</label>
+                                                <input
+                                                    type="number"
+                                                    min="7"
+                                                    max="18"
+                                                    step="0.5"
+                                                    value={launcherGreetingFontSize}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingFontSize: Number(e.target.value) })}
+                                                    placeholder="9.5"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Greeting BG Start</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input
+                                                        type="color"
+                                                        value={launcherGreetingBgStart}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgStart: e.target.value })}
+                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherGreetingBgStart || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgStart: e.target.value })}
+                                                        placeholder="#ff7e21"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Greeting BG End</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input
+                                                        type="color"
+                                                        value={launcherGreetingBgEnd}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgEnd: e.target.value })}
+                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherGreetingBgEnd || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgEnd: e.target.value })}
+                                                        placeholder="#ff477e"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Greeting Width</label>
+                                                <input
+                                                    type="number"
+                                                    min="72"
+                                                    max="180"
+                                                    step="1"
+                                                    value={launcherGreetingWidth}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingWidth: Number(e.target.value) })}
+                                                    placeholder="112"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Greeting Radius</label>
+                                                <input
+                                                    type="number"
+                                                    min="6"
+                                                    max="40"
+                                                    step="1"
+                                                    value={launcherGreetingBorderRadius}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingBorderRadius: Number(e.target.value) })}
+                                                    placeholder="20"
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Greeting Offset X</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="180"
+                                                    step="1"
+                                                    value={launcherGreetingOffsetX}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingOffsetX: Number(e.target.value) })}
+                                                    placeholder="52"
+                                                />
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Greeting Offset Y</label>
+                                                <input
+                                                    type="number"
+                                                    min="24"
+                                                    max="140"
+                                                    step="1"
+                                                    value={launcherGreetingOffsetY}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingOffsetY: Number(e.target.value) })}
+                                                    placeholder="54"
+                                                />
+                                            </div>
+                                        </div>
+
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Primary Color</label>
@@ -1956,6 +2112,40 @@ function Admin() {
                                                 ))}
                                             </div>
                                         )}
+                                    </div>
+
+                                    <div
+                                        className={`mockLauncherPreview ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`}
+                                        style={{
+                                            "--mock-launcher-greeting-color": launcherGreetingColor,
+                                            "--mock-launcher-greeting-size": `${launcherGreetingFontSize}px`,
+                                            "--mock-launcher-greeting-bg-start": launcherGreetingBgStart,
+                                            "--mock-launcher-greeting-bg-end": launcherGreetingBgEnd,
+                                            "--mock-launcher-greeting-width": `${launcherGreetingWidth}px`,
+                                            "--mock-launcher-greeting-radius": `${launcherGreetingBorderRadius}px`,
+                                            "--mock-launcher-greeting-offset-x": `${launcherGreetingOffsetX}px`,
+                                            "--mock-launcher-greeting-offset-y": `${launcherGreetingOffsetY}px`,
+                                            width: `${launcherPreviewWidth}px`,
+                                            height: `${launcherPreviewHeight}px`
+                                        }}
+                                    >
+                                        {launcherGreetingText && (
+                                            <div className="mockLauncherGreetingBadge">{launcherGreetingText}</div>
+                                        )}
+                                        <div
+                                            className="mockLauncherButton"
+                                            style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}
+                                            title={settings.launcherGreeting || "Hello! Welcome to CodeQlik"}
+                                        >
+                                            {settings.launcherIcon && settings.launcherIcon !== "💬" ? (
+                                                <span className="mockLauncherCustomIcon">{settings.launcherIcon}</span>
+                                            ) : (
+                                                <svg className="mockLauncherChatIcon" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+                                                    <path d="M14 5.5c-5.5 0-10 3.35-10 7.48 0 2.55 1.72 4.8 4.35 6.15l-.62 3.12 3.42-2.03c.9.16 1.85.25 2.85.25 5.5 0 10-3.35 10-7.49S19.5 5.5 14 5.5Z" fill="#f8fbff" />
+                                                    <path d="M18.4 18.95c-1.28.66-2.78 1.02-4.4 1.02-1 0-1.95-.09-2.85-.25l-3.42 2.03.62-3.12c-1.04-.53-1.94-1.22-2.63-2.03 1.74.92 3.92 1.45 6.26 1.45 2.42 0 4.66-.56 6.42-1.52v2.42Z" fill="#c7d2fe" opacity="0.95" />
+                                                </svg>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
