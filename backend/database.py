@@ -282,7 +282,9 @@ DEFAULT_SETTINGS = {
     "position": "bottom-right",
     "width": "480px",
     "height": "680px",
-    "logoUrl": "",
+    "logoUrl": "/uploads/default_logo_light.png",
+    "logoUrlLight": "/uploads/default_logo_light.png",
+    "logoUrlDark": "/uploads/default_logo_dark.jpeg",
     "botAvatar": "CQ",
     "launcherIcon": "💬",
     "launcherText": "",
@@ -328,6 +330,12 @@ def get_chatbot_settings():
         for key, val in DEFAULT_SETTINGS.items():
             if key not in settings:
                 missing_updates[key] = val
+        if not settings.get("logoUrlLight"):
+            missing_updates["logoUrlLight"] = DEFAULT_SETTINGS["logoUrlLight"]
+        if not settings.get("logoUrlDark") or settings.get("logoUrlDark") == "/uploads/default_logo_dark.png":
+            missing_updates["logoUrlDark"] = DEFAULT_SETTINGS["logoUrlDark"]
+        if not settings.get("logoUrl"):
+            missing_updates["logoUrl"] = missing_updates.get("logoUrlLight", settings.get("logoUrlLight") or DEFAULT_SETTINGS["logoUrl"])
         if missing_updates:
             settings_collection.update_one({"type": "chatbot_settings"}, {"$set": missing_updates})
             settings.update(missing_updates)
@@ -349,6 +357,9 @@ def update_chatbot_settings(data: dict):
     s_email = data.get("supportEmail", data.get("support_email", settings.get("support_email")))
     s_phone = data.get("supportPhone", data.get("support_phone", settings.get("support_phone")))
     w_msg = data.get("welcomeMessage", data.get("chatbot_greeting", settings.get("chatbot_greeting")))
+    logo_light = data.get("logoUrlLight", settings.get("logoUrlLight") or DEFAULT_SETTINGS["logoUrlLight"])
+    logo_dark = data.get("logoUrlDark", settings.get("logoUrlDark") or DEFAULT_SETTINGS["logoUrlDark"])
+    legacy_logo = data.get("logoUrl", settings.get("logoUrl") or logo_light or DEFAULT_SETTINGS["logoUrl"])
     
     update_data = {
         # Snake_case keys
@@ -380,7 +391,9 @@ def update_chatbot_settings(data: dict):
         "position": data.get("position", settings.get("position")),
         "width": data.get("width", settings.get("width")),
         "height": data.get("height", settings.get("height")),
-        "logoUrl": data.get("logoUrl", settings.get("logoUrl", "")),
+        "logoUrl": legacy_logo,
+        "logoUrlLight": logo_light,
+        "logoUrlDark": logo_dark,
         "botAvatar": data.get("botAvatar", settings.get("botAvatar")),
         "launcherIcon": data.get("launcherIcon", settings.get("launcherIcon")),
         "launcherText": data.get("launcherText", settings.get("launcherText", "")),

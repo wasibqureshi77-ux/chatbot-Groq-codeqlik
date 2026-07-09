@@ -123,6 +123,8 @@ Create `backend/.env` and add values like:
 ```env
 API_KEY_1=your_llm_api_key
 API_KEY_2=optional_backup_llm_api_key
+GROQ_API_KEY=optional_preferred_groq_key_for_voice_stt
+GROQ_STT_MODEL=whisper-large-v3-turbo
 MONGO_URI=your_mongodb_connection_string
 MONGO_DB=company_chatbot
 JWT_SECRET=change_this_secret
@@ -177,6 +179,7 @@ A website can load the widget script and call `CodeQlikChat.init(...)`.
 
 - Run backend before frontend, because frontend API calls proxy to `http://127.0.0.1:8000`.
 - MongoDB must be reachable for chats, leads, support, meetings, and settings.
+- Voice STT uses Groq `whisper-large-v3-turbo` when a Groq key is configured, with local fallback.
 - Voice conversion works best when `ffmpeg` is installed.
 - The backend also has PyAV fallback for audio conversion.
 - Meeting booking slots are protected so the same active slot cannot be booked twice.

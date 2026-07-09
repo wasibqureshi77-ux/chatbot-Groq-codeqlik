@@ -1243,9 +1243,9 @@ input:checked + .slider:before {
 }
 
 .previewWidgetMock.theme-dark {
-    background: rgba(13, 13, 17, 0.95);
+    background: #111827;
     color: #f3f4f6;
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 126, 33, 0.32);
 }
 
 .mockHeader {
@@ -1273,7 +1273,30 @@ input:checked + .slider:before {
 .mockLogo img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    display: block;
+}
+
+.logoPreviewRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.logoPreviewRow img {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    object-fit: contain;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #ffffff;
+}
+
+.logoPreviewRowDark img {
+    background: #0f172a;
 }
 
 .mockHeaderText {
@@ -1348,12 +1371,20 @@ input:checked + .slider:before {
     justify-content: center;
     font-size: 9px;
     font-weight: 700;
+    overflow: hidden;
 }
 
 .theme-light .mockMsgAvatar {
     background: #f3f4f6;
     color: #1f2937;
     border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mockMsgAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
 }
 
 .mockMsg {
@@ -1374,9 +1405,9 @@ input:checked + .slider:before {
 }
 
 .theme-dark .mockBot {
-    background: rgba(255, 255, 255, 0.06);
+    background: #1f2937;
     color: #f3f4f6;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 126, 33, 0.2);
 }
 
 .theme-light .mockBot {
@@ -1422,7 +1453,7 @@ input:checked + .slider:before {
 }
 
 .theme-dark .mockForm {
-    background: rgba(20, 20, 26, 0.95);
+    background: #0f172a;
 }
 
 .mockInput {
@@ -1460,15 +1491,22 @@ input:checked + .slider:before {
 }
 
 .theme-dark .mockFooter {
-    color: rgba(255, 255, 255, 0.3);
-    background: rgba(5, 5, 7, 0.5);
-    border-top-color: rgba(255, 255, 255, 0.08);
+    color: #e5e7eb;
+    background: #0f172a;
+    border-top-color: rgba(255, 126, 33, 0.35);
+    font-weight: 600;
 }
 
 .theme-light .mockFooter {
-    color: rgba(0, 0, 0, 0.4);
+    color: #374151;
     background: rgba(0, 0, 0, 0.02);
     border-top-color: rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+}
+
+.mockFooterBrand {
+    color: #ff7e21;
+    font-weight: 800;
 }
 
 /* Install Guide */

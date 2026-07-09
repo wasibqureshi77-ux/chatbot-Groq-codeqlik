@@ -2,35 +2,72 @@ import os
 import time
 import logging
 import shutil
+from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("voice_service")
 logger.setLevel(logging.INFO)
 
 # --- STT Setup ---
-USE_FASTER_WHISPER = False
-try:
-    from faster_whisper import WhisperModel, download_model
-    import shutil
-    
-    # Dynamically resolve model size from the target directory name
-    model_size = "base" 
-    model_dir = os.path.join(os.path.dirname(__file__), "models", model_size)
-    
-    # Check if the model directory has finished downloading by verifying model.bin exists
-    model_bin_path = os.path.join(model_dir, "model.bin")
-    if not os.path.exists(model_bin_path):
-        if os.path.exists(model_dir):
-            logger.info(f"Incomplete model directory found, removing: {model_dir}")
-            shutil.rmtree(model_dir, ignore_errors=True)
-        
-        logger.info(f"Downloading faster-whisper {model_size} model locally...")
-        download_model(model_size, output_dir=model_dir)
+GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+GROQ_STT_PROMPT = os.getenv(
+    "GROQ_STT_PROMPT",
+    "CodeQlik chatbot voice message. The user may speak English, Hindi, or Hinglish. Preserve names, emails, phone numbers, company names, and software terms accurately."
+)
+GROQ_STT_LANGUAGE = (os.getenv("GROQ_STT_LANGUAGE") or "").strip() or None
+GROQ_STT_TIMEOUT_SECONDS = float(os.getenv("GROQ_STT_TIMEOUT_SECONDS", "30"))
+ENABLE_LOCAL_WHISPER_FALLBACK = os.getenv("ENABLE_LOCAL_WHISPER_FALLBACK", "").lower() in {"1", "true", "yes"}
 
-    stt_model = WhisperModel(model_dir, device="cpu", compute_type="int8")
-    USE_FASTER_WHISPER = True
-    logger.info(f"faster-whisper {model_size} model loaded successfully.")
-except Exception as e:
-    logger.warning(f"Could not load faster-whisper model ({model_size}): {e}. Using fallback SpeechRecognition.")
+def _get_groq_api_keys() -> List[str]:
+    keys = []
+    for name in ["GROQ_API_KEY", "API_KEY", *[f"API_KEY_{i}" for i in range(1, 11)]]:
+        key = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+GROQ_API_KEYS = _get_groq_api_keys()
+USE_GROQ_STT = bool(GROQ_API_KEYS)
+USE_FASTER_WHISPER = False
+stt_model = None
+
+def _load_faster_whisper() -> bool:
+    global USE_FASTER_WHISPER, stt_model
+    if USE_FASTER_WHISPER and stt_model is not None:
+        return True
+
+    try:
+        from faster_whisper import WhisperModel, download_model
+
+        model_size = os.getenv("LOCAL_WHISPER_MODEL", "base")
+        model_dir = os.path.join(os.path.dirname(__file__), "models", model_size)
+        model_bin_path = os.path.join(model_dir, "model.bin")
+
+        if not os.path.exists(model_bin_path):
+            if os.path.exists(model_dir):
+                logger.info(f"Incomplete model directory found, removing: {model_dir}")
+                shutil.rmtree(model_dir, ignore_errors=True)
+
+            logger.info(f"Downloading faster-whisper {model_size} model locally...")
+            download_model(model_size, output_dir=model_dir)
+
+        stt_model = WhisperModel(model_dir, device="cpu", compute_type="int8")
+        USE_FASTER_WHISPER = True
+        logger.info(f"faster-whisper {model_size} model loaded successfully.")
+        return True
+    except Exception as e:
+        USE_FASTER_WHISPER = False
+        stt_model = None
+        logger.warning(f"Could not load faster-whisper fallback model: {e}. Using SpeechRecognition fallback.")
+        return False
+
+if USE_GROQ_STT:
+    logger.info(f"Groq STT enabled with model={GROQ_STT_MODEL}.")
+else:
+    logger.warning("No Groq API key found for STT. Falling back to local/Google STT.")
+    _load_faster_whisper()
 
 # Fallback STT using speech_recognition library
 def transcribe_fallback(file_path: str) -> str:
@@ -46,7 +83,65 @@ def transcribe_fallback(file_path: str) -> str:
         logger.error(f"Fallback transcription failed: {e}")
         return ""
 
+def _extract_transcription_text(transcription) -> str:
+    if isinstance(transcription, str):
+        return transcription.strip()
+    if isinstance(transcription, dict):
+        return str(transcription.get("text") or "").strip()
+    return str(getattr(transcription, "text", "") or "").strip()
+
+def transcribe_with_groq(file_path: str, language: Optional[str] = None) -> str:
+    if not GROQ_API_KEYS:
+        return ""
+
+    try:
+        from groq import Groq
+    except Exception as exc:
+        logger.error(f"Groq SDK is not installed or unavailable: {exc}")
+        return ""
+
+    last_error = None
+    for index, api_key in enumerate(GROQ_API_KEYS, start=1):
+        try:
+            client = Groq(api_key=api_key, timeout=GROQ_STT_TIMEOUT_SECONDS)
+            with open(file_path, "rb") as audio_file:
+                request_kwargs = {
+                    "file": (os.path.basename(file_path), audio_file, "audio/wav"),
+                    "model": GROQ_STT_MODEL,
+                    "prompt": GROQ_STT_PROMPT,
+                    "response_format": "json",
+                    "temperature": 0.0,
+                }
+                transcription_language = language or GROQ_STT_LANGUAGE
+                if transcription_language:
+                    request_kwargs["language"] = transcription_language
+
+                transcription = client.audio.transcriptions.create(**request_kwargs)
+
+            text = _extract_transcription_text(transcription)
+            if text:
+                logger.info(f"Groq STT succeeded with key #{index} using {GROQ_STT_MODEL}.")
+                return text
+            logger.warning(f"Groq STT returned empty text with key #{index}.")
+        except Exception as exc:
+            last_error = exc
+            logger.warning(f"Groq STT failed with key #{index}: {exc}")
+
+    if last_error:
+        logger.error(f"All Groq STT keys failed. Last error: {last_error}")
+    return ""
+
 def transcribe_audio(file_path: str) -> str:
+    if USE_GROQ_STT:
+        text = transcribe_with_groq(file_path)
+        if text:
+            return text
+        logger.warning("Groq STT failed or returned empty text. Falling back to local STT.")
+
+    should_try_local_whisper = ENABLE_LOCAL_WHISPER_FALLBACK or not USE_GROQ_STT
+    if should_try_local_whisper and not USE_FASTER_WHISPER:
+        _load_faster_whisper()
+
     if USE_FASTER_WHISPER:
         try:
             segments, info = stt_model.transcribe(file_path, beam_size=5)

@@ -5,6 +5,7 @@ pymongo
 langgraph
 langchain-core
 langchain-groq
+groq
 typing-extensions
 passlib[bcrypt]
 python-jose[cryptography]

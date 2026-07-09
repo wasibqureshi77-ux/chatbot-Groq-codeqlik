@@ -141,27 +141,35 @@ BASE_DIR = Path(__file__).resolve().parent
 WIDGET_DIST_DIR = BASE_DIR / "dist"
 TEMP_AUDIO_DIR = BASE_DIR / "temp_audio"
 TEMP_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = BASE_DIR / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+from fastapi.responses import FileResponse
+
+@app.get("/dist/widget.js")
+def get_widget_js():
+    headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    return FileResponse(path=str(WIDGET_DIST_DIR / "widget.js"), headers=headers, media_type="application/javascript")
 
 app.mount("/dist", StaticFiles(directory=str(WIDGET_DIST_DIR)), name="dist")
 app.mount("/audio", StaticFiles(directory=str(TEMP_AUDIO_DIR)), name="audio")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.on_event("startup")
 async def startup_event():
     manager.loop = asyncio.get_running_loop()
 
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:5173,https://chatbot.codeqlik.cloud,http://127.0.0.1:5500,http://127.0.0.1:5501,https://codeqlik.com",
-)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS.split(",") if origin.strip()],
+    allow_origin_regex="https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class ChatRequest(BaseModel):
     message: str
@@ -199,6 +207,8 @@ class SettingsUpdate(BaseModel):
     width: Optional[str] = None
     height: Optional[str] = None
     logoUrl: Optional[str] = None
+    logoUrlLight: Optional[str] = None
+    logoUrlDark: Optional[str] = None
     botAvatar: Optional[str] = None
     launcherIcon: Optional[str] = None
     launcherText: Optional[str] = None
@@ -526,14 +536,19 @@ def get_settings(admin: str = Depends(require_admin)):
     return get_chatbot_settings()
 
 
+from fastapi import Response
+
 @app.get("/api/public/settings")
-def get_public_settings():
+def get_public_settings(response: Response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     settings = get_chatbot_settings()
     safe_keys = [
         "companyName", "companyDescription", "fallbackMessage",
         "generalEmail", "generalPhone", "supportEmail", "supportPhone",
         "title", "subtitle", "welcomeMessage", "placeholder", "primaryColor",
-        "theme", "position", "width", "height", "logoUrl", "botAvatar",
+        "theme", "position", "width", "height", "logoUrl", "logoUrlLight", "logoUrlDark", "botAvatar",
         "launcherIcon", "launcherText", "showNewChat", "footerText",
         "suggestions", "storage"
     ]
@@ -873,6 +888,18 @@ def get_dashboard(admin: str = Depends(require_admin)):
 # SETTINGS
 
 import re
+
+import shutil
+
+@app.post("/api/admin/settings/upload-logo")
+def upload_logo(file: UploadFile = File(...), admin: str = Depends(require_admin)):
+    import time
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"logo_{int(time.time())}{ext}"
+    filepath = UPLOAD_DIR / filename
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"url": f"/uploads/{filename}"}
 
 @app.put("/api/settings")
 def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)):

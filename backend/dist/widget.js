@@ -11,6 +11,20 @@
 
   window.CodeQlikChat = {
     async init(config = {}) {
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[char]));
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(value);
+      }
+
       function formatMessageText(text) {
         if (!text) return "";
         let formatted = text
@@ -36,6 +50,8 @@
       }
 
       const settingsUrl = config.settingsUrl || (defaultOrigin + "/api/public/settings");
+      const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
+      const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
       
       let fetchedSettings = {};
       try {
@@ -58,7 +74,9 @@
         position: "bottom-right", // bottom-right | bottom-left
         width: "480px",
         height: "680px",
-        logoUrl: "",
+        logoUrl: DEFAULT_LOGO_LIGHT,
+        logoUrlLight: DEFAULT_LOGO_LIGHT,
+        logoUrlDark: DEFAULT_LOGO_DARK,
         botAvatar: "CQ",
         launcherIcon: "💬",
         launcherText: "",
@@ -86,14 +104,44 @@
       const right = cfg.position === "bottom-right";
       const sideCss = right ? "right:20px;" : "left:20px;";
       
+      function resolveAssetUrl(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+        try {
+          return new URL(raw, defaultOrigin).href;
+        } catch (e) {
+          return "";
+        }
+      }
+
+      const primary = cfg.primaryColor || "#ff7e21";
       const isDark = cfg.theme === "dark";
-      const bg = isDark ? "rgba(13, 13, 17, 0.88)" : "rgba(255, 255, 255, 0.95)";
+      const fallbackLogo = resolveAssetUrl(isDark ? DEFAULT_LOGO_DARK : DEFAULT_LOGO_LIGHT);
+      const configuredLogo = isDark
+        ? (cfg.logoUrlDark || cfg.logoUrl || DEFAULT_LOGO_DARK)
+        : (cfg.logoUrlLight || cfg.logoUrl || DEFAULT_LOGO_LIGHT);
+      const activeLogo = resolveAssetUrl(configuredLogo) || fallbackLogo;
+      const bg = isDark ? "#111827" : "rgba(255, 255, 255, 0.98)";
       const text = isDark ? "#f3f4f6" : "#111827";
-      const botBg = isDark ? "rgba(255, 255, 255, 0.06)" : "#f3f4f6";
-      const userBg = cfg.primaryColor;
-      const borderColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)";
-      const headBg = isDark ? "rgba(20, 20, 26, 0.95)" : cfg.primaryColor;
+      const botBg = isDark ? "#1f2937" : "#f3f4f6";
+      const userBg = primary;
+      const borderColor = isDark ? `${primary}55` : "rgba(0, 0, 0, 0.08)";
+      const headBg = isDark ? "#0f172a" : primary;
       const headText = "#ffffff";
+
+      function renderLogoImage(altText = "CodeQlik logo") {
+        if (!activeLogo) {
+          return escapeHtml(cfg.botAvatar || "CQ");
+        }
+        const fallbackHandler = fallbackLogo && fallbackLogo !== activeLogo
+          ? ` onerror="this.onerror=null;this.src='${escapeAttribute(fallbackLogo)}'"`
+          : "";
+        return `<img src="${escapeAttribute(activeLogo)}" alt="${escapeAttribute(altText)}"${fallbackHandler}>`;
+      }
+
+      function renderFooterText(value) {
+        return escapeHtml(value || "").replace(/CodeQlik/gi, '<span class="cq-footer-brand">$&</span>');
+      }
 
       document.head.insertAdjacentHTML("beforeend", `
         <style>
@@ -115,7 +163,7 @@
             height: 60px;
             border-radius: 999px;
             border: 0;
-            background: ${cfg.primaryColor};
+            background: ${primary};
             color: #fff;
             font-size: 22px;
             cursor: pointer;
@@ -175,7 +223,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid ${borderColor};
+            border-bottom: 2px solid ${primary};
           }
           #cq-logo {
             width: 40px;
@@ -187,10 +235,10 @@
             justify-content: center;
             overflow: hidden;
             font-weight: 700;
-            color: ${cfg.primaryColor};
-            border: 1.5px solid ${isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.05)"};
+            color: ${primary};
+            border: 1.5px solid ${isDark ? "rgba(255, 126, 33, 0.55)" : "rgba(0, 0, 0, 0.05)"};
           }
-          #cq-logo img { width: 100%; height: 100%; object-fit: cover; }
+          #cq-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
           #cq-title-container { flex: 1; }
           #cq-title { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
           #cq-subtitle {
@@ -252,7 +300,7 @@
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            background: ${isDark ? "rgba(255, 255, 255, 0.1)" : cfg.primaryColor};
+            background: ${isDark ? "#0f172a" : primary};
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -266,7 +314,8 @@
           .cq-msg-avatar img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            display: block;
           }
           .cq-msg {
             padding: 12px 14px;
@@ -285,7 +334,7 @@
             background: ${botBg};
             color: ${text};
             border-bottom-left-radius: 4px;
-            border: 1px solid ${borderColor};
+            border: 1px solid ${isDark ? `${primary}33` : borderColor};
           }
 
           .cq-typing-indicator {
@@ -339,9 +388,9 @@
             transition: all 0.2s;
           }
           .cq-suggestion:hover {
-            border-color: ${cfg.primaryColor};
+            border-color: ${primary};
             background: ${isDark ? "rgba(255, 126, 33, 0.08)" : "rgba(255, 126, 33, 0.05)"};
-            color: ${isDark ? "#ffffff" : cfg.primaryColor};
+            color: ${isDark ? "#ffffff" : primary};
             transform: translateY(-1px);
           }
           .cq-inline-options {
@@ -351,9 +400,9 @@
             margin-top: 12px;
           }
           .cq-fixed-option {
-            border: 1px solid ${cfg.primaryColor};
+            border: 1px solid ${primary};
             background: ${isDark ? "rgba(255, 126, 33, 0.14)" : "rgba(255, 126, 33, 0.10)"};
-            color: ${isDark ? "#ffffff" : cfg.primaryColor};
+            color: ${isDark ? "#ffffff" : primary};
             border-radius: 8px;
             padding: 8px 12px;
             cursor: pointer;
@@ -362,7 +411,7 @@
             transition: all 0.2s;
           }
           .cq-fixed-option:hover:not(:disabled) {
-            background: ${cfg.primaryColor};
+            background: ${primary};
             color: #ffffff;
           }
           .cq-fixed-option:disabled {
@@ -400,11 +449,11 @@
           }
 
           #cq-input:focus {
-            border-color: ${cfg.primaryColor} !important;
+            border-color: ${primary} !important;
           }
 
           #cq-send {
-            background: ${cfg.primaryColor};
+            background: ${primary};
             color: #fff;
             border: 0;
             height: 40px;
@@ -437,7 +486,7 @@
             justify-content: center;
           }
           #cq-mic:hover {
-            border-color: ${cfg.primaryColor};
+            border-color: ${primary};
             background: ${isDark ? "rgba(255, 255, 255, 0.1)" : "#e5e7eb"};
           }
           #cq-mic.cq-recording {
@@ -455,9 +504,14 @@
             font-size: 11px;
             text-align: center;
             padding: 8px;
-            color: ${isDark ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)"};
+            color: ${isDark ? "#e5e7eb" : "#374151"};
             border-top: 1px solid ${borderColor};
-            background: ${isDark ? "rgba(5, 5, 7, 0.5)" : "rgba(0, 0, 0, 0.01)"};
+            background: ${isDark ? "#0f172a" : "rgba(0, 0, 0, 0.02)"};
+            font-weight: 600;
+          }
+          #cq-footer .cq-footer-brand {
+            color: ${primary};
+            font-weight: 800;
           }
 
           @media (max-width: 480px) {
@@ -479,7 +533,7 @@
         <button id="cq-btn">${cfg.launcherText ? `<span>${cfg.launcherIcon}</span> <span>${cfg.launcherText}</span>` : cfg.launcherIcon}</button>
         <div id="cq-box">
           <div id="cq-head">
-            <div id="cq-logo">${cfg.logoUrl ? `<img src="${cfg.logoUrl}" alt="logo">` : cfg.botAvatar}</div>
+            <div id="cq-logo">${renderLogoImage("CodeQlik logo")}</div>
             <div id="cq-title-container">
               <div id="cq-title">${cfg.title}</div>
               <div id="cq-subtitle">${cfg.subtitle}</div>
@@ -488,7 +542,7 @@
           </div>
           <div id="cq-msgs">
             <div class="cq-msg-row cq-bot-row">
-              <div class="cq-msg-avatar">${cfg.botAvatar || "🤖"}</div>
+              <div class="cq-msg-avatar" style="overflow:hidden;">${renderLogoImage("Bot avatar")}</div>
               <div class="cq-msg cq-bot">${formatMessageText(cfg.welcomeMessage)}</div>
             </div>
           </div>
@@ -507,7 +561,7 @@
               </svg>
             </button>
           </div>
-          ${cfg.footerText ? `<div id="cq-footer">${cfg.footerText}</div>` : ""}
+          ${cfg.footerText ? `<div id="cq-footer">${renderFooterText(cfg.footerText)}</div>` : ""}
         </div>
       `);
 
@@ -693,7 +747,8 @@
         if (type === "bot" || type === "typing") {
           const avatar = document.createElement("div");
           avatar.className = "cq-msg-avatar";
-          avatar.textContent = cfg.botAvatar || "🤖";
+          avatar.style.overflow = "hidden";
+          avatar.innerHTML = renderLogoImage("Bot avatar");
           row.appendChild(avatar);
         }
         
@@ -921,7 +976,7 @@
           clearFixedOptions();
           msgs.innerHTML = `
             <div class="cq-msg-row cq-bot-row">
-              <div class="cq-msg-avatar">${cfg.botAvatar || "🤖"}</div>
+              <div class="cq-msg-avatar" style="overflow:hidden;">${renderLogoImage("Bot avatar")}</div>
               <div class="cq-msg cq-bot">${cfg.welcomeMessage}</div>
             </div>
           `;

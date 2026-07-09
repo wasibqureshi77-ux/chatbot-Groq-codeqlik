@@ -21,10 +21,6 @@ MODEL_COSTS = {
     "gemma2-9b-it": {"input_cost_per_million": 0.20, "output_cost_per_million": 0.20},
     "gpt-oss-120b": {"input_cost_per_million": 0.15, "output_cost_per_million": 0.60},
     "gpt-oss-20b": {"input_cost_per_million": 0.075, "output_cost_per_million": 0.30},
-    "compound-mini": {"input_cost_per_million": 0.015, "output_cost_per_million": 0.03},
-    "qwen3.6-27b": {"input_cost_per_million": 0.10, "output_cost_per_million": 0.15},
-    "qwen3-32b": {"input_cost_per_million": 0.12, "output_cost_per_million": 0.18},
-    "llama-prompt-guard-2-86m": {"input_cost_per_million": 0.005, "output_cost_per_million": 0.005},
 }
 
 def get_model_cost_rates(model: str):

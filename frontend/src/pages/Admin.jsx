@@ -6,12 +6,24 @@ const API_BASE = "/api/admin";
 // API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
 const API_ROOT = API_BASE.replace("/api/admin", "");
 const PUBLIC_ROOT = window.location.origin;
+const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
+const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
+
+function resolvePublicAssetUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+        return new URL(raw, PUBLIC_ROOT).href;
+    } catch {
+        return raw;
+    }
+}
 
 function Admin() {
 
     const [activeTab, setActiveTab] = useState("dashboard");
     const [loading, setLoading] = useState(false);
-    
+
     // Search / Filter states
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
@@ -19,7 +31,7 @@ function Admin() {
 
     // Data lists
     const [dashboardData, setDashboardData] = useState({
-        counters: { chats: 0, threads: 0, leads: 0, support: 0, hiring: 0, meetings: 0, knowledge: 0, active_sources: 0, disabled_sources: 0 },
+        counters: { chats: 0, threads: 0, leads: 0, support: 0, hiring: 0, knowledge: 0, active_sources: 0, disabled_sources: 0 },
         recent_activity: [],
         intent_breakdown: {}
     });
@@ -27,11 +39,10 @@ function Admin() {
     const [selectedThreadId, setSelectedThreadId] = useState("");
     const [selectedThreadMessages, setSelectedThreadMessages] = useState([]);
     const [selectedThreadProfile, setSelectedThreadProfile] = useState({});
-    
+
     const [leads, setLeads] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [candidates, setCandidates] = useState([]);
-    const [meetings, setMeetings] = useState([]);
     const [knowledgeSources, setKnowledgeSources] = useState([]);
     const [syncStatus, setSyncStatus] = useState({
         total_sources: 0,
@@ -57,7 +68,9 @@ function Admin() {
         position: "bottom-right",
         width: "",
         height: "",
-        logoUrl: "",
+        logoUrl: DEFAULT_LOGO_LIGHT,
+        logoUrlLight: DEFAULT_LOGO_LIGHT,
+        logoUrlDark: DEFAULT_LOGO_DARK,
         botAvatar: "",
         launcherIcon: "",
         launcherText: "",
@@ -93,28 +106,16 @@ function Admin() {
     const [llmStartDate, setLlmStartDate] = useState("");
     const [llmEndDate, setLlmEndDate] = useState("");
     const [llmModelFilter, setLlmModelFilter] = useState("");
-    
+
     // Cost Calculator Simulated Rate States
     const [modelRates, setModelRates] = useState({});
 
     const getDefaultRates = (modelName) => {
         const name = (modelName || "").toLowerCase();
-        if (name.includes("gpt-oss-120b")) {
-            return { input: 0.15, output: 0.60 };
-        } else if (name.includes("gpt-oss-20b")) {
-            return { input: 0.075, output: 0.30 };
-        } else if (name.includes("llama3-70b") || name.includes("llama-3.1-70b")) {
+        if (name.includes("llama3-70b") || name.includes("llama-3.1-70b")) {
             return { input: 0.59, output: 0.79 };
         } else if (name.includes("llama3-8b") || name.includes("llama-3.1-8b")) {
             return { input: 0.05, output: 0.08 };
-        } else if (name.includes("compound-mini")) {
-            return { input: 0.015, output: 0.03 };
-        } else if (name.includes("qwen3.6-27b")) {
-            return { input: 0.10, output: 0.15 };
-        } else if (name.includes("qwen3-32b") || name.includes("qwen")) {
-            return { input: 0.12, output: 0.18 };
-        } else if (name.includes("prompt-guard")) {
-            return { input: 0.005, output: 0.005 };
         } else if (name.includes("mixtral")) {
             return { input: 0.24, output: 0.24 };
         } else if (name.includes("gemma")) {
@@ -131,7 +132,7 @@ function Admin() {
     const [docFile, setDocFile] = useState(null);
     const [docCategory, setDocCategory] = useState("Company Information");
     const [docMetadata, setDocMetadata] = useState({ intent_scope: "Auto", topic: "Auto", service: "Auto", tags: "" });
-    
+
     // Knowledge Editor Modal States
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingSourceId, setEditingSourceId] = useState(null);
@@ -165,12 +166,12 @@ function Admin() {
                 const queryParams = new URLSearchParams();
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (extraFilter) queryParams.append("intent", extraFilter);
-                
+
                 const res = await apiFetch(`${API_BASE}/chats?${queryParams.toString()}`);
                 if (res.ok) {
                     const data = await res.json();
                     setChatsList(data);
-                    
+
                     // Maintain selected thread
                     if (selectedThreadId) {
                         fetchThreadMessages(selectedThreadId);
@@ -183,7 +184,7 @@ function Admin() {
                 const queryParams = new URLSearchParams();
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("status", statusFilter);
-                
+
                 const res = await apiFetch(`${API_BASE}/leads?${queryParams.toString()}`);
                 if (res.ok) {
                     setLeads(await res.json());
@@ -193,7 +194,7 @@ function Admin() {
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("status", statusFilter);
                 if (extraFilter) queryParams.append("priority", extraFilter);
-                
+
                 const res = await apiFetch(`${API_BASE}/support?${queryParams.toString()}`);
                 if (res.ok) {
                     setTickets(await res.json());
@@ -202,26 +203,21 @@ function Admin() {
                 const queryParams = new URLSearchParams();
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("status", statusFilter);
-                
+
                 const res = await apiFetch(`${API_BASE}/hiring?${queryParams.toString()}`);
                 if (res.ok) {
                     setCandidates(await res.json());
-                }
-            } else if (activeTab === "meetings") {
-                const res = await apiFetch(`${API_BASE}/meetings`);
-                if (res.ok) {
-                    setMeetings(await res.json());
                 }
             } else if (activeTab === "knowledge") {
                 const queryParams = new URLSearchParams();
                 if (searchQuery) queryParams.append("q", searchQuery);
                 if (statusFilter) queryParams.append("type", statusFilter);
-                
+
                 const res = await apiFetch(`${API_BASE}/knowledge?${queryParams.toString()}`);
                 if (res.ok) {
                     setKnowledgeSources(await res.json());
                 }
-                
+
                 // Fetch sync status details
                 const syncRes = await apiFetch(`${API_BASE}/knowledge/sync-status`);
                 if (syncRes.ok) {
@@ -239,14 +235,14 @@ function Admin() {
                 if (llmStartDate) queryParams.append("start_date", llmStartDate);
                 if (llmEndDate) queryParams.append("end_date", llmEndDate);
                 if (llmModelFilter) queryParams.append("model", llmModelFilter);
-                
+
                 const [summaryRes, modelRes, dailyRes, recentRes] = await Promise.all([
                     apiFetch(`${API_BASE}/analytics/llm-usage/summary?${queryParams.toString()}`),
                     apiFetch(`${API_BASE}/analytics/llm-usage/by-model?${queryParams.toString()}`),
                     apiFetch(`${API_BASE}/analytics/llm-usage/daily?${queryParams.toString()}`),
                     apiFetch(`${API_BASE}/analytics/llm-usage/recent?${queryParams.toString()}`)
                 ]);
-                
+
                 if (summaryRes.ok) setLlmSummary(await summaryRes.json());
                 if (modelRes.ok) setModelUsage(await modelRes.json());
                 if (dailyRes.ok) setDailyUsage(await dailyRes.json());
@@ -285,7 +281,7 @@ function Admin() {
             setSelectedThreadMessages([]);
             setSelectedThreadProfile({});
         }
-        
+
         setLoading(true);
         fetchData().finally(() => setLoading(false));
     }, [activeTab]);
@@ -336,19 +332,6 @@ function Admin() {
         } catch (err) { console.error(err); }
     }
 
-    async function handleUpdateMeetingStatus(meetingId, newStatus) {
-        try {
-            const res = await apiFetch(`${API_BASE}/meetings/${meetingId}/status`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus })
-            });
-            if (res.ok) {
-                setMeetings(meetings.map(m => (m.id === meetingId || m._id === meetingId) ? { ...m, profile: { ...m.profile, status: newStatus } } : m));
-            }
-        } catch (err) { console.error("Failed to update meeting status:", err); }
-    }
-
     async function handleSupportUpdate(ticketId, field, value) {
         const payload = {};
         payload[field] = value;
@@ -397,6 +380,36 @@ function Admin() {
             alert("Failed to save settings due to network error.");
         }
     }
+
+    // Logo upload handler
+    const handleLogoUpload = async (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        try {
+            const res = await apiFetch(`${API_ROOT}/api/admin/settings/upload-logo`, {
+                method: "POST",
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (type === "light") {
+                    setSettings(prev => ({ ...prev, logoUrlLight: data.url, logoUrl: data.url }));
+                } else {
+                    setSettings(prev => ({ ...prev, logoUrlDark: data.url }));
+                }
+                alert("Logo uploaded successfully!");
+            } else {
+                alert("Logo upload failed. Verify admin authorization.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error uploading logo file.");
+        }
+    };
 
     // Knowledge actions
     async function handleToggleSource(sourceId, currentState) {
@@ -658,17 +671,24 @@ function Admin() {
                     </div>
                     <div className="formGroup">
                         <label>Tags (comma-separated)</label>
-                        <input 
-                            type="text" 
-                            value={formState.tags || ""} 
-                            onChange={(e) => setFormState({ ...formState, tags: e.target.value })} 
-                            placeholder="e.g. tag1, tag2" 
+                        <input
+                            type="text"
+                            value={formState.tags || ""}
+                            onChange={(e) => setFormState({ ...formState, tags: e.target.value })}
+                            placeholder="e.g. tag1, tag2"
                         />
                     </div>
                 </div>
             </>
         );
     }
+
+    const isPreviewDark = settings.theme === "dark";
+    const activeWidgetLogo = resolvePublicAssetUrl(
+        isPreviewDark
+            ? (settings.logoUrlDark || settings.logoUrl || DEFAULT_LOGO_DARK)
+            : (settings.logoUrlLight || settings.logoUrl || DEFAULT_LOGO_LIGHT)
+    );
 
     return (
         <div className="adminPage">
@@ -696,9 +716,6 @@ function Admin() {
                     <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => setActiveTab("hiring")}>
                         💼 Hiring Candidates
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "meetings" ? "active" : ""}`} onClick={() => setActiveTab("meetings")}>
-                        📅 Booked Meetings
-                    </button>
                     <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => setActiveTab("knowledge")}>
                         📚 Knowledge Sources
                     </button>
@@ -709,10 +726,10 @@ function Admin() {
                         ⚙️ Settings
                     </button>
                 </nav>
-            
-                <button 
-                    onClick={() => { sessionStorage.removeItem("admin_token"); window.location.replace("/"); }} 
-                    style={{marginTop: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer', width: '100%', display: 'block', textAlign: 'center'}}
+
+                <button
+                    onClick={() => { sessionStorage.removeItem("admin_token"); window.location.replace("/"); }}
+                    style={{ marginTop: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer', width: '100%', display: 'block', textAlign: 'center' }}
                 >
                     Logout
                 </button>
@@ -768,11 +785,6 @@ function Admin() {
                                 <span className="statCardFooter">Submitted job application candidacies</span>
                             </div>
                             <div className="statCard">
-                                <span className="statCardTitle">Booked Meetings</span>
-                                <span className="statCardValue">{dashboardData.counters.meetings || 0}</span>
-                                <span className="statCardFooter">Confirmed discussion slots</span>
-                            </div>
-                            <div className="statCard">
                                 <span className="statCardTitle">Total Knowledge Sources</span>
                                 <span className="statCardValue">{dashboardData.counters.knowledge}</span>
                                 <span className="statCardFooter">
@@ -795,7 +807,6 @@ function Admin() {
                                                     {act.type === "lead" && "🤝"}
                                                     {act.type === "support" && "🛠️"}
                                                     {act.type === "hiring" && "💼"}
-                                                    {act.type === "meeting" && "📅"}
                                                 </div>
                                                 <div className="timelineBody">
                                                     <div className="timelineTitle">{act.title}</div>
@@ -820,7 +831,7 @@ function Admin() {
                                             return (
                                                 <div className="intentBarRow" key={intent}>
                                                     <div className="intentBarLabels">
-                                                        <span style={{textTransform: "capitalize"}}>{intent.replace("_", " ")}</span>
+                                                        <span style={{ textTransform: "capitalize" }}>{intent.replace("_", " ")}</span>
                                                         <span>{count} ({pct.toFixed(0)}%)</span>
                                                     </div>
                                                     <div className="intentBarBg">
@@ -844,8 +855,8 @@ function Admin() {
                         <div className="filterRow">
                             <div className="searchBox">
                                 <span className="searchBoxIcon">🔍</span>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="Search logs, thread ID, user inputs..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -858,7 +869,6 @@ function Admin() {
                                     <option value="client_lead">Client Lead</option>
                                     <option value="customer_support">Customer Support</option>
                                     <option value="hiring_support">Hiring Support</option>
-                                    <option value="meeting_booking">Meeting Booking</option>
                                     <option value="general_chat">General Chat</option>
                                 </select>
                             </div>
@@ -871,11 +881,11 @@ function Admin() {
                                 <div className="threadsPanel">
                                     <div className="threadsHeader">
                                         <h4>Conversations (Groups)</h4>
-                                        <span style={{fontSize: "12px", color: "var(--success)"}}>● Live Updates</span>
+                                        <span style={{ fontSize: "12px", color: "var(--success)" }}>● Live Updates</span>
                                     </div>
                                     <div className="threadsList">
                                         {chatsList.map((t) => (
-                                            <div 
+                                            <div
                                                 key={t.thread_id}
                                                 className={`threadCard ${selectedThreadId === t.thread_id ? "active" : ""}`}
                                                 onClick={() => handleSelectThread(t.thread_id)}
@@ -883,7 +893,7 @@ function Admin() {
                                                 <div className="threadCardHeader">
                                                     <span className="threadCardName">{t.user_name}</span>
                                                     <span className="threadCardTime">
-                                                        {new Date(t.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                        {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
                                                 <div className="threadCardMessage">{t.last_message}</div>
@@ -900,14 +910,14 @@ function Admin() {
                                     {selectedThreadId && selectedThreadMessages.length > 0 ? (
                                         <>
                                             <div className="conversationHeader">
-                                                <h3>Conversation: {chatsList.find(t=>t.thread_id===selectedThreadId)?.user_name || "Anonymous User"}</h3>
+                                                <h3>Conversation: {chatsList.find(t => t.thread_id === selectedThreadId)?.user_name || "Anonymous User"}</h3>
                                                 <p>Thread ID: {selectedThreadId}</p>
                                             </div>
                                             <div className="conversationMessages">
                                                 {(() => {
                                                     const thread = chatsList.find(t => t.thread_id === selectedThreadId);
                                                     let intent = thread?.intent || "";
-                                                    
+
                                                     const schemas = {
                                                         client_lead: [
                                                             "name",
@@ -933,25 +943,12 @@ function Admin() {
                                                             "experience",
                                                             "skills",
                                                             "resume_or_portfolio"
-                                                        ],
-                                                        meeting_booking: [
-                                                            "name",
-                                                            "email",
-                                                            "phone",
-                                                            "company",
-                                                            "work_details",
-                                                            "meeting_mode",
-                                                            "date",
-                                                            "time_slot",
-                                                            "status"
                                                         ]
                                                     };
-                                                    
+
                                                     if (!schemas[intent]) {
                                                         const keys = Object.keys(selectedThreadProfile || {});
-                                                        if (keys.some(k => ["work_details", "meeting_mode", "time_slot"].includes(k))) {
-                                                            intent = "meeting_booking";
-                                                        } else if (keys.some(k => ["project_type", "requirements", "budget", "timeline"].includes(k))) {
+                                                        if (keys.some(k => ["project_type", "requirements", "budget", "timeline"].includes(k))) {
                                                             intent = "client_lead";
                                                         } else if (keys.some(k => ["issue_type", "issue_details", "urgency"].includes(k))) {
                                                             intent = "customer_support";
@@ -961,17 +958,17 @@ function Admin() {
                                                             intent = "client_lead";
                                                         }
                                                     }
-                                                    
+
                                                     const fields = schemas[intent] || [];
                                                     const extractedFields = fields.filter(field => {
                                                         const val = selectedThreadProfile?.[field];
                                                         return val !== undefined && val !== null && val !== "";
                                                     });
-                                                    
+
                                                     if (extractedFields.length === 0) {
                                                         return null;
                                                     }
-                                                    
+
                                                     return (
                                                         <div className="extractedProfilePanel">
                                                             <h5>Extracted Profile Details ({intent.replace(/_/g, ' ').toUpperCase()})</h5>
@@ -991,22 +988,22 @@ function Admin() {
                                                         </div>
                                                     );
                                                 })()}
-                                                
+
                                                 {selectedThreadMessages.map((m, idx) => (
-                                                    <div key={idx} style={{width: "100%"}}>
+                                                    <div key={idx} style={{ width: "100%" }}>
                                                         <div className="messageRow userRow">
                                                             <div className="messageBubble userBubble">
                                                                 <div>{m.user_message}</div>
-                                                                <div style={{fontSize: "10px", color: "rgba(255,255,255,0.7)", marginTop: "4px", textAlign: "right"}}>
-                                                                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                                <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", marginTop: "4px", textAlign: "right" }}>
+                                                                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="messageRow botRow" style={{marginTop: "12px"}}>
+                                                        <div className="messageRow botRow" style={{ marginTop: "12px" }}>
                                                             <div className="messageBubble botBubble">
                                                                 <div>{m.bot_message}</div>
-                                                                <div style={{fontSize: "10px", color: "var(--text-muted)", marginTop: "4px"}}>
-                                                                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} | Intent: {m.intent}
+                                                                <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "4px" }}>
+                                                                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} | Intent: {m.intent}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1033,8 +1030,8 @@ function Admin() {
                         <div className="filterRow">
                             <div className="searchBox">
                                 <span className="searchBoxIcon">🔍</span>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="Search name, company, timeline..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1084,10 +1081,10 @@ function Admin() {
                                                     <td>{email_or_phone}</td>
                                                     <td>{company}</td>
                                                     <td>{project_type}</td>
-                                                    <td style={{maxWidth: "200px", wordBreak: "break-word"}}>{requirements}</td>
+                                                    <td style={{ maxWidth: "200px", wordBreak: "break-word" }}>{requirements}</td>
                                                     <td>
                                                         <div>Budget: {budget}</div>
-                                                        <div style={{fontSize: "12px", color: "var(--text-muted)"}}>Timeline: {timeline}</div>
+                                                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Timeline: {timeline}</div>
                                                     </td>
                                                     <td>
                                                         <select
@@ -1119,8 +1116,8 @@ function Admin() {
                         <div className="filterRow">
                             <div className="searchBox">
                                 <span className="searchBoxIcon">🔍</span>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="Search tickets, name, issues..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1171,7 +1168,7 @@ function Admin() {
                                                     <td><strong>{name}</strong></td>
                                                     <td>{email_or_phone}</td>
                                                     <td><span className="threadCardIntent">{issue_type}</span></td>
-                                                    <td style={{maxWidth: "250px", wordBreak: "break-word"}}>{issue_details}</td>
+                                                    <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{issue_details}</td>
                                                     <td>
                                                         <select
                                                             className="tableSelect"
@@ -1212,8 +1209,8 @@ function Admin() {
                         <div className="filterRow">
                             <div className="searchBox">
                                 <span className="searchBoxIcon">🔍</span>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="Search applicants, skill tags..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1263,14 +1260,14 @@ function Admin() {
                                                     <td><strong>{name}</strong></td>
                                                     <td>
                                                         <div>{email}</div>
-                                                        <div style={{fontSize: "12px", color:"var(--text-muted)"}}>{phone}</div>
+                                                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{phone}</div>
                                                     </td>
                                                     <td>{role}</td>
                                                     <td>{experience}</td>
-                                                    <td style={{maxWidth: "200px"}}>{skills}</td>
+                                                    <td style={{ maxWidth: "200px" }}>{skills}</td>
                                                     <td>
                                                         {resume_or_portfolio ? (
-                                                            <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{color: "var(--accent)", fontWeight: "600"}}>
+                                                            <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: "600" }}>
                                                                 Open Link
                                                             </a>
                                                         ) : "Not Provided"}
@@ -1304,11 +1301,11 @@ function Admin() {
                 {!loading && activeTab === "knowledge" && (
                     <div>
                         {/* 30-Second checking banner info */}
-                        <div className="extractedProfilePanel" style={{display: "flex", justifyContent:"space-between", alignItems:"center", marginBottom: "24px"}}>
+                        <div className="extractedProfilePanel" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                             <div>
                                 📊 <strong>Retriever Sync Status:</strong> Active Sources: <strong>{syncStatus.active_sources}</strong> / Chunks: <strong>{syncStatus.total_chunks}</strong>
                             </div>
-                            <span style={{fontSize: "12px", color: "var(--text-muted)"}}>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                                 Auto checking sync every 30s | Last sync: {syncStatus.last_updated}
                             </span>
                         </div>
@@ -1322,16 +1319,16 @@ function Admin() {
 
                         {/* FORM: Manual Entry */}
                         {sourceType === "manual" && (
-                            <form className="settingsForm" onSubmit={handleCreateManual} style={{marginBottom: "36px"}}>
+                            <form className="settingsForm" onSubmit={handleCreateManual} style={{ marginBottom: "36px" }}>
                                 <h4>Add Manual Knowledge</h4>
                                 <div className="formGroup">
                                     <label>Source Title</label>
-                                    <input 
-                                        type="text" 
-                                        value={manualForm.title} 
-                                        onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })} 
-                                        placeholder="e.g. Services: Web App Pricing" 
-                                        required 
+                                    <input
+                                        type="text"
+                                        value={manualForm.title}
+                                        onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
+                                        placeholder="e.g. Services: Web App Pricing"
+                                        required
                                     />
                                 </div>
                                 <div className="formGroup">
@@ -1348,12 +1345,12 @@ function Admin() {
                                 </div>
                                 <div className="formGroup">
                                     <label>Content Description</label>
-                                    <textarea 
-                                        rows="5" 
-                                        value={manualForm.content} 
-                                        onChange={(e) => setManualForm({ ...manualForm, content: e.target.value })} 
-                                        placeholder="Detailed content details to index for retriever search..." 
-                                        required 
+                                    <textarea
+                                        rows="5"
+                                        value={manualForm.content}
+                                        onChange={(e) => setManualForm({ ...manualForm, content: e.target.value })}
+                                        placeholder="Detailed content details to index for retriever search..."
+                                        required
                                     />
                                 </div>
                                 {renderMetadataFields(manualForm, setManualForm)}
@@ -1363,15 +1360,15 @@ function Admin() {
 
                         {/* FORM: Document Upload */}
                         {sourceType === "document" && (
-                            <form className="settingsForm" onSubmit={handleUploadDoc} style={{marginBottom: "36px"}}>
+                            <form className="settingsForm" onSubmit={handleUploadDoc} style={{ marginBottom: "36px" }}>
                                 <h4>Add Document Source (PDF, DOCX, TXT, CSV, JSON, MD, XLSX)</h4>
                                 <div className="formGroup">
                                     <label>Choose File</label>
-                                    <input 
-                                        type="file" 
+                                    <input
+                                        type="file"
                                         accept=".txt,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls,.md"
                                         onChange={(e) => setDocFile(e.target.files[0])}
-                                        required 
+                                        required
                                     />
                                 </div>
                                 <div className="formGroup">
@@ -1393,17 +1390,17 @@ function Admin() {
 
                         {/* FORM: Database Connection */}
                         {sourceType === "database" && (
-                            <form className="settingsForm" onSubmit={handleConnectDb} style={{marginBottom: "36px"}}>
+                            <form className="settingsForm" onSubmit={handleConnectDb} style={{ marginBottom: "36px" }}>
                                 <h4>Connect Corporate Database Source</h4>
-                                <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                     <div className="formGroup">
                                         <label>Connection Name</label>
-                                        <input 
-                                            type="text" 
-                                            value={dbForm.connection_name} 
-                                            onChange={(e) => setDbForm({ ...dbForm, connection_name: e.target.value })} 
-                                            placeholder="e.g. Products MongoDB" 
-                                            required 
+                                        <input
+                                            type="text"
+                                            value={dbForm.connection_name}
+                                            onChange={(e) => setDbForm({ ...dbForm, connection_name: e.target.value })}
+                                            placeholder="e.g. Products MongoDB"
+                                            required
                                         />
                                     </div>
                                     <div className="formGroup">
@@ -1418,33 +1415,33 @@ function Admin() {
                                 </div>
                                 <div className="formGroup">
                                     <label>Connection String</label>
-                                    <input 
-                                        type="password" 
-                                        value={dbForm.connection_string} 
-                                        onChange={(e) => setDbForm({ ...dbForm, connection_string: e.target.value })} 
-                                        placeholder="mongodb://username:password@host:port" 
-                                        required 
+                                    <input
+                                        type="password"
+                                        value={dbForm.connection_string}
+                                        onChange={(e) => setDbForm({ ...dbForm, connection_string: e.target.value })}
+                                        placeholder="mongodb://username:password@host:port"
+                                        required
                                     />
                                 </div>
-                                <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px"}}>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                     <div className="formGroup">
                                         <label>Database Name</label>
-                                        <input 
-                                            type="text" 
-                                            value={dbForm.db_name} 
-                                            onChange={(e) => setDbForm({ ...dbForm, db_name: e.target.value })} 
-                                            placeholder="company_inventory" 
-                                            required 
+                                        <input
+                                            type="text"
+                                            value={dbForm.db_name}
+                                            onChange={(e) => setDbForm({ ...dbForm, db_name: e.target.value })}
+                                            placeholder="company_inventory"
+                                            required
                                         />
                                     </div>
                                     <div className="formGroup">
                                         <label>Target Table / Collection</label>
-                                        <input 
-                                            type="text" 
-                                            value={dbForm.target_collection} 
-                                            onChange={(e) => setDbForm({ ...dbForm, target_collection: e.target.value })} 
-                                            placeholder="products" 
-                                            required 
+                                        <input
+                                            type="text"
+                                            value={dbForm.target_collection}
+                                            onChange={(e) => setDbForm({ ...dbForm, target_collection: e.target.value })}
+                                            placeholder="products"
+                                            required
                                         />
                                     </div>
                                 </div>
@@ -1467,16 +1464,16 @@ function Admin() {
 
                         {/* FORM: Website Crawling */}
                         {sourceType === "website" && (
-                            <form className="settingsForm" onSubmit={handleConnectWeb} style={{marginBottom: "36px"}}>
+                            <form className="settingsForm" onSubmit={handleConnectWeb} style={{ marginBottom: "36px" }}>
                                 <h4>Connect Website Crawler</h4>
                                 <div className="formGroup">
                                     <label>Page URL</label>
-                                    <input 
-                                        type="url" 
-                                        value={webForm.url} 
-                                        onChange={(e) => setWebForm({ ...webForm, url: e.target.value })} 
-                                        placeholder="https://codeqlik.com/about" 
-                                        required 
+                                    <input
+                                        type="url"
+                                        value={webForm.url}
+                                        onChange={(e) => setWebForm({ ...webForm, url: e.target.value })}
+                                        placeholder="https://codeqlik.com/about"
+                                        required
                                     />
                                 </div>
                                 <div className="formGroup">
@@ -1496,7 +1493,7 @@ function Admin() {
                             </form>
                         )}
 
-                        <hr style={{borderColor: "rgba(255,255,255,0.05)", margin: "40px 0"}} />
+                        <hr style={{ borderColor: "rgba(255,255,255,0.05)", margin: "40px 0" }} />
 
                         {/* FILTER BY TYPE */}
                         <div className="filterRow">
@@ -1522,9 +1519,9 @@ function Admin() {
                                                 <span className={`sourceCardBadge ${source.type}`}>{source.type}</span>
                                                 {/* Enable / Disable Slider Switch */}
                                                 <label className="switch">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={source.enabled} 
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={source.enabled}
                                                         onChange={() => handleToggleSource(source._id, source.enabled)}
                                                     />
                                                     <span className="slider"></span>
@@ -1539,19 +1536,19 @@ function Admin() {
                                                 <span>Index: <strong>{source.num_chunks || 0} chunks</strong></span>
                                             </div>
                                             <div className="sourceCardFooter">
-                                                <span style={{fontSize:"11px", color:"var(--text-muted)"}}>
+                                                <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                                                     Last Indexed: {new Date(source.updated_at || source.created_at).toLocaleString()}
                                                 </span>
                                                 <div className="sourceActions">
-                                                    <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => handleReindexSource(source._id)}>
+                                                    <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => handleReindexSource(source._id)}>
                                                         Re-index
                                                     </button>
-                                                    <button className="secondaryBtn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={() => openEditModal(source)}>
+                                                    <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => openEditModal(source)}>
                                                         Edit
                                                     </button>
-                                                    <button 
-                                                        className="secondaryBtn" 
-                                                        style={{padding:"4px 10px", fontSize:"12px", color:"var(--danger)", borderColor:"rgba(239,68,68,0.2)"}} 
+                                                    <button
+                                                        className="secondaryBtn"
+                                                        style={{ padding: "4px 10px", fontSize: "12px", color: "var(--danger)", borderColor: "rgba(239,68,68,0.2)" }}
                                                         onClick={() => handleDeleteSource(source._id)}
                                                     >
                                                         Delete
@@ -1581,8 +1578,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                             <div className="formGroup">
                                                 <label>Company Name</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.companyName || settings.company_name || ""}
                                                     onChange={(e) => setSettings({ ...settings, companyName: e.target.value, company_name: e.target.value })}
                                                     required
@@ -1590,7 +1587,7 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Branding / Description Summary</label>
-                                                <textarea 
+                                                <textarea
                                                     rows="2"
                                                     value={settings.companyDescription || settings.company_description || ""}
                                                     onChange={(e) => setSettings({ ...settings, companyDescription: e.target.value, company_description: e.target.value })}
@@ -1598,12 +1595,12 @@ function Admin() {
                                                 />
                                             </div>
                                         </div>
-                                        
+
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>General Email</label>
-                                                <input 
-                                                    type="email" 
+                                                <input
+                                                    type="email"
                                                     value={settings.generalEmail || settings.contact_email || ""}
                                                     onChange={(e) => setSettings({ ...settings, generalEmail: e.target.value, contact_email: e.target.value })}
                                                     required
@@ -1611,8 +1608,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>General Phone</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.generalPhone || settings.contact_phone || ""}
                                                     onChange={(e) => setSettings({ ...settings, generalPhone: e.target.value, contact_phone: e.target.value })}
                                                     required
@@ -1623,8 +1620,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Support Email</label>
-                                                <input 
-                                                    type="email" 
+                                                <input
+                                                    type="email"
                                                     value={settings.supportEmail || settings.support_email || ""}
                                                     onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value, support_email: e.target.value })}
                                                     required
@@ -1632,8 +1629,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Support Phone</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.supportPhone || settings.support_phone || ""}
                                                     onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value, support_phone: e.target.value })}
                                                     required
@@ -1647,8 +1644,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                             <div className="formGroup">
                                                 <label>Title</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.title || ""}
                                                     onChange={(e) => setSettings({ ...settings, title: e.target.value })}
                                                     required
@@ -1656,8 +1653,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Subtitle</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.subtitle || ""}
                                                     onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
                                                     required
@@ -1668,8 +1665,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Welcome Message</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.welcomeMessage || settings.chatbot_greeting || ""}
                                                     onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value, chatbot_greeting: e.target.value })}
                                                     required
@@ -1677,8 +1674,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Input Placeholder</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.placeholder || ""}
                                                     onChange={(e) => setSettings({ ...settings, placeholder: e.target.value })}
                                                     required
@@ -1689,8 +1686,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Theme</label>
-                                                <select 
-                                                    value={settings.theme || "light"} 
+                                                <select
+                                                    value={settings.theme || "light"}
                                                     onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
                                                 >
                                                     <option value="light">Light</option>
@@ -1699,8 +1696,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Position</label>
-                                                <select 
-                                                    value={settings.position || "bottom-right"} 
+                                                <select
+                                                    value={settings.position || "bottom-right"}
                                                     onChange={(e) => setSettings({ ...settings, position: e.target.value })}
                                                 >
                                                     <option value="bottom-right">Bottom Right</option>
@@ -1709,8 +1706,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Storage Mechanism</label>
-                                                <select 
-                                                    value={settings.storage || "local"} 
+                                                <select
+                                                    value={settings.storage || "local"}
                                                     onChange={(e) => setSettings({ ...settings, storage: e.target.value })}
                                                 >
                                                     <option value="local">Local Storage</option>
@@ -1722,8 +1719,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Widget Width</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.width ?? "480px"}
                                                     onChange={(e) => setSettings({ ...settings, width: e.target.value })}
                                                     required
@@ -1731,8 +1728,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Widget Height</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.height ?? "680px"}
                                                     onChange={(e) => setSettings({ ...settings, height: e.target.value })}
                                                     required
@@ -1742,21 +1739,67 @@ function Admin() {
 
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
-                                                <label>Logo URL</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={settings.logoUrl || ""}
-                                                    onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
-                                                    placeholder="https://example.com/logo.png"
-                                                />
+                                                <label>Light Theme Logo URL / Image</label>
+                                                <div style={{ display: "flex", gap: "8px" }}>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.logoUrlLight || DEFAULT_LOGO_LIGHT}
+                                                        onChange={(e) => setSettings({ ...settings, logoUrlLight: e.target.value, logoUrl: e.target.value })}
+                                                        placeholder="https://example.com/logo-light.png"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                    <label htmlFor="logo-light-file" className="secondaryBtn" style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}>
+                                                        Upload
+                                                    </label>
+                                                    <input
+                                                        type="file"
+                                                        id="logo-light-file"
+                                                        accept="image/*"
+                                                        style={{ display: "none" }}
+                                                        onChange={(e) => handleLogoUpload(e, "light")}
+                                                    />
+                                                </div>
+                                                <div className="logoPreviewRow">
+                                                    <img src={resolvePublicAssetUrl(settings.logoUrlLight || DEFAULT_LOGO_LIGHT)} alt="Light theme logo preview" />
+                                                    <span>Light theme widget logo</span>
+                                                </div>
                                             </div>
                                             <div className="formGroup">
-                                                <label>Bot Avatar Initials/Text</label>
-                                                <input 
-                                                    type="text" 
+                                                <label>Dark Theme Logo URL / Image</label>
+                                                <div style={{ display: "flex", gap: "8px" }}>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.logoUrlDark || DEFAULT_LOGO_DARK}
+                                                        onChange={(e) => setSettings({ ...settings, logoUrlDark: e.target.value })}
+                                                        placeholder="https://example.com/logo-dark.png"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                    <label htmlFor="logo-dark-file" className="secondaryBtn" style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}>
+                                                        Upload
+                                                    </label>
+                                                    <input
+                                                        type="file"
+                                                        id="logo-dark-file"
+                                                        accept="image/*"
+                                                        style={{ display: "none" }}
+                                                        onChange={(e) => handleLogoUpload(e, "dark")}
+                                                    />
+                                                </div>
+                                                <div className="logoPreviewRow logoPreviewRowDark">
+                                                    <img src={resolvePublicAssetUrl(settings.logoUrlDark || DEFAULT_LOGO_DARK)} alt="Dark theme logo preview" />
+                                                    <span>Dark theme widget logo</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
+                                                <label>Bot Avatar Fallback Text</label>
+                                                <input
+                                                    type="text"
                                                     value={settings.botAvatar ?? "CQ"}
                                                     onChange={(e) => setSettings({ ...settings, botAvatar: e.target.value })}
-                                                    required
+                                                    placeholder="Used only if logo image cannot load"
                                                 />
                                             </div>
                                         </div>
@@ -1764,8 +1807,8 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Launcher Icon</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.launcherIcon ?? "💬"}
                                                     onChange={(e) => setSettings({ ...settings, launcherIcon: e.target.value })}
                                                     required
@@ -1773,8 +1816,8 @@ function Admin() {
                                             </div>
                                             <div className="formGroup">
                                                 <label>Launcher Text</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.launcherText || ""}
                                                     onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
                                                     placeholder="Optional button text"
@@ -1786,14 +1829,14 @@ function Admin() {
                                             <div className="formGroup">
                                                 <label>Primary Color</label>
                                                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                                    <input 
-                                                        type="color" 
+                                                    <input
+                                                        type="color"
                                                         value={settings.primaryColor || "#ff7e21"}
                                                         onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
                                                         style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
                                                     />
-                                                    <input 
-                                                        type="text" 
+                                                    <input
+                                                        type="text"
                                                         value={settings.primaryColor || ""}
                                                         onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
                                                         placeholder="#ff7e21"
@@ -1806,9 +1849,9 @@ function Admin() {
                                                 <label>Show New Chat Button</label>
                                                 <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
                                                     <label className="switch">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={!!settings.showNewChat} 
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!settings.showNewChat}
                                                             onChange={(e) => setSettings({ ...settings, showNewChat: e.target.checked })}
                                                         />
                                                         <span className="slider"></span>
@@ -1823,19 +1866,19 @@ function Admin() {
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Footer Text</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={settings.footerText || ""}
                                                     onChange={(e) => setSettings({ ...settings, footerText: e.target.value })}
                                                 />
                                             </div>
                                             <div className="formGroup">
                                                 <label>Suggestions (comma-separated)</label>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={Array.isArray(settings.suggestions) ? settings.suggestions.join(", ") : ""}
-                                                    onChange={(e) => setSettings({ 
-                                                        ...settings, 
+                                                    onChange={(e) => setSettings({
+                                                        ...settings,
                                                         suggestions: e.target.value.split(",").map(s => s.trim()).filter(s => s !== "")
                                                     })}
                                                     placeholder="e.g. Build a Website, Pricing, Hire Developers"
@@ -1848,7 +1891,7 @@ function Admin() {
                                         <h4>Fallback & Bound Redirection</h4>
                                         <div className="formGroup">
                                             <label>Default Fallback / Bound Restriction Redirect Message</label>
-                                            <textarea 
+                                            <textarea
                                                 rows="3"
                                                 value={settings.fallbackMessage || settings.fallback_message || ""}
                                                 onChange={(e) => setSettings({ ...settings, fallbackMessage: e.target.value, fallback_message: e.target.value })}
@@ -1866,20 +1909,27 @@ function Admin() {
                                 <div className="previewPanel">
                                     <h3>Widget Preview Look</h3>
                                     <p className="previewSubtitle">Interactive Mockup aligned to current customizing parameters</p>
-                                    
+
                                     <div className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} style={{ height: "450px" }}>
-                                        <div className="mockHeader" style={{ backgroundColor: settings.theme === "dark" ? "rgba(20, 20, 26, 0.95)" : (settings.primaryColor || "#ff7e21") }}>
-                                            <div className="mockLogo">{settings.logoUrl ? <img src={settings.logoUrl} alt="Logo" /> : (settings.botAvatar || "CQ")}</div>
+                                        <div className="mockHeader" style={{ backgroundColor: settings.theme === "dark" ? "#0f172a" : (settings.primaryColor || "#ff7e21") }}>
+                                            <div className="mockLogo">
+                                                <img 
+                                                    src={activeWidgetLogo} 
+                                                    alt="Logo" 
+                                                />
+                                            </div>
                                             <div className="mockHeaderText">
                                                 <div className="mockTitle">{settings.title || "CodeQlik Assistant"}</div>
                                                 <div className="mockSubtitle">{settings.subtitle || "Usually replies instantly"}</div>
                                             </div>
                                             {settings.showNewChat && <button className="mockNewBtn" type="button">New</button>}
                                         </div>
-                                        
+
                                         <div className="mockMsgs">
                                             <div className="mockMsgRow mockBotRow">
-                                                <div className="mockMsgAvatar">{settings.botAvatar || "CQ"}</div>
+                                                <div className="mockMsgAvatar">
+                                                    <img src={activeWidgetLogo} alt="Bot avatar" />
+                                                </div>
                                                 <div className="mockMsg mockBot">{settings.welcomeMessage || settings.chatbot_greeting || "Hi! How can we help you today?"}</div>
                                             </div>
                                         </div>
@@ -1898,7 +1948,13 @@ function Admin() {
                                         </div>
 
                                         {settings.footerText && (
-                                            <div className="mockFooter">{settings.footerText}</div>
+                                            <div className="mockFooter">
+                                                {String(settings.footerText).split(/(CodeQlik)/gi).map((part, idx) => (
+                                                    /codeqlik/i.test(part)
+                                                        ? <span className="mockFooterBrand" key={idx}>{part}</span>
+                                                        : <React.Fragment key={idx}>{part}</React.Fragment>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -1907,7 +1963,7 @@ function Admin() {
                                 <div className="installGuidePanel">
                                     <h3>Installation Guide</h3>
                                     <p className="installSubtitle">Add this chat widget to your corporate websites and applications</p>
-                                    
+
                                     <div className="guideTabs">
                                         <button className="guideTabBtn active" type="button">HTML Script</button>
                                     </div>
@@ -1915,7 +1971,7 @@ function Admin() {
                                     <div className="guideContent">
                                         <p>Paste the following script inside the <code>&lt;body&gt;</code> element of your HTML pages. The widget automatically binds settings configured above.</p>
                                         <pre className="codeBlock">
-{`<!-- CodeQlik Chat Widget -->
+                                            {`<!-- CodeQlik Chat Widget -->
 <script src="${PUBLIC_ROOT}/dist/widget.js"></script>
 <script>
   CodeQlikChat.init({
@@ -1936,7 +1992,7 @@ function Admin() {
                     ========================================== */}
                 {!loading && activeTab === "llm-usage" && (
                     <div className="llmUsageTabContainer" style={{ display: "flex", flexDirection: "column", gap: "24px", color: "#ffffff", padding: "10px" }}>
-                        
+
                         {/* Top Cards Grid */}
                         <div className="statsGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
                             <div className="statCard" style={{ background: "rgba(30, 41, 59, 0.4)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "16px" }}>
@@ -1980,8 +2036,8 @@ function Admin() {
                                     <div style={{ display: "flex", gap: "12px" }}>
                                         <div style={{ flex: 1 }}>
                                             <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>Start Date</label>
-                                            <input 
-                                                type="date" 
+                                            <input
+                                                type="date"
                                                 value={llmStartDate}
                                                 onChange={(e) => setLlmStartDate(e.target.value)}
                                                 style={{ width: "100%", padding: "10px", borderRadius: "6px", background: "rgba(0, 0, 0, 0.2)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#ffffff" }}
@@ -1989,8 +2045,8 @@ function Admin() {
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>End Date</label>
-                                            <input 
-                                                type="date" 
+                                            <input
+                                                type="date"
                                                 value={llmEndDate}
                                                 onChange={(e) => setLlmEndDate(e.target.value)}
                                                 style={{ width: "100%", padding: "10px", borderRadius: "6px", background: "rgba(0, 0, 0, 0.2)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#ffffff" }}
@@ -1999,7 +2055,7 @@ function Admin() {
                                     </div>
                                     <div>
                                         <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>Filter by Model</label>
-                                        <select 
+                                        <select
                                             value={llmModelFilter}
                                             onChange={(e) => setLlmModelFilter(e.target.value)}
                                             style={{ width: "100%", padding: "10px", borderRadius: "6px", background: "rgba(0, 0, 0, 0.2)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#ffffff" }}
@@ -2017,14 +2073,14 @@ function Admin() {
                             <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
                                 <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Cost Calculator (Simulation)</h3>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "250px", overflowY: "auto", paddingRight: "4px" }}>
-                                    
+
                                     {/* Table Headers */}
                                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "10px", fontWeight: "600", fontSize: "11px", color: "#94a3b8", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
                                         <span>MODEL</span>
                                         <span>INPUT ($/1M)</span>
                                         <span>OUTPUT ($/1M)</span>
                                     </div>
-                                    
+
                                     {modelUsage.length === 0 ? (
                                         <p style={{ fontSize: "12px", color: "#94a3b8", textAlign: "center" }}>No active models to configure.</p>
                                     ) : (
@@ -2035,8 +2091,8 @@ function Admin() {
                                                     <span style={{ fontSize: "11px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} title={m.model}>
                                                         {m.model.split("/").pop()}
                                                     </span>
-                                                    <input 
-                                                        type="number" 
+                                                    <input
+                                                        type="number"
                                                         step="0.01"
                                                         value={rate.input}
                                                         onChange={(e) => {
@@ -2048,8 +2104,8 @@ function Admin() {
                                                         }}
                                                         style={{ width: "100%", padding: "6px", borderRadius: "4px", background: "rgba(0, 0, 0, 0.2)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#ffffff", fontSize: "11px" }}
                                                     />
-                                                    <input 
-                                                        type="number" 
+                                                    <input
+                                                        type="number"
                                                         step="0.01"
                                                         value={rate.output}
                                                         onChange={(e) => {
@@ -2066,7 +2122,7 @@ function Admin() {
                                         })
                                     )}
                                 </div>
-                                
+
                                 <div style={{ padding: "12px", borderRadius: "6px", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" }}>
                                     <span style={{ fontSize: "13px", color: "#34d399", fontWeight: "600" }}>Simulated Price (Filtered):</span>
                                     <span style={{ fontSize: "16px", color: "#34d399", fontWeight: "700" }}>
@@ -2127,9 +2183,9 @@ function Admin() {
                                             return (
                                                 <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "60px", height: "100%", justifyContent: "flex-end" }}>
                                                     <span style={{ fontSize: "9px", color: "#94a3b8", marginBottom: "4px" }}>
-                                                        {day.total_tokens > 1000 ? `${(day.total_tokens/1000).toFixed(1)}k` : day.total_tokens}
+                                                        {day.total_tokens > 1000 ? `${(day.total_tokens / 1000).toFixed(1)}k` : day.total_tokens}
                                                     </span>
-                                                    
+
                                                     {/* Bar wrapper with fixed height to allow percentage sizing */}
                                                     <div style={{ height: "120px", width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                                                         <div style={{
@@ -2140,7 +2196,7 @@ function Admin() {
                                                             boxShadow: "0 0 6px rgba(255, 126, 33, 0.4)"
                                                         }}></div>
                                                     </div>
-                                                    
+
                                                     <span style={{ fontSize: "9px", color: "#64748b", marginTop: "6px", whiteSpace: "nowrap" }}>{day.date.substring(5)}</span>
                                                 </div>
                                             );
@@ -2173,12 +2229,12 @@ function Admin() {
                                             </tr>
                                         ) : (
                                             recentLlmCalls.map((c, index) => {
-                                                const timeString = new Date(c.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-                                                const dateString = new Date(c.timestamp).toLocaleDateString([], {month: 'short', day: 'numeric'});
+                                                const timeString = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                                                const dateString = new Date(c.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
                                                 return (
                                                     <tr key={index}>
                                                         <td>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => {
                                                                     setSelectedThreadId(c.thread_id);
                                                                     fetchThreadMessages(c.thread_id);
@@ -2216,119 +2272,6 @@ function Admin() {
 
                     </div>
                 )}
-
-                {!loading && activeTab === "meetings" && (
-                    <div>
-                        {meetings.length === 0 ? (
-                            <p>No booked meetings found.</p>
-                        ) : (
-                            <div className="tableContainer">
-                                <table className="customTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Client Name</th>
-                                            <th>Contact Info</th>
-                                            <th>Company Name</th>
-                                            <th>Meeting Mode</th>
-                                            <th>Date & Time Slot</th>
-                                            <th>Topic / Details</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {meetings.map((m) => {
-                                            const id = m.id || m._id;
-                                            const name = m.profile?.name || "N/A";
-                                            const email = m.profile?.email || "N/A";
-                                            const phone = m.profile?.phone || "N/A";
-                                            const company = m.profile?.company || "N/A";
-                                            const mode = m.profile?.meeting_mode || "N/A";
-                                            const date = m.profile?.date || "N/A";
-                                            const slot = m.profile?.time_slot || "N/A";
-                                            const details = m.profile?.work_details || "N/A";
-                                            const status = m.profile?.status || "confirmed";
-                                            return (
-                                                <tr key={id}>
-                                                    <td>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setSelectedThreadId(m.thread_id);
-                                                                fetchThreadMessages(m.thread_id);
-                                                                setActiveTab("chats");
-                                                            }}
-                                                            style={{
-                                                                background: "transparent",
-                                                                border: "none",
-                                                                color: "#ff7e21",
-                                                                cursor: "pointer",
-                                                                fontWeight: "700",
-                                                                textDecoration: "underline",
-                                                                padding: 0,
-                                                                textAlign: "left"
-                                                            }}
-                                                            title={`View Chat History`}
-                                                        >
-                                                            {name}
-                                                        </button>
-                                                    </td>
-                                                    <td>
-                                                        <div>📧 {email}</div>
-                                                        <div>📞 {phone}</div>
-                                                    </td>
-                                                    <td>{company}</td>
-                                                    <td>
-                                                        <span style={{
-                                                            padding: "4px 8px",
-                                                            borderRadius: "4px",
-                                                            fontSize: "12px",
-                                                            fontWeight: "600",
-                                                            background: mode === "google_meet" ? "#e0f2fe" : "#fef3c7",
-                                                            color: mode === "google_meet" ? "#0369a1" : "#b45309"
-                                                        }}>
-                                                            {mode === "google_meet" ? "💻 Google Meet" : "📞 Phone Call"}
-                                                        </span>
-                                                    </td>
-                                                    <td><strong>📅 {date}</strong><br/><span style={{color: "#94a3b8"}}>⏰ {slot}</span></td>
-                                                    <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{details}</td>
-                                                    <td>
-                                                        <select 
-                                                            value={status} 
-                                                            onChange={(e) => handleUpdateMeetingStatus(id, e.target.value)}
-                                                            style={{
-                                                                padding: "4px 8px",
-                                                                borderRadius: "4px",
-                                                                border: "1px solid #cbd5e1"
-                                                            }}
-                                                        >
-                                                            <option value="confirmed">Confirmed</option>
-                                                            <option value="completed">Completed</option>
-                                                            <option value="cancelled">Cancelled</option>
-                                                            <option value="needs_reschedule">Needs Reschedule</option>
-                                                        </select>
-                                                    </td>
-                                                    <td>
-                                                        <button 
-                                                            className="secondaryBtn"
-                                                            style={{ padding: "4px 8px", fontSize: "12px" }}
-                                                            onClick={() => {
-                                                                setSelectedThreadId(m.thread_id);
-                                                                fetchThreadMessages(m.thread_id);
-                                                                setActiveTab("chats");
-                                                            }}
-                                                        >
-                                                            View Chat
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
             </main>
 
             {/* ==========================================
@@ -2341,8 +2284,8 @@ function Admin() {
                         <form onSubmit={handleSaveEdit}>
                             <div className="formGroup">
                                 <label>Title</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={editForm.title}
                                     onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                                     required
@@ -2421,7 +2364,7 @@ function Admin() {
                             {(editForm.type === "manual" || editForm.type === "website") && (
                                 <div className="formGroup">
                                     <label>Content Context</label>
-                                    <textarea 
+                                    <textarea
                                         rows="6"
                                         value={editForm.content}
                                         onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
@@ -2432,7 +2375,7 @@ function Admin() {
                             {editForm.type === "document" && (
                                 <div className="formGroup">
                                     <label>Document Text</label>
-                                    <textarea 
+                                    <textarea
                                         rows="10"
                                         value={editForm.full_content}
                                         onChange={(e) => setEditForm({ ...editForm, full_content: e.target.value })}

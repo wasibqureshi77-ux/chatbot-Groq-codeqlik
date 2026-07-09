@@ -78,6 +78,10 @@ Example:
 ```env
 API_KEY_1=your_llm_api_key
 API_KEY_2=optional_backup_llm_api_key
+GROQ_API_KEY=optional_preferred_groq_key_for_voice_stt
+GROQ_STT_MODEL=whisper-large-v3-turbo
+GROQ_STT_LANGUAGE=
+ENABLE_LOCAL_WHISPER_FALLBACK=false
 MONGO_URI=your_mongodb_connection_string
 MONGO_DB=company_chatbot
 
@@ -254,7 +258,7 @@ Voice flow:
 2. Frontend uploads audio to `/api/voice/process`.
 3. Backend detects audio type.
 4. Backend converts audio to WAV.
-5. Speech-to-text creates user text.
+5. Groq `whisper-large-v3-turbo` speech-to-text creates user text.
 6. Chatbot generates reply.
 7. Text-to-speech creates audio reply.
 8. Backend returns text and audio URL.
@@ -267,6 +271,7 @@ main.py
 ```
 
 For best audio support, install `ffmpeg`.
+Groq STT uses `GROQ_API_KEY` first, then falls back to `API_KEY`, `API_KEY_1`, `API_KEY_2`, etc. If Groq transcription fails, the backend falls back to SpeechRecognition. Set `ENABLE_LOCAL_WHISPER_FALLBACK=true` only if you want local faster-whisper fallback model loading.
 
 ## RAG Knowledge Base
 

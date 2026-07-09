@@ -210,8 +210,7 @@ function Chatbot() {
         setLoading(false);
     };
     
-    // Static fixed configurations matching user preference and screenshot
-    const settings = {
+    const [settings, setSettings] = useState({
         companyName: "CodeQlik",
         companyDescription: "CodeQlik provides software development, AI automation, and cloud consulting services.",
         title: "CodeQlik Assistant",
@@ -223,12 +222,30 @@ function Chatbot() {
         suggestions: [],
         footerText: "",
         showNewChat: true,
-        botAvatar: "🤖"
-    };
+        botAvatar: "CQ",
+        logoUrl: "",
+        logoUrlLight: "",
+        logoUrlDark: ""
+    });
+
+    useEffect(() => {
+        async function fetchSettings() {
+            try {
+                const res = await fetch("/api/public/settings");
+                if (res.ok) {
+                    const data = await res.json();
+                    setSettings(prev => ({ ...prev, ...data }));
+                }
+            } catch (err) {
+                console.error("Error loading settings:", err);
+            }
+        }
+        fetchSettings();
+    }, []);
 
     const messagesEndRef = useRef(null);
 
-    // Set greeting from static configurations
+    // Set greeting from configurations
     useEffect(() => {
         setMessages([
             {
@@ -237,7 +254,7 @@ function Chatbot() {
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             }
         ]);
-    }, [threadId]);
+    }, [threadId, settings.welcomeMessage]);
 
     // Auto scroll to bottom when messages list updates
     useEffect(() => {
@@ -322,8 +339,10 @@ function Chatbot() {
         setLoading(false);
     }
 
+    const isDark = settings.theme === "dark";
+
     const chatbotStyle = {
-        background: "#06080d",
+        background: isDark ? "#06080d" : "#f1f5f9",
         fontFamily: "'Inter', sans-serif",
         height: "100vh",
         display: "flex",
@@ -331,10 +350,10 @@ function Chatbot() {
         justifyContent: "center"
     };
     const chatBoxStyle = {
-        background: "#090e16",
-        border: "1px solid rgba(255, 255, 255, 0.04)",
+        background: isDark ? "#080c12" : "#ffffff",
+        border: isDark ? `1px solid ${settings.primaryColor || "#ff7e21"}26` : "1px solid rgba(0, 0, 0, 0.08)",
         borderRadius: "16px",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+        boxShadow: isDark ? "0 8px 32px rgba(0, 0, 0, 0.55)" : "0 8px 32px rgba(0, 0, 0, 0.08)",
         overflow: "hidden",
         maxWidth: "1150px",
         width: "95%",
@@ -343,8 +362,8 @@ function Chatbot() {
         flexDirection: "column"
     };
     const headerStyle = {
-        background: "#080c14",
-        borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
+        background: isDark ? "#0b0f19" : (settings.primaryColor || "#ff7e21"),
+        borderBottom: `2px solid ${settings.primaryColor || "#ff7e21"}`,
         padding: "16px 24px",
         display: "flex",
         justifyContent: "space-between",
@@ -358,12 +377,12 @@ function Chatbot() {
         margin: 0
     };
     const headerSubtitleStyle = {
-        color: "#94a3b8",
+        color: isDark ? "#94a3b8" : "rgba(255, 255, 255, 0.85)",
         fontSize: "12px",
         margin: "2px 0 0"
     };
     const messagesStyle = {
-        background: "#090e16",
+        background: isDark ? "#090e16" : "#f8fafc",
         flex: 1,
         padding: "24px",
         overflowY: "auto",
@@ -372,18 +391,18 @@ function Chatbot() {
         gap: "16px"
     };
     const inputAreaStyle = {
-        background: "#080c14",
-        borderTop: "1px solid rgba(255, 255, 255, 0.04)",
+        background: isDark ? "#080c14" : "#ffffff",
+        borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.04)" : "1px solid rgba(0, 0, 0, 0.08)",
         padding: "16px 24px",
         display: "flex",
         gap: "12px"
     };
     const inputStyle = {
-        background: "rgba(255, 255, 255, 0.02)",
-        border: "1px solid rgba(255, 255, 255, 0.06)",
+        background: isDark ? "rgba(255, 255, 255, 0.02)" : "#f8fafc",
+        border: isDark ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid rgba(0, 0, 0, 0.08)",
         borderRadius: "8px",
         padding: "12px 16px",
-        color: "#ffffff",
+        color: isDark ? "#ffffff" : "#0f172a",
         flex: 1,
         outline: "none",
         fontSize: "14px"
@@ -406,7 +425,7 @@ function Chatbot() {
         transition: "all 0.2s"
     };
     const buttonStyle = {
-        background: "#d96216",
+        background: settings.primaryColor || "#d96216",
         color: "#ffffff",
         border: "none",
         borderRadius: "8px",
@@ -416,9 +435,9 @@ function Chatbot() {
         transition: "background 0.2s"
     };
     const botBubbleStyle = {
-        background: "rgba(255, 255, 255, 0.03)",
-        color: "#f8fafc",
-        border: "1px solid rgba(255, 255, 255, 0.04)",
+        background: isDark ? "rgba(255, 255, 255, 0.03)" : "#f1f5f9",
+        color: isDark ? "#f8fafc" : "#0f172a",
+        border: isDark ? `1px solid ${settings.primaryColor || "#ff7e21"}22` : "1px solid rgba(0, 0, 0, 0.04)",
         borderRadius: "12px",
         padding: "12px 16px",
         fontSize: "14px",
@@ -426,7 +445,7 @@ function Chatbot() {
         lineHeight: "1.5"
     };
     const userBubbleStyle = {
-        background: "#d96216",
+        background: settings.primaryColor || "#d96216",
         color: "#ffffff",
         borderRadius: "12px",
         padding: "12px 16px",
@@ -445,7 +464,17 @@ function Chatbot() {
                                 <Link to="/" style={{ color: "#94a3b8", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "all 0.2s" }} className="chat-back-btn">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                                 </Link>
-                                <img src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '6px', boxShadow: '0 2px 8px rgba(255, 126, 33, 0.15)' }} />
+                                <div className="chatAvatar botAvatar" style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", margin: 0, border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
+                                    {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
+                                        <img 
+                                            src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
+                                            alt="Bot" 
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                        />
+                                    ) : (
+                                        settings.botAvatar || "CQ"
+                                    )}
+                                </div>
                                 <div style={{ textAlign: "left" }}>
                                     <h2 style={headerTitleStyle}>{settings.title || "CodeQlik Assistant"}</h2>
                                     <p style={headerSubtitleStyle}>{settings.subtitle || "SaaS Support Channel"}</p>
@@ -471,8 +500,16 @@ function Chatbot() {
                                     className={`messageRow ${msg.sender === "user" ? "userRow" : "botRow"}`}
                                 >
                                     {msg.sender === "bot" && (
-                                        <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff" }}>
-                                            {settings.botAvatar || "🤖"}
+                                        <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
+                                            {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
+                                                <img 
+                                                    src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
+                                                    alt="Bot" 
+                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                                />
+                                            ) : (
+                                                settings.botAvatar || "CQ"
+                                            )}
                                         </div>
                                     )}
                                     <div
@@ -512,8 +549,16 @@ function Chatbot() {
 
                             {loading && (
                                 <div className="messageRow botRow">
-                                    <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff" }}>
-                                        {settings.botAvatar || "🤖"}
+                                    <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
+                                        {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
+                                            <img 
+                                                src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
+                                                alt="Bot" 
+                                                style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                            />
+                                        ) : (
+                                            settings.botAvatar || "CQ"
+                                        )}
                                     </div>
                                     <div className="messageBubble botBubble typingBubble" style={botBubbleStyle}>
                                         <div className="dot-pulse">
@@ -614,7 +659,7 @@ function Chatbot() {
                             )}
                         </div>
                         {settings.footerText && (
-                            <div style={{ textAlign: "center", fontSize: "11px", padding: "6px", color: "var(--text-muted)", background: "#0d121f", borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                            <div style={{ textAlign: "center", fontSize: "11px", padding: "8px", color: isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.6)", background: isDark ? "#05050780" : "rgba(0, 0, 0, 0.02)", borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.05)" : "1px solid rgba(0, 0, 0, 0.05)" }}>
                                 {settings.footerText}
                             </div>
                         )}
