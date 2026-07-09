@@ -1,0 +1,304 @@
+{
+  "suite_name": "CodeQlik chatbot multi-turn stabilization tests",
+  "run_at": "2026-06-17T14:45:49.924714Z",
+  "base_url": "http://localhost:8000",
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "thread_id": [
+    "test_FLOW_013_6e88245d"
+  ],
+  "pass_rate": 0.0,
+  "results": [
+    {
+      "id": "FLOW_013",
+      "name": "Hiring candidate should not be asked client lead fields",
+      "category": "hiring_vs_lead",
+      "thread_id": "test_FLOW_013_6e88245d",
+      "passed": false,
+      "error_count": 7,
+      "errors": [
+        "Turn 5: pending_field expected 'experience', got 'email_or_phone'",
+        "Turn 5: profile missing key 'role', expected 'python developer'",
+        "Turn 6: pending_field expected 'skills', got 'email_or_phone'",
+        "Turn 6: profile missing key 'experience', expected '1 year'",
+        "Turn 7: pending_field expected 'resume_or_portfolio', got 'email_or_phone'",
+        "Turn 7: profile missing key 'skills', expected 'python django fastapi'",
+        "Turn 8: profile missing key 'resume_or_portfolio', expected 'nikhil.dev/resume'"
+      ],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "i want to apply for python developer",
+          "expected": {
+            "turn": 1,
+            "intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "name"
+          },
+          "actual": {
+            "reply": "We're excited to hear that you're interested in joining our team as a Python developer. At CodeQlik, we're always looking for talented individuals to help us deliver innovative solutions to our clients. Please share your name.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "name",
+            "profile": {},
+            "missing_fields": [
+              "name",
+              "email",
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.905
+          },
+          "errors": []
+        },
+        {
+          "turn": 2,
+          "message": "Nikhil",
+          "expected": {
+            "turn": 2,
+            "profile_contains": {
+              "name": "Nikhil"
+            },
+            "pending_field": "email"
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email address.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "email",
+            "profile": {
+              "name": "Nikhil"
+            },
+            "missing_fields": [
+              "email",
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.905
+          },
+          "errors": []
+        },
+        {
+          "turn": 3,
+          "message": "nikhil@gmail.com",
+          "expected": {
+            "turn": 3,
+            "profile_contains": {
+              "email": "nikhil@gmail.com"
+            },
+            "pending_field": "phone"
+          },
+          "actual": {
+            "reply": "Thanks. Please share your phone number.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com"
+            },
+            "missing_fields": [
+              "phone",
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.905
+          },
+          "errors": []
+        },
+        {
+          "turn": 4,
+          "message": "9999999999",
+          "expected": {
+            "turn": 4,
+            "profile_contains": {
+              "phone": "9999999999"
+            },
+            "pending_field": "role"
+          },
+          "actual": {
+            "reply": "Thanks. Please share the role you want to apply for.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "role",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999"
+            },
+            "missing_fields": [
+              "role",
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.905
+          },
+          "errors": []
+        },
+        {
+          "turn": 5,
+          "message": "python developer",
+          "expected": {
+            "turn": 5,
+            "profile_contains": {
+              "role": "python developer"
+            },
+            "pending_field": "experience"
+          },
+          "actual": {
+            "reply": "We're looking for a Python developer to join our team. As a Python developer at CodeQlik, you'll be working on a variety of projects, from web applications to AI automation, and will have the opportunity to work with a range of technologies and tools. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget",
+              "timeline"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.898
+          },
+          "errors": [
+            "pending_field expected 'experience', got 'email_or_phone'",
+            "profile missing key 'role', expected 'python developer'"
+          ]
+        },
+        {
+          "turn": 6,
+          "message": "1 year",
+          "expected": {
+            "turn": 6,
+            "profile_contains": {
+              "experience": "1 year"
+            },
+            "pending_field": "skills"
+          },
+          "actual": {
+            "reply": "Thanks. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget"
+            ],
+            "qualified": false,
+            "rag_confidence": 0.0
+          },
+          "errors": [
+            "pending_field expected 'skills', got 'email_or_phone'",
+            "profile missing key 'experience', expected '1 year'"
+          ]
+        },
+        {
+          "turn": 7,
+          "message": "python django fastapi",
+          "expected": {
+            "turn": 7,
+            "profile_contains": {
+              "skills": "python django fastapi"
+            },
+            "pending_field": "resume_or_portfolio"
+          },
+          "actual": {
+            "reply": "We've worked with Django and FastAPI before, and both are great frameworks for building scalable and efficient web applications. FastAPI is particularly well-suited for building high-performance APIs. Please share your email or phone number so we can guide you better.",
+            "intent": "client_lead",
+            "primary_intent": "client_lead",
+            "active_collection": "client_lead",
+            "pending_field": "email_or_phone",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year"
+            },
+            "missing_fields": [
+              "email_or_phone",
+              "company",
+              "project_type",
+              "requirements",
+              "budget"
+            ],
+            "qualified": false,
+            "rag_confidence": 1.0
+          },
+          "errors": [
+            "pending_field expected 'resume_or_portfolio', got 'email_or_phone'",
+            "profile missing key 'skills', expected 'python django fastapi'"
+          ]
+        },
+        {
+          "turn": 8,
+          "message": "resume link is nikhil.dev/resume",
+          "expected": {
+            "turn": 8,
+            "profile_contains": {
+              "resume_or_portfolio": "nikhil.dev/resume"
+            }
+          },
+          "actual": {
+            "reply": "Thanks. Please share your experience.",
+            "intent": "hiring_support",
+            "primary_intent": "hiring_support",
+            "active_collection": "hiring_support",
+            "pending_field": "experience",
+            "profile": {
+              "name": "Nikhil",
+              "email": "nikhil@gmail.com",
+              "phone": "9999999999",
+              "timeline": "1 year",
+              "role": "resume link is nikhil.dev/resume"
+            },
+            "missing_fields": [
+              "experience",
+              "skills",
+              "resume_or_portfolio"
+            ],
+            "qualified": false,
+            "rag_confidence": 1.0
+          },
+          "errors": [
+            "profile missing key 'resume_or_portfolio', expected 'nikhil.dev/resume'"
+          ]
+        }
+      ]
+    }
+  ]
+}

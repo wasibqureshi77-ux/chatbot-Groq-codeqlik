@@ -1,0 +1,76 @@
+{
+  "global_response_rules": {
+    "max_sentences_per_reply": 2,
+    "max_words_per_reply": 35,
+    "ask_only_one_question_at_a_time": true,
+    "answer_first_then_ask_missing_field": true,
+    "do_not_explain_process": true,
+    "do_not_repeat_user_details": true,
+    "avoid_long_service_descriptions": true,
+    "qualification_message_max_words": 25,
+    "fallback_reply": "I can help only with CodeQlik services, support, hiring, or company-related queries."
+  },
+  "scenarios": [
+    {
+      "id": "scenario_lead_normal",
+      "name": "Normal Client Lead Flow",
+      "expected_bot_style": "Short, professional, direct. Reply in 1-2 lines only.",
+      "max_turns": 12,
+      "max_bot_words_per_turn": 35,
+      "success_criteria": {
+        "qualified": true,
+        "expect_fields": ["name", "email_or_phone", "company", "project_type", "requirements", "budget", "timeline"],
+        "should_not_generate_long_replies": true
+      }
+    },
+    {
+      "id": "scenario_support_bug",
+      "name": "Customer Support Bug Ticket",
+      "expected_bot_style": "Acknowledge issue briefly, collect missing support fields only.",
+      "max_turns": 8,
+      "max_bot_words_per_turn": 30,
+      "success_criteria": {
+        "qualified": true,
+        "expect_fields": ["name", "email_or_phone", "issue_type", "issue_details", "urgency"],
+        "should_not_generate_long_replies": true
+      }
+    },
+    {
+      "id": "scenario_hiring_candidate",
+      "name": "Hiring Candidate Flow",
+      "expected_bot_style": "Short hiring-support replies. Ask one missing field only.",
+      "max_turns": 10,
+      "max_bot_words_per_turn": 35,
+      "success_criteria": {
+        "qualified": true,
+        "expect_fields": ["name", "email", "phone", "role", "experience", "skills", "resume_or_portfolio"],
+        "should_not_generate_long_replies": true
+      }
+    },
+    {
+      "id": "scenario_unrelated_rejection",
+      "name": "Unrelated Topic Handling",
+      "expected_bot_style": "Refuse unrelated query in one short sentence.",
+      "max_turns": 4,
+      "max_bot_words_per_turn": 25,
+      "success_criteria": {
+        "qualified": false,
+        "refused_unrelated": true,
+        "should_not_generate_long_replies": true
+      }
+    },
+    {
+      "id": "scenario_lead_refusal",
+      "name": "Client Lead with Refusal of Optional/Sensitive Field",
+      "expected_bot_style": "Accept skipped optional fields silently. Do not ask them again.",
+      "max_turns": 12,
+      "max_bot_words_per_turn": 35,
+      "success_criteria": {
+        "qualified": true,
+        "expect_fields": ["name", "email_or_phone", "project_type", "requirements", "timeline"],
+        "skipped_fields_should_not_be_reasked": ["company", "budget"],
+        "should_not_generate_long_replies": true
+      }
+    }
+  ]
+}
