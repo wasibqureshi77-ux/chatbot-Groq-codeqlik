@@ -11,7 +11,7 @@ logger = logging.getLogger("voice_service")
 logger.setLevel(logging.INFO)
 
 # --- STT Setup ---
-GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
 GROQ_STT_PROMPT = os.getenv(
     "GROQ_STT_PROMPT",
     "CodeQlik chatbot voice message. The user may speak English, Hindi, or Hinglish. Preserve names, emails, phone numbers, company names, and software terms accurately."

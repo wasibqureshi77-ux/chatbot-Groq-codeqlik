@@ -12,29 +12,79 @@ thread_id_var = contextvars.ContextVar("thread_id", default="unknown")
 node_name_var = contextvars.ContextVar("node_name", default="general")
 
 MODEL_COSTS = {
-    "default": {"input_cost_per_million": 0.15, "output_cost_per_million": 0.60},
-    "llama3-70b": {"input_cost_per_million": 0.59, "output_cost_per_million": 0.79},
-    "llama-3.1-70b-versatile": {"input_cost_per_million": 0.59, "output_cost_per_million": 0.79},
-    "llama3-8b": {"input_cost_per_million": 0.05, "output_cost_per_million": 0.08},
+    # GroqCloud prices per 1M tokens. Models without a published token price use 0.0
+    # instead of the default fallback so admin analytics do not overstate system calls.
+    "default": {"input_cost_per_million": 0.0, "output_cost_per_million": 0.0, "pricing_note": "unpriced"},
+    "groq/compound": {"input_cost_per_million": 0.0, "output_cost_per_million": 0.0, "pricing_note": "system"},
+    "groq/compound-mini": {"input_cost_per_million": 0.0, "output_cost_per_million": 0.0, "pricing_note": "system"},
     "llama-3.1-8b-instant": {"input_cost_per_million": 0.05, "output_cost_per_million": 0.08},
+    "llama3-8b": {"input_cost_per_million": 0.05, "output_cost_per_million": 0.08},
+    "llama-3.3-70b-versatile": {"input_cost_per_million": 0.59, "output_cost_per_million": 0.79},
+    "llama-3.1-70b-versatile": {"input_cost_per_million": 0.59, "output_cost_per_million": 0.79},
+    "llama3-70b": {"input_cost_per_million": 0.59, "output_cost_per_million": 0.79},
+    "meta-llama/llama-4-scout-17b-16e-instruct": {"input_cost_per_million": 0.11, "output_cost_per_million": 0.34},
+    "meta-llama/llama-prompt-guard-2-22m": {"input_cost_per_million": 0.03, "output_cost_per_million": 0.03},
+    "meta-llama/llama-prompt-guard-2-86m": {"input_cost_per_million": 0.04, "output_cost_per_million": 0.04},
+    "openai/gpt-oss-120b": {"input_cost_per_million": 0.15, "output_cost_per_million": 0.60},
+    "gpt-oss-120b": {"input_cost_per_million": 0.15, "output_cost_per_million": 0.60},
+    "openai/gpt-oss-20b": {"input_cost_per_million": 0.075, "output_cost_per_million": 0.30},
+    "gpt-oss-20b": {"input_cost_per_million": 0.075, "output_cost_per_million": 0.30},
+    "openai/gpt-oss-safeguard-20b": {"input_cost_per_million": 0.075, "output_cost_per_million": 0.30},
+    "qwen/qwen3-32b": {"input_cost_per_million": 0.29, "output_cost_per_million": 0.59},
+    "qwen3-32b": {"input_cost_per_million": 0.29, "output_cost_per_million": 0.59},
+    "qwen/qwen3.6-27b": {"input_cost_per_million": 0.60, "output_cost_per_million": 3.00},
+    "qwen3.6-27b": {"input_cost_per_million": 0.60, "output_cost_per_million": 3.00},
     "mixtral-8x7b-32768": {"input_cost_per_million": 0.24, "output_cost_per_million": 0.24},
     "gemma2-9b-it": {"input_cost_per_million": 0.20, "output_cost_per_million": 0.20},
-    "gpt-oss-120b": {"input_cost_per_million": 0.15, "output_cost_per_million": 0.60},
-    "gpt-oss-20b": {"input_cost_per_million": 0.075, "output_cost_per_million": 0.30},
 }
+
+
+def _rate_payload(rates: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "input_cost_per_million": float(rates.get("input_cost_per_million") or 0),
+        "output_cost_per_million": float(rates.get("output_cost_per_million") or 0),
+        "pricing_note": rates.get("pricing_note", "token"),
+    }
 
 def get_model_cost_rates(model: str):
     model_lower = (model or "").strip().lower()
-    model_short = model_lower.split("/")[-1] if model_lower else ""
+    if not model_lower:
+        return "default", _rate_payload(MODEL_COSTS["default"])
 
+    model_short = model_lower.split("/")[-1]
+
+    # Try exact match first
     for key, rates in sorted(MODEL_COSTS.items(), key=lambda item: len(item[0]), reverse=True):
         key_lower = key.lower()
         if key_lower == "default":
             continue
-        if model_lower == key_lower or model_short == key_lower or key_lower in model_lower:
-            return key, rates
+        key_short = key_lower.split("/")[-1]
+        
+        if model_lower == key_lower or model_short == key_short:
+            return key, _rate_payload(rates)
 
-    return "default", MODEL_COSTS["default"]
+    # Try substring match
+    for key, rates in sorted(MODEL_COSTS.items(), key=lambda item: len(item[0]), reverse=True):
+        key_lower = key.lower()
+        if key_lower == "default":
+            continue
+        key_short = key_lower.split("/")[-1]
+        
+        if key_lower in model_lower or model_lower in key_lower:
+            return key, _rate_payload(rates)
+            
+        if key_short in model_short or model_short in key_short:
+            return key, _rate_payload(rates)
+
+    return "default", _rate_payload(MODEL_COSTS["default"])
+
+
+def get_model_pricing_catalog() -> Dict[str, Dict[str, Any]]:
+    return {
+        model: _rate_payload(rates)
+        for model, rates in MODEL_COSTS.items()
+        if model != "default"
+    }
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     _, rates = get_model_cost_rates(model)
@@ -58,8 +108,8 @@ def log_llm_call(model: str, response: Any, latency: float):
         
         usage = getattr(response, "usage_metadata", None) or {}
         if usage:
-            input_tokens = usage.get("input_tokens") or 0
-            output_tokens = usage.get("output_tokens") or 0
+            input_tokens = usage.get("input_tokens") or usage.get("prompt_tokens") or 0
+            output_tokens = usage.get("output_tokens") or usage.get("completion_tokens") or 0
             
         if not input_tokens and hasattr(response, "response_metadata"):
             token_usage = response.response_metadata.get("token_usage") or {}

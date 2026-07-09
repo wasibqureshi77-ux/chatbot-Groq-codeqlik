@@ -116,12 +116,37 @@ function Admin() {
     const [llmEndDate, setLlmEndDate] = useState("");
     const [llmModelFilter, setLlmModelFilter] = useState("");
 
-    // Cost Calculator Simulated Rate States
+    // Cost Calculator Rate States
     const [modelRates, setModelRates] = useState({});
+
+    const normalizeModelName = (modelName) => (modelName || "").toLowerCase().trim();
+
+    const toUiRate = (rate) => ({
+        input: Number(rate?.input ?? rate?.input_cost_per_million ?? 0),
+        output: Number(rate?.output ?? rate?.output_cost_per_million ?? 0),
+        pricingNote: rate?.pricingNote || rate?.pricing_note || "token",
+        costModel: rate?.costModel || rate?.cost_model || ""
+    });
 
     const getDefaultRates = (modelName) => {
         const name = (modelName || "").toLowerCase();
-        if (name.includes("llama3-70b") || name.includes("llama-3.1-70b")) {
+        if (name.includes("compound")) {
+            return { input: 0, output: 0, pricingNote: "system", costModel: "groq/compound" };
+        } else if (name.includes("qwen3.6-27b")) {
+            return { input: 0.60, output: 3.00, pricingNote: "token", costModel: "qwen/qwen3.6-27b" };
+        } else if (name.includes("qwen3-32b")) {
+            return { input: 0.29, output: 0.59, pricingNote: "token", costModel: "qwen/qwen3-32b" };
+        } else if (name.includes("llama-prompt-guard-2-86m")) {
+            return { input: 0.04, output: 0.04, pricingNote: "token", costModel: "meta-llama/llama-prompt-guard-2-86m" };
+        } else if (name.includes("llama-prompt-guard-2-22m")) {
+            return { input: 0.03, output: 0.03, pricingNote: "token", costModel: "meta-llama/llama-prompt-guard-2-22m" };
+        } else if (name.includes("llama-4-scout")) {
+            return { input: 0.11, output: 0.34, pricingNote: "token", costModel: "meta-llama/llama-4-scout-17b-16e-instruct" };
+        } else if (name.includes("gpt-oss-120b")) {
+            return { input: 0.15, output: 0.60, pricingNote: "token", costModel: "openai/gpt-oss-120b" };
+        } else if (name.includes("gpt-oss-20b") || name.includes("gpt-oss-safeguard-20b")) {
+            return { input: 0.075, output: 0.30, pricingNote: "token", costModel: "openai/gpt-oss-20b" };
+        } else if (name.includes("llama3-70b") || name.includes("llama-3.1-70b") || name.includes("llama-3.3-70b")) {
             return { input: 0.59, output: 0.79 };
         } else if (name.includes("llama3-8b") || name.includes("llama-3.1-8b")) {
             return { input: 0.05, output: 0.08 };
@@ -130,7 +155,25 @@ function Admin() {
         } else if (name.includes("gemma")) {
             return { input: 0.20, output: 0.20 };
         }
-        return { input: 0.15, output: 0.60 }; // default fallback
+        return { input: 0, output: 0, pricingNote: "unpriced", costModel: "default" };
+    };
+
+    const getModelRate = (modelName, row = {}) => {
+        const exact = modelRates[modelName];
+        if (exact) return toUiRate(exact);
+
+        const normalized = normalizeModelName(modelName);
+        const short = normalized.split("/").pop();
+        const catalogMatch = Object.entries(modelRates).find(([key]) => {
+            const normalizedKey = normalizeModelName(key);
+            return normalizedKey === normalized || normalizedKey === short || normalized.includes(normalizedKey);
+        });
+        if (catalogMatch) return toUiRate(catalogMatch[1]);
+
+        if (row.input_cost_per_million !== undefined || row.output_cost_per_million !== undefined) {
+            return toUiRate(row);
+        }
+        return getDefaultRates(modelName);
     };
 
     // Knowledge Creator states
@@ -245,17 +288,26 @@ function Admin() {
                 if (llmEndDate) queryParams.append("end_date", llmEndDate);
                 if (llmModelFilter) queryParams.append("model", llmModelFilter);
 
-                const [summaryRes, modelRes, dailyRes, recentRes] = await Promise.all([
+                const [summaryRes, modelRes, dailyRes, recentRes, ratesRes] = await Promise.all([
                     apiFetch(`${API_BASE}/analytics/llm-usage/summary?${queryParams.toString()}`),
                     apiFetch(`${API_BASE}/analytics/llm-usage/by-model?${queryParams.toString()}`),
                     apiFetch(`${API_BASE}/analytics/llm-usage/daily?${queryParams.toString()}`),
-                    apiFetch(`${API_BASE}/analytics/llm-usage/recent?${queryParams.toString()}`)
+                    apiFetch(`${API_BASE}/analytics/llm-usage/recent?${queryParams.toString()}`),
+                    apiFetch(`${API_BASE}/analytics/llm-usage/model-rates`)
                 ]);
 
                 if (summaryRes.ok) setLlmSummary(await summaryRes.json());
                 if (modelRes.ok) setModelUsage(await modelRes.json());
                 if (dailyRes.ok) setDailyUsage(await dailyRes.json());
                 if (recentRes.ok) setRecentLlmCalls(await recentRes.json());
+                if (ratesRes.ok) {
+                    const catalog = await ratesRes.json();
+                    const normalizedRates = {};
+                    Object.entries(catalog || {}).forEach(([model, rate]) => {
+                        normalizedRates[model] = toUiRate(rate);
+                    });
+                    setModelRates(normalizedRates);
+                }
             }
         } catch (error) {
             console.error("Connection error:", error);
@@ -2261,7 +2313,7 @@ function Admin() {
 
                             {/* Cost Calculator */}
                             <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
-                                <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Cost Calculator (Simulation)</h3>
+                                <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Cost Calculator</h3>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "250px", overflowY: "auto", paddingRight: "4px" }}>
 
                                     {/* Table Headers */}
@@ -2275,7 +2327,7 @@ function Admin() {
                                         <p style={{ fontSize: "12px", color: "#94a3b8", textAlign: "center" }}>No active models to configure.</p>
                                     ) : (
                                         modelUsage.map((m) => {
-                                            const rate = modelRates[m.model] || getDefaultRates(m.model);
+                                            const rate = getModelRate(m.model, m);
                                             return (
                                                 <div key={m.model} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "10px", alignItems: "center" }}>
                                                     <span style={{ fontSize: "11px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} title={m.model}>
@@ -2283,7 +2335,7 @@ function Admin() {
                                                     </span>
                                                     <input
                                                         type="number"
-                                                        step="0.01"
+                                                        step="0.001"
                                                         value={rate.input}
                                                         onChange={(e) => {
                                                             const val = parseFloat(e.target.value) || 0;
@@ -2296,7 +2348,7 @@ function Admin() {
                                                     />
                                                     <input
                                                         type="number"
-                                                        step="0.01"
+                                                        step="0.001"
                                                         value={rate.output}
                                                         onChange={(e) => {
                                                             const val = parseFloat(e.target.value) || 0;
@@ -2314,10 +2366,10 @@ function Admin() {
                                 </div>
 
                                 <div style={{ padding: "12px", borderRadius: "6px", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" }}>
-                                    <span style={{ fontSize: "13px", color: "#34d399", fontWeight: "600" }}>Simulated Price (Filtered):</span>
+                                    <span style={{ fontSize: "13px", color: "#34d399", fontWeight: "600" }}>Calculated Price (Filtered):</span>
                                     <span style={{ fontSize: "16px", color: "#34d399", fontWeight: "700" }}>
                                         ${modelUsage.reduce((acc, m) => {
-                                            const rate = modelRates[m.model] || getDefaultRates(m.model);
+                                            const rate = getModelRate(m.model, m);
                                             return acc + (((m.input_tokens || 0) * rate.input + (m.output_tokens || 0) * rate.output) / 1000000);
                                         }, 0).toFixed(6)}
                                     </span>
@@ -2337,23 +2389,31 @@ function Admin() {
                                                 <th>Model</th>
                                                 <th>Requests</th>
                                                 <th>Tokens</th>
+                                                <th>Rate ($/1M)</th>
                                                 <th>Cost</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {modelUsage.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan="4" style={{ textAlign: "center", color: "#94a3b8" }}>No model logs recorded.</td>
+                                                    <td colSpan="5" style={{ textAlign: "center", color: "#94a3b8" }}>No model logs recorded.</td>
                                                 </tr>
                                             ) : (
-                                                modelUsage.map((m, idx) => (
-                                                    <tr key={idx}>
-                                                        <td><strong>{m.model}</strong></td>
-                                                        <td>{m.total_requests}</td>
-                                                        <td>{m.total_tokens?.toLocaleString()}</td>
-                                                        <td style={{ color: "#10b981" }}>${m.total_cost}</td>
-                                                    </tr>
-                                                ))
+                                                modelUsage.map((m, idx) => {
+                                                    const rate = getModelRate(m.model, m);
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td><strong>{m.model}</strong></td>
+                                                            <td>{m.total_requests}</td>
+                                                            <td>{m.total_tokens?.toLocaleString()}</td>
+                                                            <td title={rate.costModel || m.cost_model || m.model}>
+                                                                ${rate.input}/{rate.output}
+                                                                {rate.pricingNote && rate.pricingNote !== "token" ? ` (${rate.pricingNote})` : ""}
+                                                            </td>
+                                                            <td style={{ color: "#10b981" }}>${m.total_cost}</td>
+                                                        </tr>
+                                                    );
+                                                })
                                             )}
                                         </tbody>
                                     </table>

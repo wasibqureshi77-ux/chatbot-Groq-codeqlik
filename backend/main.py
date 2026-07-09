@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 import os
+import re
 import shutil
 import logging
 import time
@@ -576,18 +577,59 @@ def build_usage_filter(start_date: Optional[str] = None, end_date: Optional[str]
         query["timestamp"] = {}
         if start_date:
             try:
-                # parse standard iso format
-                query["timestamp"]["$gte"] = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+                query["timestamp"]["$gte"] = parse_usage_datetime(start_date, end_of_day=False)
             except Exception:
                 pass
         if end_date:
             try:
-                query["timestamp"]["$lte"] = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                query["timestamp"]["$lte"] = parse_usage_datetime(end_date, end_of_day=True)
             except Exception:
                 pass
     if model:
         query["model"] = model
     return query
+
+
+def parse_usage_datetime(value: str, end_of_day: bool = False) -> datetime:
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError("Empty date")
+
+    normalized = raw.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if len(raw) == 10 and re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+        if end_of_day:
+            parsed = parsed + timedelta(days=1) - timedelta(microseconds=1)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _usage_number(value) -> float:
+    try:
+        return float(value or 0)
+    except Exception:
+        return 0.0
+
+
+def _usage_tokens(row: dict, key: str) -> int:
+    return int(_usage_number(row.get(key)))
+
+
+def _usage_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    from llm_client import calculate_cost
+    return calculate_cost(model or "", input_tokens, output_tokens)
+
+
+def _usage_rates(model: str) -> dict:
+    from llm_client import get_model_cost_rates
+    cost_model, rates = get_model_cost_rates(model or "")
+    return {
+        "cost_model": cost_model,
+        "input_cost_per_million": rates["input_cost_per_million"],
+        "output_cost_per_million": rates["output_cost_per_million"],
+        "pricing_note": rates.get("pricing_note", "token"),
+    }
 
 @app.get("/api/admin/analytics/llm-usage/summary")
 def get_llm_usage_summary(
@@ -603,40 +645,53 @@ def get_llm_usage_summary(
         {"$match": query},
         {
             "$group": {
-                "_id": None,
+                "_id": "$model",
                 "total_requests": {"$sum": 1},
-                "total_input_tokens": {"$sum": "$input_tokens"},
-                "total_output_tokens": {"$sum": "$output_tokens"},
-                "total_tokens": {"$sum": "$total_tokens"},
-                "total_cost": {"$sum": "$cost"},
-                "avg_latency": {"$avg": "$latency"}
+                "total_input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
+                "total_output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
+                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
+                "latency_sum": {"$sum": {"$ifNull": ["$latency", 0]}},
             }
         }
     ]
     
     result = list(llm_usage_logs_collection.aggregate(pipeline))
     
-    if result:
-        summary = result[0]
-        del summary["_id"]
-    else:
-        summary = {
-            "total_requests": 0,
-            "total_input_tokens": 0,
-            "total_output_tokens": 0,
-            "total_tokens": 0,
-            "total_cost": 0.0,
-            "avg_latency": 0.0
-        }
+    summary = {
+        "total_requests": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_tokens": 0,
+        "total_cost": 0.0,
+        "avg_latency": 0.0,
+    }
+
+    latency_sum = 0.0
+    for row in result:
+        model_name = row.get("_id") or "unknown"
+        input_tokens = _usage_tokens(row, "total_input_tokens")
+        output_tokens = _usage_tokens(row, "total_output_tokens")
+        total_requests = int(row.get("total_requests") or 0)
         
+        logged_cost = _usage_number(row.get("total_cost"))
+        if logged_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+            logged_cost = _usage_cost(model_name, input_tokens, output_tokens)
+            
+        summary["total_requests"] += total_requests
+        summary["total_input_tokens"] += input_tokens
+        summary["total_output_tokens"] += output_tokens
+        summary["total_tokens"] += input_tokens + output_tokens
+        summary["total_cost"] += logged_cost
+        latency_sum += _usage_number(row.get("latency_sum"))
+
     avg_tokens = 0
     if summary["total_requests"] > 0:
         avg_tokens = round(summary["total_tokens"] / summary["total_requests"], 1)
-        
+
     summary["avg_tokens_per_request"] = avg_tokens
     summary["estimated_monthly_cost"] = round(summary["total_cost"] * 30, 4)
     summary["total_cost"] = round(summary["total_cost"], 6)
-    summary["avg_latency"] = round(summary["avg_latency"] or 0.0, 3)
+    summary["avg_latency"] = round(latency_sum / summary["total_requests"], 3) if summary["total_requests"] else 0.0
     
     return summary
 
@@ -644,10 +699,11 @@ def get_llm_usage_summary(
 def get_llm_usage_by_model(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    model: Optional[str] = None,
     admin: str = Depends(require_admin)
 ):
     from database import llm_usage_logs_collection
-    query = build_usage_filter(start_date, end_date)
+    query = build_usage_filter(start_date, end_date, model)
     
     pipeline = [
         {"$match": query},
@@ -655,26 +711,36 @@ def get_llm_usage_by_model(
             "$group": {
                 "_id": "$model",
                 "total_requests": {"$sum": 1},
-                "input_tokens": {"$sum": "$input_tokens"},
-                "output_tokens": {"$sum": "$output_tokens"},
-                "total_tokens": {"$sum": "$total_tokens"},
-                "total_cost": {"$sum": "$cost"}
+                "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
+                "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
+                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
             }
         },
-        {"$sort": {"total_tokens": -1}}
+        {"$sort": {"input_tokens": -1}}
     ]
     
     result = list(llm_usage_logs_collection.aggregate(pipeline))
     formatted = []
     for r in result:
+        model_name = r["_id"] or "Unknown"
+        input_tokens = _usage_tokens(r, "input_tokens")
+        output_tokens = _usage_tokens(r, "output_tokens")
+        rates = _usage_rates(model_name)
+        
+        total_cost = _usage_number(r.get("total_cost"))
+        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+            
         formatted.append({
-            "model": r["_id"] or "Unknown",
+            "model": model_name,
+            **rates,
             "total_requests": r["total_requests"],
-            "input_tokens": r["input_tokens"],
-            "output_tokens": r["output_tokens"],
-            "total_tokens": r["total_tokens"],
-            "total_cost": round(r["total_cost"], 6)
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "total_cost": round(total_cost, 6)
         })
+    formatted.sort(key=lambda row: row["total_tokens"], reverse=True)
     return formatted
 
 @app.get("/api/admin/analytics/llm-usage/daily")
@@ -692,28 +758,52 @@ def get_llm_usage_daily(
         {
             "$group": {
                 "_id": {
-                    "$dateToString": {
-                        "format": "%Y-%m-%d",
-                        "date": "$timestamp"
-                    }
+                    "date": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$timestamp"
+                        }
+                    },
+                    "model": "$model"
                 },
                 "total_requests": {"$sum": 1},
-                "total_tokens": {"$sum": "$total_tokens"},
-                "total_cost": {"$sum": "$cost"}
+                "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
+                "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
+                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
             }
         },
         {"$sort": {"_id": 1}}
     ]
     
     result = list(llm_usage_logs_collection.aggregate(pipeline))
-    formatted = []
+    daily = {}
     for r in result:
-        formatted.append({
-            "date": r["_id"],
-            "total_requests": r["total_requests"],
-            "total_tokens": r["total_tokens"],
-            "total_cost": round(r["total_cost"], 6)
+        day = r["_id"].get("date")
+        model_name = r["_id"].get("model") or "unknown"
+        input_tokens = _usage_tokens(r, "input_tokens")
+        output_tokens = _usage_tokens(r, "output_tokens")
+        
+        total_cost = _usage_number(r.get("total_cost"))
+        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+            
+        item = daily.setdefault(day, {
+            "date": day,
+            "total_requests": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "total_cost": 0.0,
         })
+        item["total_requests"] += int(r.get("total_requests") or 0)
+        item["input_tokens"] += input_tokens
+        item["output_tokens"] += output_tokens
+        item["total_tokens"] += input_tokens + output_tokens
+        item["total_cost"] += total_cost
+    formatted = []
+    for item in sorted(daily.values(), key=lambda row: row["date"]):
+        item["total_cost"] = round(item["total_cost"], 6)
+        formatted.append(item)
     return formatted
 
 @app.get("/api/admin/analytics/llm-usage/recent")
@@ -735,23 +825,62 @@ def get_llm_usage_recent(
         {"$match": query},
         {
             "$group": {
-                "_id": "$thread_id",
+                "_id": {
+                    "thread_id": "$thread_id",
+                    "model": "$model",
+                },
                 "total_requests": {"$sum": 1},
-                "input_tokens": {"$sum": "$input_tokens"},
-                "output_tokens": {"$sum": "$output_tokens"},
-                "total_tokens": {"$sum": "$total_tokens"},
-                "total_cost": {"$sum": "$cost"},
+                "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
+                "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
+                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
                 "last_active": {"$max": "$timestamp"}
             }
         },
         {"$sort": {"last_active": -1}},
-        {"$limit": limit}
     ]
     
     result = list(llm_usage_logs_collection.aggregate(pipeline))
+    combined_threads = {}
+    for r in result:
+        thread_id = (r.get("_id") or {}).get("thread_id") or "unknown"
+        model_name = (r.get("_id") or {}).get("model") or "unknown"
+        input_tokens = _usage_tokens(r, "input_tokens")
+        output_tokens = _usage_tokens(r, "output_tokens")
+        
+        total_cost = _usage_number(r.get("total_cost"))
+        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+            
+        item = combined_threads.setdefault(thread_id, {
+            "thread_id": thread_id,
+            "total_requests": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "total_cost": 0.0,
+            "last_active": r.get("last_active"),
+        })
+        item["total_requests"] += int(r.get("total_requests") or 0)
+        item["input_tokens"] += input_tokens
+        item["output_tokens"] += output_tokens
+        item["total_tokens"] += input_tokens + output_tokens
+        item["total_cost"] += total_cost
+        last_active = r.get("last_active")
+        if last_active and (not item.get("last_active") or last_active > item["last_active"]):
+            item["last_active"] = last_active
+
+    def _timestamp_sort_value(row: dict) -> float:
+        value = row.get("last_active")
+        if isinstance(value, datetime):
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            return value.timestamp()
+        return 0.0
+
+    result = sorted(combined_threads.values(), key=_timestamp_sort_value, reverse=True)[:limit]
     
     # Fetch thread display names from chats_collection
-    thread_ids = [r["_id"] for r in result if r["_id"]]
+    thread_ids = [r["thread_id"] for r in result if r.get("thread_id")]
     thread_names = {}
     if thread_ids:
         docs = list(chats_collection.find({"thread_id": {"$in": thread_ids}}))
@@ -775,7 +904,7 @@ def get_llm_usage_recent(
         else:
             timestamp_str = ts
             
-        tid = r["_id"] or "unknown"
+        tid = r.get("thread_id") or "unknown"
         display_name = thread_names.get(tid) or tid
             
         formatted.append({
@@ -784,11 +913,17 @@ def get_llm_usage_recent(
             "total_requests": r["total_requests"],
             "input_tokens": r["input_tokens"],
             "output_tokens": r["output_tokens"],
-            "total_tokens": r["total_tokens"],
+            "total_tokens": r["input_tokens"] + r["output_tokens"],
             "total_cost": round(r["total_cost"], 6),
             "timestamp": timestamp_str
         })
     return formatted
+
+
+@app.get("/api/admin/analytics/llm-usage/model-rates")
+def get_llm_usage_model_rates(admin: str = Depends(require_admin)):
+    from llm_client import get_model_pricing_catalog
+    return get_model_pricing_catalog()
 
 
 # DASHBOARD ENDPOINT
@@ -897,10 +1032,6 @@ def get_dashboard(admin: str = Depends(require_admin)):
 
 
 # SETTINGS
-
-import re
-
-import shutil
 
 @app.post("/api/admin/settings/upload-logo")
 def upload_logo(file: UploadFile = File(...), admin: str = Depends(require_admin)):
