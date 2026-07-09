@@ -107,6 +107,14 @@ function Admin() {
             return { input: 0.59, output: 0.79 };
         } else if (name.includes("llama3-8b") || name.includes("llama-3.1-8b")) {
             return { input: 0.05, output: 0.08 };
+        } else if (name.includes("compound-mini")) {
+            return { input: 0.015, output: 0.03 };
+        } else if (name.includes("qwen3.6-27b")) {
+            return { input: 0.10, output: 0.15 };
+        } else if (name.includes("qwen3-32b") || name.includes("qwen")) {
+            return { input: 0.12, output: 0.18 };
+        } else if (name.includes("prompt-guard")) {
+            return { input: 0.005, output: 0.005 };
         } else if (name.includes("mixtral")) {
             return { input: 0.24, output: 0.24 };
         } else if (name.includes("gemma")) {

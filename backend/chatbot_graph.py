@@ -19,9 +19,29 @@ from llm_client import FailoverChatGroq, thread_id_var, node_name_var
 from langsmith import traceable
 
 
-llm = FailoverChatGroq(
+intent_llm = FailoverChatGroq(
+    model="groq/compound-mini",
+    temperature=0.0,
+)
+
+extraction_llm = FailoverChatGroq(
+    model="llama-3.1-8b-instant",
+    temperature=0.0,
+)
+
+rag_llm = FailoverChatGroq(
+    model="qwen/qwen3.6-27b",
+    temperature=0.5,
+)
+
+response_llm = FailoverChatGroq(
     model="openai/gpt-oss-20b",
     temperature=0.5,
+)
+
+safety_llm = FailoverChatGroq(
+    model="meta-llama/llama-prompt-guard-2-86m",
+    temperature=0.0,
 )
 
 
@@ -1255,7 +1275,7 @@ Return JSON only:
 """
     try:
         node_name_var.set("relevance_check")
-        json_llm = llm.bind(response_format={"type": "json_object"})
+        json_llm = safety_llm.bind(response_format={"type": "json_object"})
         result = json_llm.invoke([HumanMessage(content=prompt)]).content
         parsed = safe_json_loads(result, {"company_related": False})
         return bool(parsed.get("company_related", False))
@@ -1651,7 +1671,7 @@ Return JSON only:
 
     try:
         node_name_var.set("intent_detection")
-        json_llm = llm.bind(response_format={"type": "json_object"})
+        json_llm = intent_llm.bind(response_format={"type": "json_object"})
         result = json_llm.invoke([HumanMessage(content=prompt)]).content
         parsed = safe_json_loads(result, fallback)
 
@@ -2448,7 +2468,7 @@ Return JSON only:
 
     try:
         node_name_var.set("field_extraction")
-        json_llm = llm.bind(response_format={"type": "json_object"})
+        json_llm = extraction_llm.bind(response_format={"type": "json_object"})
         result = json_llm.invoke([HumanMessage(content=prompt)]).content
         parsed = safe_json_loads(result, {"valid": False, "value": None})
 
@@ -2538,7 +2558,7 @@ Return JSON only:
 
     try:
         node_name_var.set("field_extraction")
-        json_llm = llm.bind(response_format={"type": "json_object"})
+        json_llm = extraction_llm.bind(response_format={"type": "json_object"})
         result = json_llm.invoke([HumanMessage(content=prompt)]).content
         parsed = safe_json_loads(result, {})
         clean = validate_extracted_profile(parsed, category)
@@ -4243,7 +4263,8 @@ def response_generator_node(state: ChatState) -> dict:
 
     def _llm_reply(prompt: str, fallback: str) -> str:
         try:
-            result = llm.invoke([HumanMessage(content=prompt)])
+            target_llm = rag_llm if retrieved_context and retrieved_context.strip() else response_llm
+            result = target_llm.invoke([HumanMessage(content=prompt)])
             text = _clean_response(getattr(result, "content", result))
             return text or fallback
         except Exception as e:
