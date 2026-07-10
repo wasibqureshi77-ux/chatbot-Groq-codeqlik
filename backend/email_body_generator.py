@@ -112,8 +112,13 @@ def _profile_summary_text(profile: Dict[str, str]) -> str:
         ("Requirements", profile.get("requirements")),
         ("Budget", profile.get("budget")),
         ("Timeline", profile.get("timeline")),
+        ("Work Details", profile.get("work_details")),
+        ("Meeting Mode", profile.get("meeting_mode")),
+        ("Meeting Date", profile.get("date")),
+        ("Time Slot", profile.get("time_slot")),
         ("Issue Details", profile.get("issue_details")),
         ("Website URL", profile.get("website_url")),
+        ("Status", profile.get("status")),
     ]
 
     for label, value in fields:
@@ -136,8 +141,13 @@ def _profile_summary_html(profile: Dict[str, str]) -> str:
         ("Requirements", profile.get("requirements")),
         ("Budget", profile.get("budget")),
         ("Timeline", profile.get("timeline")),
+        ("Work Details", profile.get("work_details")),
+        ("Meeting Mode", profile.get("meeting_mode")),
+        ("Meeting Date", profile.get("date")),
+        ("Time Slot", profile.get("time_slot")),
         ("Issue Details", profile.get("issue_details")),
         ("Website URL", profile.get("website_url")),
+        ("Status", profile.get("status")),
     ]
 
     for label, value in fields:
@@ -232,6 +242,25 @@ def _event_context(event_type: str) -> Dict[str, str]:
             "must_avoid": "do not make job offers or set internal workflow statuses.",
         }
 
+    # --- Meeting Booked ---
+    if event_type == "meeting_booking_complete_admin":
+        return {
+            "audience": "admin",
+            "purpose": "Notify the admin/team that a visitor booked a meeting through the chatbot.",
+            "tone": "professional, structured, concise",
+            "must_include": "Visitor name, email, phone, company, discussion topic, meeting mode, date, time slot, and a clear next action to prepare or follow up.",
+            "must_avoid": "do not invent a meeting link, calendar invite ID, or extra slot details.",
+        }
+
+    if event_type == "meeting_booking_complete_user":
+        return {
+            "audience": "visitor",
+            "purpose": "Send a meeting booking confirmation email to the visitor.",
+            "tone": "friendly, clear, reassuring",
+            "must_include": "confirm that the meeting is booked, summarize meeting mode, date, time slot, and mention that the team will use their email/contact details for invite or follow-up.",
+            "must_avoid": "do not include internal thread IDs, admin panel links, database keys, or invented meeting links.",
+        }
+
     # --- Generic Fallbacks ---
     if event_type.endswith("_complete_admin"):
         label = event_type.replace("_complete_admin", "").replace("_", " ").title()
@@ -280,6 +309,11 @@ def _build_prompt(
         "requirements": profile.get("requirements"),
         "budget": profile.get("budget"),
         "timeline": profile.get("timeline"),
+        "work_details": profile.get("work_details"),
+        "meeting_mode": profile.get("meeting_mode"),
+        "date": profile.get("date"),
+        "time_slot": profile.get("time_slot"),
+        "status": profile.get("status"),
         "issue_details": profile.get("issue_details"),
         "website_url": profile.get("website_url"),
     }
@@ -488,9 +522,48 @@ Open the admin panel for the full conversation.
 def _fallback_user_complete(
     profile: Dict[str, str],
     company_name: str,
+    event_type: str = "",
 ) -> Tuple[str, str, str]:
     name = profile.get("name") or "there"
     requirement = profile.get("requirements") or profile.get("project_type")
+
+    if event_type == "meeting_booking_complete_user":
+        mode = profile.get("meeting_mode") or "the selected mode"
+        date = profile.get("date") or "the selected date"
+        time_slot = profile.get("time_slot") or "the selected time"
+        work_details = profile.get("work_details")
+
+        subject = f"Your meeting is booked - {company_name}"
+        text = f"""
+Hi {name},
+
+Your meeting with {company_name} is booked.
+
+Mode: {mode}
+Date: {date}
+Time Slot: {time_slot}
+""".strip()
+
+        if work_details:
+            text += f"\nDiscussion topic: {work_details}"
+
+        text += "\n\nOur team will use your email/contact details for the invite or follow-up."
+        text += f"\n\nBest regards,\n{company_name} Team"
+
+        html = f"""
+<p>Hi {_escape(name)},</p>
+<p>Your meeting with <strong>{_escape(company_name)}</strong> is booked.</p>
+<ul>
+  <li><strong>Mode:</strong> {_escape(mode)}</li>
+  <li><strong>Date:</strong> {_escape(date)}</li>
+  <li><strong>Time Slot:</strong> {_escape(time_slot)}</li>
+</ul>
+"""
+        if work_details:
+            html += f"<p><strong>Discussion topic:</strong> {_escape(work_details)}</p>"
+        html += "<p>Our team will use your email/contact details for the invite or follow-up.</p>"
+        html += f"<p>Best regards,<br/>{_escape(company_name)} Team</p>"
+        return subject, text, html.strip()
 
     subject = f"Thanks for contacting {company_name}"
 
@@ -532,7 +605,7 @@ def _fallback_email(
         return _fallback_new_chat_start(thread_id, profile, user_message, company_name)
 
     if event_type.endswith("_complete_user"):
-        return _fallback_user_complete(profile, company_name)
+        return _fallback_user_complete(profile, company_name, event_type)
 
     if event_type.endswith("_complete_admin") or event_type == "lead_complete_admin":
         return _fallback_admin_complete(event_type, thread_id, profile, company_name)

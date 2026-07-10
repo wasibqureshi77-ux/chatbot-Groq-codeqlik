@@ -508,6 +508,7 @@ h1, h2, h3, h4, h5 {
 .timelineIcon.lead { background: rgba(16, 185, 129, 0.15); color: var(--success); }
 .timelineIcon.support { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 .timelineIcon.hiring { background: rgba(168, 85, 247, 0.15); color: var(--hiring-color); }
+.timelineIcon.meeting { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
 
 .timelineBody {
     flex: 1;
@@ -1299,6 +1300,14 @@ input:checked + .slider:before {
     background: #0f172a;
 }
 
+.fieldHint {
+    display: block;
+    margin-top: 7px;
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
 .mockHeaderText {
     flex: 1;
 }
@@ -1555,8 +1564,8 @@ input:checked + .slider:before {
     position: absolute;
     right: 0;
     bottom: 0;
-    width: 60px;
-    height: 60px;
+    width: var(--mock-launcher-size, 60px);
+    height: var(--mock-launcher-size, 60px);
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     background-image: radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.34), transparent 30%);
@@ -1570,16 +1579,24 @@ input:checked + .slider:before {
 }
 
 .mockLauncherChatIcon {
-    width: 28px;
-    height: 28px;
+    width: calc(var(--mock-launcher-size, 60px) * 0.47);
+    height: calc(var(--mock-launcher-size, 60px) * 0.47);
     display: block;
     filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
 }
 
 .mockLauncherCustomIcon {
     display: block;
-    font-size: 22px;
+    font-size: calc(var(--mock-launcher-size, 60px) * 0.36);
     line-height: 1;
+}
+
+.mockLauncherIconImage {
+    width: calc(100% - (var(--mock-launcher-image-inset, 7px) * 2));
+    height: calc(100% - (var(--mock-launcher-image-inset, 7px) * 2));
+    object-fit: contain;
+    display: block;
+    border-radius: 50%;
 }
 
 /* Install Guide */

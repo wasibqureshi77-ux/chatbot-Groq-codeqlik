@@ -46,7 +46,7 @@ def _make_task_llm(model: str, temperature: float = 0.0) -> FailoverChatGroq:
 intent_llm = _make_task_llm(MODEL_INTENT_DETECTION, temperature=0.0)
 field_extraction_llm = _make_task_llm(MODEL_FIELD_EXTRACTION, temperature=0.0)
 rag_context_llm = _make_task_llm(MODEL_RAG_CONTEXT, temperature=0.2)
-response_llm = _make_task_llm(MODEL_RESPONSE_GENERATION, temperature=0.4)
+response_llm = _make_task_llm(MODEL_RESPONSE_GENERATION, temperature=0.6)
 guardrail_llm = _make_task_llm(MODEL_SAFETY_GUARDRAIL, temperature=0.0)
 
 # Backward-compatible alias for any future helper that still expects `llm`.
@@ -157,6 +157,7 @@ class ChatState(TypedDict):
     intro_context: Optional[str]
     slot_conflict: Optional[bool]
     no_slots_available: Optional[bool]
+    needs_company_context: Optional[bool]
 
 
 # ---------------------------------------------------------------------
@@ -358,14 +359,52 @@ def has_semantic_hiring_intent(text: str) -> bool:
     if not t:
         return False
 
+    def has_candidate_portfolio_context() -> bool:
+        if "portfolio" not in t:
+            return False
+
+        company_portfolio_phrases = [
+            "your portfolio",
+            "ur portfolio",
+            "company portfolio",
+            "codeqlik portfolio",
+            "show me portfolio",
+            "show me your portfolio",
+            "show your portfolio",
+            "see your portfolio",
+            "view your portfolio",
+            "can you show me your portfolio",
+        ]
+        if any(phrase in t for phrase in company_portfolio_phrases):
+            return False
+
+        candidate_context = [
+            "my portfolio",
+            "resume or portfolio",
+            "portfolio link",
+            "github",
+            "linkedin",
+            "apply",
+            "candidate",
+            "job",
+            "intern",
+            "career",
+            "role",
+            "opening",
+            "vacancy",
+            "resume",
+            "cv",
+        ]
+        return any(phrase in t for phrase in candidate_context)
+
     hiring_phrases = [
         "job", "internship", "career", "hiring", "vacancy", "opening",
-        "apply", "resume", "cv", "portfolio", "fresher", "candidate",
+        "apply", "resume", "cv", "fresher", "candidate",
         "naukri", "job chahiye", "internship chahiye", "apply karna",
         "apply karna hai", "resume bhejna", "resume submit", "kaam chahiye",
         "role available", "roles available", "opening hai", "vacancy hai",
     ]
-    return any(p in t for p in hiring_phrases)
+    return any(p in t for p in hiring_phrases) or has_candidate_portfolio_context()
 
 
 def has_semantic_company_info_intent(text: str) -> bool:
@@ -1725,12 +1764,14 @@ Important rules:
 5. If user asks company/service/hiring info during active_collection, keep same active intent but answer_type should be "company_answer".
 6. New wording should be understood semantically, not only by keywords.
 7. Unsafe/unrelated requests must be unrelated_query.
+8. Classify needs_company_context: set to true if the user is asking about CodeQlik's services, process, technology, pricing, portfolio, contact, or specific project capabilities. Set to false for greetings, thanks, general small talk, simple answers to collected fields (providing name, email, budget, date, timeline, etc.), acknowledgements, or generic chatting.
 
 Return JSON only:
 {{
   "intent": "client_lead|customer_support|hiring_support|meeting_booking|company_info|general_chat|unrelated_query",
   "is_clear_switch": true,
   "answer_type": "field_answer|company_answer|small_talk|refusal",
+  "needs_company_context": true,
   "confidence": 0.0,
   "reason": ""
 }}"""
@@ -1740,7 +1781,8 @@ Return JSON only:
         "is_clear_switch": False,
         "answer_type": "company_answer",
         "confidence": 0.0,
-        "reason": "fallback"
+        "reason": "fallback",
+        "needs_company_context": True
     }
 
     try:
@@ -1756,6 +1798,7 @@ Return JSON only:
         parsed["confidence"] = float(parsed.get("confidence", 0.0) or 0.0)
         parsed["is_clear_switch"] = bool(parsed.get("is_clear_switch", False))
         parsed["answer_type"] = parsed.get("answer_type") or "company_answer"
+        parsed["needs_company_context"] = bool(parsed.get("needs_company_context", False))
         return parsed
 
     except Exception:
@@ -1827,7 +1870,6 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
         "apply",
         "resume",
         "cv",
-        "portfolio",
         "career",
         "vacancy",
         "candidate",
@@ -1842,7 +1884,7 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
         "job roles",
         "job role",
     ]
-    if any(k in t for k in hiring_keywords):
+    if any(k in t for k in hiring_keywords) or has_semantic_hiring_intent(t):
         return "hiring_support"
 
     client_keywords = [
@@ -1912,7 +1954,7 @@ def classify_intent_rules_fallback(user_text: str, active_collection: Optional[s
 
     return "general_chat"
 
-def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> str:
+def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> tuple[str, Optional[dict]]:
     """
     Safer hybrid intent classification:
     - Deterministic state/flow protection first.
@@ -1924,11 +1966,11 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
 
     if is_small_talk(t):
         if active_collection:
-            return active_collection
-        return "general_chat"
+            return active_collection, None
+        return "general_chat", None
 
     if is_guardrail_blocked(user_text):
-        return "unrelated_query"
+        return "unrelated_query", None
 
     clear_support_phrases = [
         "bug", "issue", "problem", "complaint", "not working", "not opening",
@@ -1937,14 +1979,14 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
         "keeps failing", "failing after login", "portal failing"
     ]
     if any(k in t for k in clear_support_phrases) or has_semantic_support_intent(t):
-        return "customer_support"
+        return "customer_support", None
 
     clear_booking_phrases = [
         "meeting", "appointment", "booking", "schedule", "reschedule", "slot", "slots",
         "book a call", "schedule a call", "book meeting", "book appointment", "appointment book"
     ]
     if any(k in t for k in clear_booking_phrases):
-        return "meeting_booking"
+        return "meeting_booking", None
 
     clear_hiring_phrases = [
         "i want internship", "want internship", "need internship",
@@ -1955,7 +1997,7 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
         "python developer job", "ai intern", "ml intern"
     ]
     if any(k in t for k in clear_hiring_phrases) or has_semantic_hiring_intent(t):
-        return "hiring_support"
+        return "hiring_support", None
 
     # Active flow protection before broad client phrases.
     # This keeps hiring answers like "Python developer" or support answers from
@@ -1963,10 +2005,10 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
     # "developer"/"develop". Clear support/hiring switches were already handled.
     if active_collection:
         if is_hard_unrelated_or_unsafe(t):
-            return "unrelated_query"
+            return "unrelated_query", None
         if active_collection != "client_lead" and active_collection != "meeting_booking" and has_semantic_client_buying_intent(t):
-            return "client_lead"
-        return active_collection
+            return "client_lead", None
+        return active_collection, None
 
     clear_client_phrases = [
         "i need", "i want", "build", "develop", "create", "make", "design",
@@ -1978,41 +2020,43 @@ def classify_intent_rules(user_text: str, active_collection: Optional[str]) -> s
         "software for my business"
     ]
     if any(k in t for k in clear_client_phrases) or has_client_buying_intent(t) or has_semantic_client_buying_intent(t):
-        return "client_lead"
+        return "client_lead", None
 
     # Broad service/domain informational questions should be answered, not refused.
     if is_company_or_business_info_query(t) or has_semantic_company_info_intent(t) or (is_question(t) and has_business_domain_keyword(t)):
-        return "company_info"
+        return "company_info", None
 
     # Ambiguous questions get RAG first, then LLM fallback before refusing.
     if is_unrelated_query(t):
         if is_question(t) and (rag_suggests_company_relevance(t) or llm_suggests_company_relevance(t)):
-            return "general_chat"
+            return "general_chat", None
         # Before refusing, use the existing semantic classifier as a conservative
         # fallback for business-like Hinglish/new wording that keyword rules missed.
         if should_try_semantic_intent_fallback(user_text, "unrelated_query", active_collection):
             semantic = classify_intent_semantic(user_text, active_collection)
             override = safe_semantic_intent_override(user_text, "unrelated_query", semantic)
             if override:
-                return override
-        return "unrelated_query"
+                return override, semantic
+            return "unrelated_query", semantic
+        return "unrelated_query", None
 
     if is_plain_value_without_context(t):
-        return "general_chat"
+        return "general_chat", None
 
     if is_company_or_business_info_query(t) or has_semantic_company_info_intent(t):
         if has_hiring_info_intent(t):
-            return "hiring_support"
-        return "company_info"
+            return "hiring_support", None
+        return "company_info", None
 
     fallback_intent = classify_intent_rules_fallback(user_text, active_collection)
     if should_try_semantic_intent_fallback(user_text, fallback_intent, active_collection):
         semantic = classify_intent_semantic(user_text, active_collection)
         override = safe_semantic_intent_override(user_text, fallback_intent, semantic)
         if override:
-            return override
+            return override, semantic
+        return fallback_intent, semantic
 
-    return fallback_intent
+    return fallback_intent, None
 
 def is_clear_flow_switch(user_text: str, current_active: Optional[str], new_intent: str) -> bool:
     if not current_active:
@@ -2075,17 +2119,13 @@ def build_meeting_prefill_from_profile(profile: dict) -> dict:
         or profile.get("issue_type")
     )
 
-    prefilled = {
-        "name": profile.get("name"),
+    prefilled = dict(profile)
+    prefilled.update({
         "email": email,
         "phone": phone,
-        "company": profile.get("company"),
         "work_details": work_details,
-        "meeting_mode": profile.get("meeting_mode"),
-        "date": profile.get("date"),
-        "time_slot": profile.get("time_slot"),
         "status": profile.get("status") or "confirmed",
-    }
+    })
     return {k: v for k, v in prefilled.items() if v}
 
 
@@ -2104,12 +2144,13 @@ def intent_classifier_node(state: ChatState) -> dict:
         and state.get("user_goal") == "client_lead"
         and has_saved_business_context(current_profile)
     )
+    semantic_data = None
     if completed_lead_waiting_for_booking and is_positive_response:
         primary_intent = "meeting_booking"
         current_active = "meeting_booking"
         current_profile = build_meeting_prefill_from_profile(current_profile)
     else:
-        primary_intent = classify_intent_rules(user_text, current_active)
+        primary_intent, semantic_data = classify_intent_rules(user_text, current_active)
 
     if primary_intent == "meeting_booking" and current_active != "meeting_booking":
         current_profile = build_meeting_prefill_from_profile(current_profile)
@@ -2159,6 +2200,17 @@ def intent_classifier_node(state: ChatState) -> dict:
     if primary_intent in COLLECTION_INTENTS and primary_intent != original_active:
         user_goal = primary_intent
 
+    # Compute if RAG/company context is needed for response generator
+    t = normalize(user_text)
+    needs_company_context = (
+        is_company_or_business_info_query(t)
+        or has_semantic_company_info_intent(t)
+        or has_hiring_info_intent(t)
+        or (is_question(t) and has_business_domain_keyword(t))
+    )
+    if semantic_data and semantic_data.get("needs_company_context"):
+        needs_company_context = True
+
     return {
         "intent": primary_intent,
         "primary_intent": primary_intent,
@@ -2175,6 +2227,7 @@ def intent_classifier_node(state: ChatState) -> dict:
         "confidence": 0.95,
         "response_mode": "decline_unrelated" if primary_intent == "unrelated_query" else None,
         "is_field_answer": False,
+        "needs_company_context": needs_company_context,
     }
 
 
@@ -4182,8 +4235,9 @@ def response_generator_node(state: ChatState) -> dict:
     has_profile_context = has_saved_business_context(profile)
     is_saved_context_followup = bool(qualified and has_profile_context and is_context_followup(user_text))
     response_language = detect_conversation_language(state.get("messages", []), user_text)
+    meeting_booked = bool(profile.get("date") and profile.get("time_slot") and profile.get("meeting_mode"))
     collection_context = active_collection
-    if not collection_context and qualified and primary_intent in COLLECTION_INTENTS:
+    if not collection_context and qualified and primary_intent in COLLECTION_INTENTS and not meeting_booked:
         collection_context = primary_intent
 
     settings = get_chatbot_settings()
@@ -4468,6 +4522,36 @@ Return only the question text."""
 
         return generated.strip()
 
+    def response_asks_for_field(text: str, field: str) -> bool:
+        low = text.lower()
+        if "?" not in low:
+            return False
+            
+        keywords = {
+            "name": ["name", "naam", "call you", "address you", "introduce"],
+            "email": ["email", "mail"],
+            "phone": ["phone", "number", "contact", "mobile", "whatsapp"],
+            "company": ["company", "organization", "firm", "business", "workplace"],
+            "project_type": ["project", "build", "develop", "website", "app", "software", "system"],
+            "requirements": ["requirement", "need", "feature", "expect", "detail", "describe"],
+            "budget": ["budget", "cost", "price", "spend", "rate", "limit", "amount"],
+            "timeline": ["timeline", "time", "duration", "schedule", "when", "days", "week", "month"],
+            "issue_type": ["issue", "bug", "problem", "ticket", "error", "fail"],
+            "issue_details": ["detail", "description", "happen", "explain", "describe"],
+            "urgency": ["urgency", "urgent", "priority", "critical", "soon"],
+            "role": ["role", "position", "apply", "job", "internship"],
+            "experience": ["experience", "year"],
+            "skills": ["skill", "technolog", "expert", "know", "language"],
+            "resume_or_portfolio": ["resume", "cv", "portfolio", "link", "profile", "document"],
+            "work_details": ["discuss", "agenda", "talk about", "topic", "subject"],
+            "meeting_mode": ["mode", "call", "meet", "phone", "channel", "how"],
+            "date": ["date", "day", "when"],
+            "time_slot": ["slot", "time", "hour", "when"]
+        }
+        
+        field_keys = keywords.get(field, [field])
+        return any(k in low for k in field_keys)
+
     def _enforce_pending_question(response: str) -> str:
         """
         When a collection is active, the assistant may answer the user's current
@@ -4475,12 +4559,41 @@ Return only the question text."""
         This prevents bugs like pending_field=name but the bot asking project_type.
 
         Formatting note:
-        - The pending question wording is generated by the LLM, then appended
-          after a blank line so responses stay readable and conversational.
+        - If the response already asks the pending question naturally, we keep it.
+        - Otherwise, the deterministic pending question is appended at the end.
         """
         if not (active_collection and pending_field and not qualified):
             return response
 
+        response = str(response or "").strip()
+
+        # If the response already asks for the pending field naturally, keep it!
+        if response_asks_for_field(response, pending_field):
+            kept = []
+            if "\n" in response:
+                for line in response.splitlines():
+                    clean = line.strip()
+                    if not clean:
+                        kept.append("")
+                        continue
+                    # Remove exploratory questions that are NOT about the pending field
+                    if "?" in clean and not response_asks_for_field(clean, pending_field):
+                        continue
+                    kept.append(clean)
+                return "\n".join(kept).strip()
+            else:
+                parts = re.split(r"(?<=[.!?])\s+", response)
+                for part in parts:
+                    clean = part.strip()
+                    if not clean:
+                        continue
+                    # Remove exploratory questions that are NOT about the pending field
+                    if "?" in clean and not response_asks_for_field(clean, pending_field):
+                        continue
+                    kept.append(clean)
+                return " ".join(kept).strip()
+
+        # Otherwise, retrieve the deterministic fallback question and append it
         required_question = build_pending_question(
             pending_field,
             active_collection,
@@ -4489,24 +4602,17 @@ Return only the question text."""
             profile=profile,
             thread_id=state.get("thread_id"),
         )
-        response = str(response or "").strip()
 
-        # Remove any exploratory question from the main response.
-        # Keep answer content, then append the LLM-generated pending question.
         kept = []
-
         if "\n" in response:
             for line in response.splitlines():
                 clean = line.strip()
                 if not clean:
                     kept.append("")
                     continue
-                if "?" in clean and required_question.lower() not in clean.lower():
-                    continue
-                if required_question.lower() in clean.lower():
+                if "?" in clean:
                     continue
                 kept.append(clean)
-
             base = "\n".join(kept).strip()
         else:
             parts = re.split(r"(?<=[.!?])\s+", response)
@@ -4514,12 +4620,9 @@ Return only the question text."""
                 clean = part.strip()
                 if not clean:
                     continue
-                if "?" in clean and required_question.lower() not in clean.lower():
-                    continue
-                if required_question.lower() in clean.lower():
+                if "?" in clean:
                     continue
                 kept.append(clean)
-
             base = " ".join(kept).strip()
 
         if base:
@@ -4677,11 +4780,10 @@ Return only the acknowledgement text."""
         )
         return _save_and_return(response, rag_confidence)
 
-    # Optional RAG only for company/info questions. If retriever fails or is slow internally,
-    # response still works because LLM fallback has company description/state.
+    # Optional RAG only if needs_company_context is True.
     if (
         not retrieved_context
-        and not is_small_talk(user_text)
+        and state.get("needs_company_context")
     ):
         try:
             details = retrieve_company_context_details(user_text, intent=primary_intent)
@@ -4702,12 +4804,7 @@ Return only the acknowledgement text."""
     if rag_confidence_float < 0.55:
         retrieved_context = ""
 
-    profile_display = {}
-    if collection_context:
-        allowed = REQUIRED_FIELDS.get(collection_context, [])
-        profile_display = {k: v for k, v in profile.items() if k in allowed}
-    elif is_saved_context_followup:
-        profile_display = profile
+    profile_display = profile
 
     if active_collection and pending_field and not qualified:
         pending_instruction = (
@@ -4717,6 +4814,11 @@ Return only the acknowledgement text."""
             f"Make sure you ask for this specific field '{pending_field}' dynamically, naturally, and conversationally in {response_language}. "
             f"Do NOT ask for any other missing fields. Keep the tone friendly and casual."
         )
+    elif meeting_booked:
+        if "agenda" in user_text.lower() or "discuss" in user_text.lower() or "what" in user_text.lower():
+            pending_instruction = "The meeting is already booked. Explain that in the upcoming meeting we will discuss their project requirements, budget, and details. Do not ask them to book a meeting. Do not repeat the raw booking summary details (Name, Mode, Date, Slot) again unless they explicitly ask for booking details or confirmation."
+        else:
+            pending_instruction = "The meeting is already booked. Answer the user's question directly. Do not ask them to book a meeting, and do not repeat the booking summary details (Name, Mode, Date, Slot) again unless they explicitly ask for it."
     elif collection_context == "client_lead" and qualified:
         pending_instruction = "The client lead collection is complete. Thank the user for the details, and then explicitly ask: 'Aap chaho to project discussion ke liye meeting book kar sakte ho. Book karni hai?' (or in English: 'Would you like to book a meeting for project discussion?')."
     elif collection_context == "meeting_booking" and qualified:
@@ -4728,70 +4830,66 @@ Return only the acknowledgement text."""
     else:
         pending_instruction = "No collection is active. Do not say that details were received."
 
-    prompt = f"""You are {company_name}'s official support chatbot.
-        contact details :  Email: info@codeqlik.com. Phone: +91-8949687368. Address: CodeQlik - IT Solutions, 301, 3rd Floor, 244-245, Dhruv Marg, Tilak Nagar, near Baskin-Robbins, Gurunanakpura, Raja Park, Jaipur, Rajasthan 302004.
+    prompt = f"""
+You are {company_name}'s official website support assistant.
 
 Company:
-{_trim(company_desc, 700)}
+{_trim(company_desc, 450)}
+
+Official contact:
+Email: info@codeqlik.com
+Phone: +91-8949687368
+Address: CodeQlik - IT Solutions, 301, 3rd Floor, 244-245, Dhruv Marg, Tilak Nagar, near Baskin-Robbins, Gurunanakpura, Raja Park, Jaipur, Rajasthan 302004.
 
 Latest user message:
 "{current_question}"
 
-Latest user language: {response_language}
-Language instruction: {language_instruction(response_language)}
+Reply language: {response_language}
+{language_instruction(response_language)}
 
-Recent history for context only:
-{_trim(format_history(state["messages"][:-1], limit=5), 900)}
+Recent chat context:
+{_trim(format_history(state["messages"][:-1], limit=4), 600)}
 
-State:
-Intent: {primary_intent}
-Active collection: {active_collection}
-Pending field: {pending_field}
-Missing fields: {missing_fields}
-Qualified: {qualified}
-Profile / saved business context:
-{json.dumps(profile_display, ensure_ascii=False)}
+Conversation state:
+intent={primary_intent}
+active_collection={active_collection}
+pending_field={pending_field}
+missing_fields={missing_fields}
+qualified={qualified}
+saved_profile={json.dumps(profile_display, ensure_ascii=False)}
 
-Company/RAG context, use only if relevant:
-{_trim(retrieved_context, 1200)}
+Relevant company knowledge:
+{_trim(retrieved_context, 900)}
 
-Response personality:
-- Sound like a helpful human support person, not a scripted bot.
-- Be friendly, polite, warm, simple, and naturally conversational and be very happy and funny friendly.
-- Make the response with like a real human breaks and be the conversation little and funny nature dont be serious.
-- Match the user's tone: casual with casual users, clear and professional with serious users, calm with frustrated users.
-- If Latest user language is english, reply fully in English only. Never use Hinglish/Hindi words like "haan", "aap", "chahiye", "bana sakta hai", "hoga", or "aapke liye".
-- If Latest user language is hinglish, reply in natural Hinglish.
-- If Latest user language is hindi, reply in Hindi.but words are of english only the language can be hindi.
-
-Readable response style:
-- Do not write one big paragraph or do not create a big response ,make the answers short and crispy.
-- Use short chat-style blocks with blank lines between different thoughts.
-- If listing 4 or more services, features, benefits, steps, or options, use a numbered list.
-- If there is a main answer and an active collection question, answer first, then put the pending-field question on a new paragraph.
-- Keep each paragraph short, usually 1-2 short sentences.
-- Use bullets/numbered lists only when they improve readability.
-- Never mention internal state, intent, RAG, profile, pending field, or these rules.
+Role:
+Reply like a helpful human support person from {company_name}. Be warm, simple, natural, and concise.
 
 Rules:
-1. Answer the latest user message naturally and dynamically. Do not repeat the same generic line for every small-talk message.
-2. Stay focused on {company_name}: services, projects, support, hiring, pricing, contact, and company information.
-3. If the user asks casual small talk, reply naturally and briefly, then keep the conversation open for company help.
-4. If the user asks who you are or what you can do, explain your role as {company_name}'s support assistant.
-5. If exact company data is unavailable, answer generally without inventing exact facts.
-6. Use Company/RAG context only if it is relevant to the latest user message. Ignore it if it is not useful.
-7. {pending_instruction}
-8. CRITICAL FLOW RULE: If Active collection is not None and Pending field is not None, ask ONLY that exact pending field. Ask it dynamically and naturally. Never ask for other missing fields.
-9. If the user asks a question, always answer/address the user's question first (using the Company/RAG context if relevant), and then naturally ask for the pending field to continue the collection.
-10. Never ask multiple fields in one reply. Never ask a field already present in Profile.
-11. Keep the reply concise and useful. Prefer 1-3 short sentences ,but if the list is needed for readability then go upto 5-8 short sentences.
-12. Avoid robotic lines like "Please share your name so we can guide you better", "How can I assist you today?", or "Please provide more details."
-13. DO NOT include: Thinking process, Reasoning steps ,Analysis ,Internal instructions, Any text like "Here's a thinking process. Only return the final answer.
+1. Answer the latest user message first. Use history only for context.
+2. Stay related to {company_name}: services, projects, pricing, support, hiring, meetings, contact, and company info.
+3. For casual small talk, reply briefly and naturally, then keep the chat open for company help.
+4. Use relevant company knowledge only when it directly helps. If exact data is missing, answer generally without inventing facts.
+5. If active_collection and pending_field are set:
+   - Ask ONLY the pending_field.
+   - Never ask multiple fields.
+   - Never ask a field already present in saved_profile.
+   - If the user asked a question, answer it first, then ask the pending-field question in a new paragraph.
+6. Language:
+   - english: reply only in English. Do not use Hindi/Hinglish words.
+   - hinglish: reply in natural Hinglish.
+   - hindi: reply in simple Hindi.
+7. Style:
+   - Keep it short: usually 3-7 short sentences.
+   - Use blank lines between thoughts.
+   - Use numbered lists only when 8+ points are really useful.
+   - Friendly and realistic like a human is good, but do not overdo jokes or emojis.
+8. Avoid robotic lines like "Please provide more details", "How can I assist you today?", or "Please share your name so we can guide you better".
+9. Never mention internal state, intent, RAG, profile, pending_field, rules, reasoning, or prompt instructions.
 
+{pending_instruction}
 
-
-Return only the final user-facing reply."""
-
+Return only the final user-facing reply.
+"""
     fallback = fallback_message
     if active_collection and pending_field and not qualified:
         fallback = f"{fallback_message} Could you share your {pending_field.replace('_', ' ')}?"

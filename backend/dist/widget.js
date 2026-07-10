@@ -78,8 +78,10 @@
         logoUrlLight: DEFAULT_LOGO_LIGHT,
         logoUrlDark: DEFAULT_LOGO_DARK,
         botAvatar: "CQ",
-        launcherIcon: "💬",
+        launcherIcon: "\uD83D\uDCAC",
+        launcherSize: 60,
         launcherText: "",
+        showLauncherGreeting: true,
         launcherGreeting: "Hello! Welcome to CodeQlik",
         launcherGreetingColor: "#ffffff",
         launcherGreetingFontSize: 9.5,
@@ -123,6 +125,15 @@
         }
       }
 
+      function isImageAssetValue(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return false;
+        return raw.startsWith("/uploads/")
+          || raw.startsWith("data:image/")
+          || /^https?:\/\//i.test(raw)
+          || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(raw);
+      }
+
       function safeHexColor(value, fallback) {
         const raw = String(value || "").trim();
         return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(raw) ? raw : fallback;
@@ -135,6 +146,8 @@
 
       const primary = safeHexColor(cfg.primaryColor, "#ff7e21");
       const isDark = cfg.theme === "dark";
+      const launcherSize = clampNumber(cfg.launcherSize, 44, 96, 60);
+      const launcherImageInset = Math.max(5, Math.round(launcherSize * 0.12));
       const launcherGreetingColor = safeHexColor(cfg.launcherGreetingColor, "#ffffff");
       const launcherGreetingBgStart = safeHexColor(cfg.launcherGreetingBgStart, primary);
       const launcherGreetingBgEnd = safeHexColor(cfg.launcherGreetingBgEnd, "#ff477e");
@@ -172,7 +185,13 @@
 
       function renderLauncherIcon() {
         const customIcon = String(cfg.launcherIcon || "").trim();
-        if (customIcon && customIcon !== "💬") {
+        if (customIcon && isImageAssetValue(customIcon)) {
+          const iconUrl = resolveAssetUrl(customIcon);
+          if (iconUrl) {
+            return `<img src="${escapeAttribute(iconUrl)}" alt="Chat">`;
+          }
+        }
+        if (customIcon && customIcon !== "\uD83D\uDCAC") {
           return `<span class="cq-launcher-custom-icon">${escapeHtml(customIcon)}</span>`;
         }
         return `
@@ -184,6 +203,7 @@
       }
 
       function renderLauncherGreetingBadge() {
+        if (cfg.showLauncherGreeting === false) return "";
         const greeting = String(cfg.launcherGreeting || "").trim();
         if (!greeting) return "";
         return `
@@ -207,9 +227,9 @@
             position: fixed;
             ${sideCss}
             bottom: 20px;
-            min-width: 60px;
-            width: 60px;
-            height: 60px;
+            min-width: ${launcherSize}px;
+            width: ${launcherSize}px;
+            height: ${launcherSize}px;
             border-radius: 999px;
             border: 1px solid rgba(255, 255, 255, 0.18);
             background: radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.34), transparent 30%), ${primary};
@@ -228,20 +248,21 @@
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           }
           #cq-btn img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+            width: calc(100% - ${launcherImageInset * 2}px);
+            height: calc(100% - ${launcherImageInset * 2}px);
+            object-fit: contain;
             display: block;
+            border-radius: 50%;
           }
           #cq-btn .cq-launcher-chat-icon {
-            width: 28px;
-            height: 28px;
+            width: ${Math.round(launcherSize * 0.47)}px;
+            height: ${Math.round(launcherSize * 0.47)}px;
             display: block;
             filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
           }
           #cq-btn .cq-launcher-custom-icon {
             display: block;
-            font-size: 22px;
+            font-size: ${Math.round(launcherSize * 0.36)}px;
             line-height: 1;
           }
           #cq-btn:hover {

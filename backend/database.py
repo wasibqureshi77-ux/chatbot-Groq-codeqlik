@@ -286,8 +286,10 @@ DEFAULT_SETTINGS = {
     "logoUrlLight": "/uploads/default_logo_light.png",
     "logoUrlDark": "/uploads/default_logo_dark.jpeg",
     "botAvatar": "CQ",
-    "launcherIcon": "💬",
+    "launcherIcon": "\U0001F4AC",
+    "launcherSize": 60,
     "launcherText": "",
+    "showLauncherGreeting": True,
     "launcherGreeting": "Hello! Welcome to CodeQlik",
     "launcherGreetingColor": "#ffffff",
     "launcherGreetingFontSize": 9.5,
@@ -405,7 +407,9 @@ def update_chatbot_settings(data: dict):
         "logoUrlDark": logo_dark,
         "botAvatar": data.get("botAvatar", settings.get("botAvatar")),
         "launcherIcon": data.get("launcherIcon", settings.get("launcherIcon")),
+        "launcherSize": data.get("launcherSize", settings.get("launcherSize", DEFAULT_SETTINGS["launcherSize"])),
         "launcherText": data.get("launcherText", settings.get("launcherText", "")),
+        "showLauncherGreeting": data.get("showLauncherGreeting", settings.get("showLauncherGreeting", DEFAULT_SETTINGS["showLauncherGreeting"])),
         "launcherGreeting": data.get("launcherGreeting", settings.get("launcherGreeting", DEFAULT_SETTINGS["launcherGreeting"])),
         "launcherGreetingColor": data.get("launcherGreetingColor", settings.get("launcherGreetingColor", DEFAULT_SETTINGS["launcherGreetingColor"])),
         "launcherGreetingFontSize": data.get("launcherGreetingFontSize", settings.get("launcherGreetingFontSize", DEFAULT_SETTINGS["launcherGreetingFontSize"])),
@@ -617,6 +621,12 @@ def save_collection_data(intent, thread_id, profile):
         saved = meetings_collection.find_one({"thread_id": thread_id})
         saved["_id"] = str(saved["_id"])
         broadcast_event("meeting_created_or_updated", saved)
+        if not saved.get("notified", False):
+            try:
+                _notify_collection_complete("meeting_booking", thread_id, saved.get("profile", {}))
+                meetings_collection.update_one({"thread_id": thread_id}, {"$set": {"notified": True}})
+            except Exception as exc:
+                print(f"[email] Meeting booking notification failed: {exc}")
         return True
 
 

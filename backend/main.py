@@ -212,7 +212,9 @@ class SettingsUpdate(BaseModel):
     logoUrlDark: Optional[str] = None
     botAvatar: Optional[str] = None
     launcherIcon: Optional[str] = None
+    launcherSize: Optional[float] = None
     launcherText: Optional[str] = None
+    showLauncherGreeting: Optional[bool] = None
     launcherGreeting: Optional[str] = None
     launcherGreetingColor: Optional[str] = None
     launcherGreetingFontSize: Optional[float] = None
@@ -559,7 +561,7 @@ def get_public_settings(response: Response):
         "generalEmail", "generalPhone", "supportEmail", "supportPhone",
         "title", "subtitle", "welcomeMessage", "placeholder", "primaryColor",
         "theme", "position", "width", "height", "logoUrl", "logoUrlLight", "logoUrlDark", "botAvatar",
-        "launcherIcon", "launcherText", "launcherGreeting", "launcherGreetingColor", "launcherGreetingFontSize",
+        "launcherIcon", "launcherSize", "launcherText", "showLauncherGreeting", "launcherGreeting", "launcherGreetingColor", "launcherGreetingFontSize",
         "launcherGreetingBgStart", "launcherGreetingBgEnd", "launcherGreetingWidth", "launcherGreetingBorderRadius",
         "launcherGreetingOffsetX", "launcherGreetingOffsetY", "showNewChat", "footerText",
         "suggestions", "storage"
@@ -649,7 +651,6 @@ def get_llm_usage_summary(
                 "total_requests": {"$sum": 1},
                 "total_input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
                 "total_output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
-                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
                 "latency_sum": {"$sum": {"$ifNull": ["$latency", 0]}},
             }
         }
@@ -672,16 +673,13 @@ def get_llm_usage_summary(
         input_tokens = _usage_tokens(row, "total_input_tokens")
         output_tokens = _usage_tokens(row, "total_output_tokens")
         total_requests = int(row.get("total_requests") or 0)
-        
-        logged_cost = _usage_number(row.get("total_cost"))
-        if logged_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
-            logged_cost = _usage_cost(model_name, input_tokens, output_tokens)
+        calculated_cost = _usage_cost(model_name, input_tokens, output_tokens)
             
         summary["total_requests"] += total_requests
         summary["total_input_tokens"] += input_tokens
         summary["total_output_tokens"] += output_tokens
         summary["total_tokens"] += input_tokens + output_tokens
-        summary["total_cost"] += logged_cost
+        summary["total_cost"] += calculated_cost
         latency_sum += _usage_number(row.get("latency_sum"))
 
     avg_tokens = 0
@@ -713,7 +711,6 @@ def get_llm_usage_by_model(
                 "total_requests": {"$sum": 1},
                 "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
                 "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
-                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
             }
         },
         {"$sort": {"input_tokens": -1}}
@@ -726,10 +723,7 @@ def get_llm_usage_by_model(
         input_tokens = _usage_tokens(r, "input_tokens")
         output_tokens = _usage_tokens(r, "output_tokens")
         rates = _usage_rates(model_name)
-        
-        total_cost = _usage_number(r.get("total_cost"))
-        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
-            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+        total_cost = _usage_cost(model_name, input_tokens, output_tokens)
             
         formatted.append({
             "model": model_name,
@@ -769,7 +763,6 @@ def get_llm_usage_daily(
                 "total_requests": {"$sum": 1},
                 "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
                 "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
-                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
             }
         },
         {"$sort": {"_id": 1}}
@@ -782,10 +775,7 @@ def get_llm_usage_daily(
         model_name = r["_id"].get("model") or "unknown"
         input_tokens = _usage_tokens(r, "input_tokens")
         output_tokens = _usage_tokens(r, "output_tokens")
-        
-        total_cost = _usage_number(r.get("total_cost"))
-        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
-            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+        total_cost = _usage_cost(model_name, input_tokens, output_tokens)
             
         item = daily.setdefault(day, {
             "date": day,
@@ -832,7 +822,6 @@ def get_llm_usage_recent(
                 "total_requests": {"$sum": 1},
                 "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
                 "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
-                "total_cost": {"$sum": {"$ifNull": ["$cost", 0.0]}},
                 "last_active": {"$max": "$timestamp"}
             }
         },
@@ -846,10 +835,7 @@ def get_llm_usage_recent(
         model_name = (r.get("_id") or {}).get("model") or "unknown"
         input_tokens = _usage_tokens(r, "input_tokens")
         output_tokens = _usage_tokens(r, "output_tokens")
-        
-        total_cost = _usage_number(r.get("total_cost"))
-        if total_cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
-            total_cost = _usage_cost(model_name, input_tokens, output_tokens)
+        total_cost = _usage_cost(model_name, input_tokens, output_tokens)
             
         item = combined_threads.setdefault(thread_id, {
             "thread_id": thread_id,
@@ -1033,15 +1019,43 @@ def get_dashboard(admin: str = Depends(require_admin)):
 
 # SETTINGS
 
-@app.post("/api/admin/settings/upload-logo")
-def upload_logo(file: UploadFile = File(...), admin: str = Depends(require_admin)):
-    import time
-    ext = os.path.splitext(file.filename)[1]
-    filename = f"logo_{int(time.time())}{ext}"
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+IMAGE_EXTENSION_BY_TYPE = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+}
+
+
+def save_uploaded_image(file: UploadFile, prefix: str) -> dict:
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+
+    if ext and ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Only image uploads are allowed")
+    if not ext:
+        ext = IMAGE_EXTENSION_BY_TYPE.get(content_type, "")
+    if not ext or (content_type and not content_type.startswith("image/")):
+        raise HTTPException(status_code=400, detail="Only image uploads are allowed")
+
+    safe_prefix = re.sub(r"[^a-zA-Z0-9_-]", "", prefix) or "image"
+    filename = f"{safe_prefix}_{int(time.time() * 1000)}{ext or '.png'}"
     filepath = UPLOAD_DIR / filename
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     return {"url": f"/uploads/{filename}"}
+
+
+@app.post("/api/admin/settings/upload-logo")
+def upload_logo(file: UploadFile = File(...), admin: str = Depends(require_admin)):
+    return save_uploaded_image(file, "logo")
+
+
+@app.post("/api/admin/settings/upload-launcher-icon")
+def upload_launcher_icon(file: UploadFile = File(...), admin: str = Depends(require_admin)):
+    return save_uploaded_image(file, "launcher_icon")
 
 @app.put("/api/settings")
 def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)):
@@ -1062,6 +1076,7 @@ def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)
             if not re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", data[color_key]):
                 raise HTTPException(status_code=400, detail=f"{color_key} must be a valid hex color like #ff7e21")
     numeric_ranges = {
+        "launcherSize": (44, 96),
         "launcherGreetingFontSize": (7, 18),
         "launcherGreetingWidth": (72, 180),
         "launcherGreetingBorderRadius": (6, 40),
@@ -1075,6 +1090,8 @@ def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)
                 raise HTTPException(status_code=400, detail=f"{numeric_key} must be between {min_value} and {max_value}")
     if "showNewChat" in data and not isinstance(data["showNewChat"], bool):
         raise HTTPException(status_code=400, detail="showNewChat must be a boolean")
+    if "showLauncherGreeting" in data and not isinstance(data["showLauncherGreeting"], bool):
+        raise HTTPException(status_code=400, detail="showLauncherGreeting must be a boolean")
     if "suggestions" in data:
         if not isinstance(data["suggestions"], list) or not all(isinstance(x, str) for x in data["suggestions"]):
             raise HTTPException(status_code=400, detail="suggestions must be an array of strings")
@@ -1138,9 +1155,10 @@ def update_meeting_status(meeting_id: str, payload: dict, admin: str = Depends(r
     from database import broadcast_event
     updated = meetings_collection.find_one(query)
     if updated:
-        updated["_id"] = str(updated["_id"])
+        updated = serialize_doc(updated)
         broadcast_event("meeting_created_or_updated", updated)
-        
+        return updated
+
     return {"success": True}
 
 
