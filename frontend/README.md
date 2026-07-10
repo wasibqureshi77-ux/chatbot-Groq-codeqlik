@@ -97,7 +97,6 @@ Main chatbot page.
 It supports:
 
 - Text messages
-- Voice recording
 - Bot replies
 - Fixed option buttons
 - Dynamic field collection
@@ -149,7 +148,7 @@ Authorization: Bearer <token>
 
 Simple flow:
 
-1. User types message or records voice.
+1. User types a message.
 2. Frontend sends request to backend.
 3. Backend returns reply, intent, profile, and fixed options.
 4. Frontend shows bot reply.
@@ -160,26 +159,6 @@ Text chat API:
 ```text
 POST /api/chat
 ```
-
-Voice chat API:
-
-```text
-POST /api/voice/process
-```
-
-## Voice Recording
-
-The chatbot uses browser `MediaRecorder`.
-
-It records audio and uploads it to backend.
-
-Supported browser output can be:
-
-- WebM
-- Ogg
-- MP4
-
-The frontend sends the correct file extension based on the recorded audio type.
 
 ## Admin Panel Data
 
@@ -242,10 +221,6 @@ Check:
 - Backend is running
 - Token is not expired
 - Correct username and password are used
-
-### Voice recording does not start
-
-Check browser microphone permission.
 
 ### API request blocked by CORS
 

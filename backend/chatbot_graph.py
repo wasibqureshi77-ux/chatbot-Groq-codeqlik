@@ -955,7 +955,6 @@ def extract_meeting_mode(text: str) -> Optional[str]:
     phone_call_patterns = [
         r"\bphone\s*call\b",
         r"\bdirect\s*call\b",
-        r"\bvoice\s*call\b",
         r"\bcall\s+me\b",
         r"\btelephone\b",
         r"\bmobile\s*call\b",

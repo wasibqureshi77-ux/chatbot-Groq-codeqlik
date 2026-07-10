@@ -1,9 +1,8 @@
-﻿# AI Chatbot, Voicebot, and Admin Panel
+# AI Chatbot and Admin Panel
 
 This project is a complete business chatbot system. It has:
 
 - A chatbot for website visitors
-- Voice input and voice reply support
 - Admin panel for chats, leads, support tickets, hiring, meetings, and knowledge sources
 - MongoDB database storage
 - RAG knowledge base support
@@ -11,7 +10,7 @@ This project is a complete business chatbot system. It has:
 
 The project has two main parts:
 
-- `backend`: FastAPI server, chatbot logic, database, voice service, admin APIs
+- `backend`: FastAPI server, chatbot logic, database, admin APIs
 - `frontend`: React app for chatbot page and admin panel
 
 ## Documentation Files
@@ -25,12 +24,11 @@ There are three README files:
 ## Project Structure
 
 ```text
-chatbot-openai-voicebot/
+chatbot-openai/
   backend/
     main.py
     chatbot_graph.py
     database.py
-    voice_service.py
     requirements.txt
     rag/
     services/
@@ -53,10 +51,6 @@ The chatbot can answer company questions and collect user details for:
 - Customer support
 - Hiring/application requests
 - Meeting booking
-
-### Voicebot
-
-The user can record audio. The backend converts audio to WAV, transcribes it, sends it through the chatbot, then generates a voice reply.
 
 ### Admin Panel
 
@@ -123,8 +117,6 @@ Create `backend/.env` and add values like:
 ```env
 API_KEY_1=your_llm_api_key
 API_KEY_2=optional_backup_llm_api_key
-GROQ_API_KEY=optional_preferred_groq_key_for_voice_stt
-GROQ_STT_MODEL=whisper-large-v3-turbo
 MONGO_URI=your_mongodb_connection_string
 MONGO_DB=company_chatbot
 JWT_SECRET=change_this_secret
@@ -147,7 +139,6 @@ Do not commit real API keys, database passwords, or email passwords.
 ```text
 GET  /                         Backend health check
 POST /api/chat                 Chatbot message API
-POST /api/voice/process        Voicebot API
 GET  /api/public/settings      Public chatbot/widget settings
 POST /api/admin/login          Admin login
 GET  /api/admin/dashboard      Admin dashboard data
@@ -179,9 +170,6 @@ A website can load the widget script and call `CodeQlikChat.init(...)`.
 
 - Run backend before frontend, because frontend API calls proxy to `http://127.0.0.1:8000`.
 - MongoDB must be reachable for chats, leads, support, meetings, and settings.
-- Voice STT uses Groq `whisper-large-v3-turbo` when a Groq key is configured, with local fallback.
-- Voice conversion works best when `ffmpeg` is installed.
-- The backend also has PyAV fallback for audio conversion.
 - Meeting booking slots are protected so the same active slot cannot be booked twice.
 
 ## More Details

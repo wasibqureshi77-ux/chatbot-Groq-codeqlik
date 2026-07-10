@@ -136,12 +136,9 @@ app = FastAPI(title="Enterprise AI Support Platform API")
 
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
-from voice_service import transcribe_audio, generate_speech, convert_to_wav
 
 BASE_DIR = Path(__file__).resolve().parent
 WIDGET_DIST_DIR = BASE_DIR / "dist"
-TEMP_AUDIO_DIR = BASE_DIR / "temp_audio"
-TEMP_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -157,7 +154,6 @@ def get_widget_js():
     return FileResponse(path=str(WIDGET_DIST_DIR / "widget.js"), headers=headers, media_type="application/javascript")
 
 app.mount("/dist", StaticFiles(directory=str(WIDGET_DIST_DIR)), name="dist")
-app.mount("/audio", StaticFiles(directory=str(TEMP_AUDIO_DIR)), name="audio")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.on_event("startup")
@@ -410,116 +406,6 @@ def chat(req: ChatRequest, request: Request):
             "response": "Something went wrong. Please try again later.",
             "success": False,
             "reply": "Something went wrong. Please try again later."
-        }
-
-
-@app.post("/api/voice/process")
-def voice_process(
-    request: Request,
-    file: UploadFile = File(...),
-    thread_id: str = Form(...)
-):
-    client_ip = request.client.host if request.client else "unknown"
-
-    # Rate limiting check
-    if rate_limiter.is_rate_limited(client_ip):
-        return {
-            "success": False,
-            "error": "Rate limit exceeded"
-        }
-
-    def guess_audio_extension(upload: UploadFile) -> str:
-        content_type = (upload.content_type or "").lower().split(";")[0].strip()
-        filename_ext = os.path.splitext(upload.filename or "")[1].lower()
-
-        if content_type in {"audio/webm", "video/webm"} or filename_ext == ".webm":
-            return ".webm"
-        if content_type in {"audio/ogg", "application/ogg"} or filename_ext in {".ogg", ".oga", ".opus"}:
-            return ".ogg"
-        if content_type in {"audio/mp4", "video/mp4", "audio/x-m4a"} or filename_ext in {".mp4", ".m4a"}:
-            return ".mp4"
-        if content_type in {"audio/wav", "audio/wave", "audio/x-wav"} or filename_ext == ".wav":
-            return ".wav"
-        if content_type == "audio/mpeg" or filename_ext == ".mp3":
-            return ".mp3"
-        return ".webm"
-
-    def cleanup_voice_files(*paths: str):
-        for path in paths:
-            try:
-                if path and os.path.exists(path):
-                    os.remove(path)
-            except Exception:
-                pass
-
-    os.makedirs("temp_uploads", exist_ok=True)
-    base_name = f"upload_{int(time.time() * 1000)}"
-    raw_ext = guess_audio_extension(file)
-    temp_raw_path = f"temp_uploads/{base_name}{raw_ext}"
-    temp_wav_path = f"temp_uploads/{base_name}.wav"
-
-    with open(temp_raw_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Sanity check: Ensure the uploaded audio file has enough bytes (at least 500 bytes for headers + packets)
-    try:
-        raw_size = os.path.getsize(temp_raw_path)
-        if raw_size < 500:
-            cleanup_voice_files(temp_raw_path)
-            return {
-                "success": False,
-                "error": "Audio recording is too short. Please hold the button to record."
-            }
-    except Exception:
-        pass
-
-    # Convert browser audio to standard WAV for speech-to-text.
-    success = convert_to_wav(temp_raw_path, temp_wav_path)
-    if not success:
-        cleanup_voice_files(temp_raw_path, temp_wav_path)
-        return {
-            "success": False,
-            "error": "Error converting audio format. Please record again for 2-3 seconds."
-        }
-
-    try:
-        # 1. Transcribe audio to text
-        user_text = transcribe_audio(temp_wav_path)
-        if not user_text:
-            cleanup_voice_files(temp_raw_path, temp_wav_path)
-            return {
-                "success": False,
-                "error": "Could not understand audio"
-            }
-
-        # 2. Get bot response using existing graph
-        res = send_message(user_input=user_text, thread_id=thread_id)
-        bot_text = res.get("response_text") or res.get("reply") or ""
-
-        # 3. Generate speech from bot response text
-        lang_hint = "en"
-        if res.get("response_text") and any(w in res["response_text"].lower() for w in ["chahiye", "naam", "aap", "hai", "kya", "kaise"]):
-            lang_hint = "hinglish"
-
-        audio_filename = generate_speech(bot_text, "temp_audio", lang_hint=lang_hint)
-        audio_url = f"/audio/{audio_filename}" if audio_filename else ""
-
-        cleanup_voice_files(temp_raw_path, temp_wav_path)
-
-        return {
-            "success": True,
-            "user_text": user_text,
-            "bot_text": bot_text,
-            "audio_url": audio_url,
-            **res
-        }
-
-    except Exception as e:
-        logger.exception(f"Error processing voice request: {e}")
-        cleanup_voice_files(temp_raw_path, temp_wav_path)
-        return {
-            "success": False,
-            "error": "Error processing voice request"
         }
 
 

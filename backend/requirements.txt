@@ -17,9 +17,4 @@ scikit-learn
 numpy
 rank_bm25
 sentence-transformers
-gTTS
-SpeechRecognition
-pyttsx3
-faster-whisper
-av
 bs4

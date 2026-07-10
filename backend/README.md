@@ -5,7 +5,6 @@ This is the backend for the AI chatbot system. It is built with FastAPI.
 The backend handles:
 
 - Chatbot API
-- Voicebot API
 - Admin APIs
 - MongoDB database
 - Chat and lead saving
@@ -22,7 +21,6 @@ backend/
   chatbot_graph.py         Chatbot flow, field collection, LLM response logic
   database.py              MongoDB collections and save helpers
   llm_client.py            LLM client with API key failover and usage logging
-  voice_service.py         Speech-to-text, text-to-speech, audio conversion
   widget_suggestions.py    Dynamic widget suggestion generation
   email_body_generator.py  Email content generation
   mail_service.py          Mail sending helpers
@@ -31,7 +29,6 @@ backend/
   rag/                     Knowledge base loading, chunking, retrieval
   services/                Extra backend services
   dist/                    Widget JavaScript served by backend
-  temp_audio/              Generated voice reply files
   temp_uploads/            Temporary uploaded files
 ```
 
@@ -78,10 +75,6 @@ Example:
 ```env
 API_KEY_1=your_llm_api_key
 API_KEY_2=optional_backup_llm_api_key
-GROQ_API_KEY=optional_preferred_groq_key_for_voice_stt
-GROQ_STT_MODEL=whisper-large-v3-turbo
-GROQ_STT_LANGUAGE=
-ENABLE_LOCAL_WHISPER_FALLBACK=false
 MONGO_URI=your_mongodb_connection_string
 MONGO_DB=company_chatbot
 
@@ -147,7 +140,6 @@ python admin.py --help
 ```text
 GET  /                         Health check
 POST /api/chat                 Send text message to chatbot
-POST /api/voice/process        Send recorded voice to voicebot
 POST /api/widget/suggestions   Get dynamic widget suggestions
 GET  /api/public/settings      Public chatbot settings
 GET  /api/settings             Settings
@@ -250,29 +242,6 @@ Important behavior:
 - Same active date and time slot cannot be booked twice.
 - Cancelled, completed, and reschedule-needed meetings can free the slot.
 
-## Voicebot Logic
-
-Voice flow:
-
-1. Browser records audio.
-2. Frontend uploads audio to `/api/voice/process`.
-3. Backend detects audio type.
-4. Backend converts audio to WAV.
-5. Groq `whisper-large-v3-turbo` speech-to-text creates user text.
-6. Chatbot generates reply.
-7. Text-to-speech creates audio reply.
-8. Backend returns text and audio URL.
-
-Important files:
-
-```text
-voice_service.py
-main.py
-```
-
-For best audio support, install `ffmpeg`.
-Groq STT uses `GROQ_API_KEY` first, then falls back to `API_KEY`, `API_KEY_1`, `API_KEY_2`, etc. If Groq transcription fails, the backend falls back to SpeechRecognition. Set `ENABLE_LOCAL_WHISPER_FALLBACK=true` only if you want local faster-whisper fallback model loading.
-
 ## RAG Knowledge Base
 
 RAG files are in:
@@ -343,12 +312,6 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Check installed ffmpeg:
-
-```bash
-ffmpeg -version
-```
-
 ## Troubleshooting
 
 ### API key missing
@@ -379,14 +342,6 @@ http://127.0.0.1:8000
 ```
 
 Also check `ALLOWED_ORIGINS`.
-
-### Voice recording conversion error
-
-Install `ffmpeg` and make sure it is available in PATH:
-
-```bash
-ffmpeg -version
-```
 
 ### Python not found
 

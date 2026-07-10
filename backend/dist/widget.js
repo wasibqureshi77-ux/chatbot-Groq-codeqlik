@@ -593,35 +593,6 @@
             background: ${isDark ? "#e06310" : "#ff8c3a"};
             box-shadow: 0 4px 12px rgba(255, 126, 33, 0.2);
           }
-          #cq-mic {
-            background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "#f3f4f6"};
-            color: ${text};
-            border: 1px solid ${borderColor};
-            height: 40px;
-            width: 40px;
-            min-width: 40px;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          #cq-mic:hover {
-            border-color: ${primary};
-            background: ${isDark ? "rgba(255, 255, 255, 0.1)" : "#e5e7eb"};
-          }
-          #cq-mic.cq-recording {
-            background: #ef4444 !important;
-            color: #ffffff !important;
-            border-color: #ef4444 !important;
-            animation: cqPulse 1.2s infinite ease-in-out;
-          }
-          @keyframes cqPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-          }
 
           #cq-footer {
             font-size: 11px;
@@ -677,12 +648,6 @@
           <div id="cq-suggestions"></div>
           <div id="cq-form">
             <input id="cq-input" placeholder="${cfg.placeholder}" />
-            <button id="cq-mic" type="button" title="Record voice message">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            </button>
             <button id="cq-send" title="Send message">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -698,175 +663,21 @@
       const msgs = $("cq-msgs");
       const input = $("cq-input");
       const suggestions = $("cq-suggestions");
-      const mic = $("cq-mic");
       const sendBtn = $("cq-send");
 
-      let mediaRecorder = null;
-      let isRecording = false;
       let fixedOptions = [];
       const defaultPlaceholder = cfg.placeholder;
 
-      function audioExtensionFromMime(mimeType = "") {
-        const type = String(mimeType || "").toLowerCase();
-        if (type.includes("ogg")) return "ogg";
-        if (type.includes("mp4") || type.includes("m4a")) return "mp4";
-        if (type.includes("wav")) return "wav";
-        if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
-        return "webm";
-      }
-
-      function updateButtonVisibility() {
+      function updateSendButtonState() {
         const hasText = input.value.trim().length > 0;
-        if (isRecording) {
-          mic.style.display = "flex";
-          sendBtn.style.display = "none";
-        } else {
-          if (hasText) {
-            mic.style.display = "none";
-            sendBtn.style.display = "block";
-          } else {
-            mic.style.display = "flex";
-            sendBtn.style.display = "none";
-          }
-        }
+        sendBtn.disabled = !hasText;
+        sendBtn.style.opacity = hasText ? "1" : "0.55";
+        sendBtn.style.cursor = hasText ? "pointer" : "not-allowed";
       }
 
-      // Initialize visibility
-      updateButtonVisibility();
+      updateSendButtonState();
 
-      input.oninput = updateButtonVisibility;
-
-      async function startRecording() {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          
-          let options = {};
-          if (MediaRecorder.isTypeSupported("audio/webm")) {
-            options = { mimeType: "audio/webm" };
-          } else if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-            options = { mimeType: "audio/webm;codecs=opus" };
-          } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
-            options = { mimeType: "audio/ogg;codecs=opus" };
-          } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-            options = { mimeType: "audio/mp4" };
-          }
-
-          const recorder = new MediaRecorder(stream, options);
-          const chunks = [];
-
-          recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-              chunks.push(e.data);
-            }
-          };
-
-          recorder.onstop = async () => {
-            const audioBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-            await sendVoiceMessage(audioBlob);
-            stream.getTracks().forEach((track) => track.stop());
-          };
-
-          mediaRecorder = recorder;
-          recorder.start(250);
-          isRecording = true;
-          mic.innerHTML = `
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <rect x="6" y="6" width="12" height="12" rx="2" />
-            </svg>
-          `;
-          mic.classList.add("cq-recording");
-          updateButtonVisibility();
-        } catch (err) {
-          console.error("Error accessing microphone:", err);
-          alert("Could not access microphone.");
-        }
-      }
-
-      function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") {
-          try {
-            mediaRecorder.requestData();
-          } catch (err) {
-            console.warn("Could not request final audio data:", err);
-          }
-          mediaRecorder.stop();
-          isRecording = false;
-          mic.innerHTML = `
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          `;
-          mic.classList.remove("cq-recording");
-          updateButtonVisibility();
-        }
-      }
-
-      mic.onclick = () => {
-        if (isRecording) {
-          stopRecording();
-        } else {
-          startRecording();
-        }
-      };
-
-      async function sendVoiceMessage(audioBlob) {
-        suggestions.innerHTML = "";
-        const userRow = add("🎙️ Sending voice message...", "user");
-        const typing = add("", "typing");
-
-        try {
-          const formData = new FormData();
-          const extension = audioExtensionFromMime(audioBlob.type);
-          formData.append("file", audioBlob, `recording.${extension}`);
-          formData.append("thread_id", threadId);
-
-          const voiceApiUrl = cfg.apiUrl.replace("/api/chat", "/api/voice/process");
-          const res = await fetch(voiceApiUrl, {
-            method: "POST",
-            body: formData
-          });
-
-          const data = await res.json();
-          typing.remove();
-
-          if (data.success) {
-            const userBubble = userRow.querySelector(".cq-msg");
-            if (userBubble) {
-              userBubble.textContent = `🎙️ ${data.user_text}`;
-            }
-
-            const botText = data.bot_text;
-            const nextFixedOptions = Array.isArray(data.fixed_options) ? data.fixed_options : [];
-            let botRow;
-            botRow = add(botText, "bot", () => {
-              if (nextFixedOptions.length > 0) {
-                renderFixedOptions(nextFixedOptions, botRow);
-              } else if (cfg.enableDynamicSuggestions) {
-                loadDynamicSuggestions(botText, data.user_text);
-              }
-            });
-
-            if (data.audio_url) {
-              const host = cfg.apiUrl.split("/api/")[0];
-              const audio = new Audio(host + data.audio_url);
-              audio.play().catch((e) => console.error("Error playing audio:", e));
-            }
-          } else {
-            const userBubble = userRow.querySelector(".cq-msg");
-            if (userBubble) {
-              userBubble.textContent = "🎙️ [Voice transmission failed]";
-            }
-          }
-        } catch (err) {
-          console.error("Voice processing error:", err);
-          typing.remove();
-          const userBubble = userRow.querySelector(".cq-msg");
-          if (userBubble) {
-            userBubble.textContent = "🎙️ [Voice transmission failed]";
-          }
-        }
-      }
+      input.oninput = updateSendButtonState;
 
       function add(text, type, onComplete) {
         const row = document.createElement("div");
@@ -948,7 +759,7 @@
         msgs.querySelectorAll(".cq-fixed-option").forEach((btn) => {
           btn.disabled = true;
         });
-        updateButtonVisibility();
+        updateSendButtonState();
       }
 
       function renderFixedOptions(items = [], row = null) {
@@ -956,7 +767,7 @@
         suggestions.innerHTML = "";
         input.disabled = false;
         input.placeholder = defaultPlaceholder;
-        updateButtonVisibility();
+        updateSendButtonState();
 
         if (fixedOptions.length === 0) {
           return;
@@ -1002,7 +813,7 @@
         add(message, "user");
         input.value = "";
         clearFixedOptions();
-        updateButtonVisibility();
+        updateSendButtonState();
         suggestions.innerHTML = "";
 
         const typing = add("", "typing");

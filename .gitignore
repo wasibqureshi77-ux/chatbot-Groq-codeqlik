@@ -6,7 +6,6 @@ venv/
 
 # Ignore backend environment variables
 /backend/.env
-/backend/models/
 # Ignore mail service environment variables and local dependencies
 /mail-service/.env
 /mail-service/node_modules/
