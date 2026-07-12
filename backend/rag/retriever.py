@@ -1,634 +1,587 @@
-import re
+from __future__ import annotations
+
 import os
-import json
-import csv
-import io
+import re
+from typing import Any
+
 import numpy as np
-from rank_bm25 import BM25Okapi
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    class BM25Okapi:
+        """Small dependency-free fallback used only when rank_bm25 is unavailable."""
+        def __init__(self, corpus):
+            self.corpus = corpus
+            self.document_count = max(1, len(corpus))
+            self.document_lengths = [max(1, len(doc)) for doc in corpus]
+            self.average_length = sum(self.document_lengths) / self.document_count
+            self.document_frequency = {}
+            for doc in corpus:
+                for token in set(doc):
+                    self.document_frequency[token] = self.document_frequency.get(token, 0) + 1
+
+        def get_scores(self, query_tokens):
+            scores = []
+            k1, b = 1.5, 0.75
+            for doc, length in zip(self.corpus, self.document_lengths):
+                frequencies = {}
+                for token in doc:
+                    frequencies[token] = frequencies.get(token, 0) + 1
+                score = 0.0
+                for token in query_tokens:
+                    df = self.document_frequency.get(token, 0)
+                    if not df:
+                        continue
+                    idf = np.log(1 + (self.document_count - df + 0.5) / (df + 0.5))
+                    tf = frequencies.get(token, 0)
+                    denominator = tf + k1 * (1 - b + b * length / self.average_length)
+                    if denominator:
+                        score += idf * (tf * (k1 + 1) / denominator)
+                scores.append(score)
+            return scores
 from sklearn.metrics.pairwise import cosine_similarity
 
 from database import knowledge_sources_collection, knowledge_chunks_collection
+from rag.embeddings import embeddings_model
+from rag.loader import (
+    Document,
+    load_any_file,
+    load_csv,
+    load_docx,
+    load_json,
+    load_pdf,
+    load_txt,
+    load_xlsx,
+)
 from rag.query_analyzer import analyze_query
 from rag.ranker import rerank_chunks
-from rag.embeddings import embeddings_model
-
-# --- Third-party Library Safe Imports ---
-try:
-    import pypdf
-except ImportError:
-    pypdf = None
-
-try:
-    import docx
-except ImportError:
-    docx = None
-
-try:
-    import openpyxl
-except ImportError:
-    openpyxl = None
 
 sources_collection = knowledge_sources_collection
 chunks_collection = knowledge_chunks_collection
 
-USE_METADATA_RAG = os.getenv("USE_METADATA_RAG", "false").lower() == "true"
+USE_METADATA_RAG = os.getenv("USE_METADATA_RAG", "true").lower() == "true"
+RAG_DEBUG = os.getenv("RAG_DEBUG", "false").lower() == "true"
+
+STOPWORDS = {
+    "the", "a", "an", "is", "are", "of", "to", "in", "for", "on", "and", "or", "what",
+    "how", "why", "where", "who", "when", "you", "your", "we", "our", "this", "that",
+    "with", "from", "do", "does", "did", "can", "could", "would", "please", "tell", "give",
+    "about", "me", "have", "has", "had", "kitne", "kitna", "kya", "hai", "h", "ka", "ki",
+    "ke", "me", "mein", "batao", "bata", "aap", "tum", "apke", "aapke",
+}
+
+GENERIC_WORDS = {
+    "company", "service", "services", "project", "projects", "client", "clients", "support",
+    "hiring", "system", "website", "application", "business", "information", "details",
+}
+
+UNAVAILABLE_PHRASES = (
+    "verified information is unavailable",
+    "verified total is unavailable",
+    "does not contain a confirmed",
+    "not currently available",
+    "cannot be verified",
+    "conflicting values",
+    "conflicting claims",
+    "request authorized confirmation",
+    "must not be treated as the complete total",
+    "should not be treated as the complete total",
+)
 
 
-# ==========================================
-# 1. DOCUMENT CLASS & OPTIMIZED LOADERS
-# ==========================================
-
-class Document:
-    def __init__(self, content: str, metadata: dict = None):
-        self.content = content
-        self.metadata = metadata or {}
+def _word_tokens(text: str) -> list[str]:
+    return [
+        token for token in re.findall(r"[a-z0-9][a-z0-9+./_-]*", (text or "").lower())
+        if token not in STOPWORDS and len(token) > 1
+    ]
 
 
-def load_txt(file_path: str) -> str:
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        return f.read()
+def _contains(text: str, term: str) -> bool:
+    term = term.lower().strip()
+    if not term:
+        return False
+    if " " in term:
+        return term in text
+    return bool(re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text))
 
 
-def load_pdf(file_path: str) -> str:
-    if pypdf:
-        text = []
-        try:
-            reader = pypdf.PdfReader(file_path)
-            for page_idx, page in enumerate(reader.pages):
-                page_text = page.extract_text()
-                if page_text:
-                    text.append(f"=== PAGE_BREAK: {page_idx + 1} ===\n{page_text}")
-            return "\n".join(text)
-        except Exception as e:
-            return f"[PDF Load Error: {str(e)}]"
-    else:
-        try:
-            with open(file_path, "rb") as f:
-                content = f.read()
-            ascii_text = "".join(chr(b) if (32 <= b <= 126 or b in (10, 13)) else " " for b in content)
-            return f"[pypdf not installed. Read raw bytes fallback]\n{ascii_text[:4000]}"
-        except Exception:
-            return "[PDF Read Error: pypdf not available]"
+def _searchable_text(chunk: dict[str, Any]) -> str:
+    return "\n".join([
+        str(chunk.get("title", "")),
+        str(chunk.get("category", "")),
+        str(chunk.get("topic", "")),
+        str(chunk.get("service", "")),
+        str(chunk.get("summary", "")),
+        str(chunk.get("retrieval_text") or chunk.get("chunk_text", "")),
+        " ".join(str(value) for value in chunk.get("keywords", []) if isinstance(value, str)),
+        " ".join(str(value) for value in chunk.get("sample_questions", []) if isinstance(value, str)),
+    ]).strip()
 
 
-def load_docx(file_path: str) -> str:
-    if docx:
-        try:
-            doc = docx.Document(file_path)
-            content = []
-            for para in doc.paragraphs:
-                if para.text.strip():
-                    content.append(para.text.strip())
-            
-            for table_idx, table in enumerate(doc.tables):
-                content.append(f"--- Table {table_idx + 1} ---")
-                headers = []
-                for row_idx, row in enumerate(table.rows):
-                    cells = [cell.text.strip() for cell in row.cells]
-                    clean_cells = []
-                    for c in cells:
-                        if not clean_cells or c != clean_cells[-1]:
-                            clean_cells.append(c)
-                            
-                    if row_idx == 0:
-                        headers = clean_cells
-                        content.append("Headers: " + " | ".join(headers))
-                    else:
-                        content.append("Row: " + " | ".join(
-                            f"{headers[i] if i < len(headers) else f'Col{i}'}: {val}" 
-                            for i, val in enumerate(clean_cells)
-                        ))
-            return "\n\n".join(content)
-        except Exception as e:
-            return f"[DOCX Load Error: {str(e)}]"
-    else:
-        return f"[python-docx not installed. Unable to load Word file {os.path.basename(file_path)}]"
+def detect_query_topic(query: str) -> tuple[str, bool]:
+    lower = query.lower()
+    rules = [
+        ("pricing", ("price", "pricing", "cost", "budget", "quote", "charges", "fees")),
+        ("contact", ("contact", "address", "phone", "email", "office", "location", "opening hours")),
+        ("portfolio", ("portfolio", "projects", "case study", "our work", "delivered")),
+        ("policies", ("privacy", "policy", "refund", "terms", "cancellation", "legal")),
+        ("technologies", ("technology", "tech stack", "framework", "python", "react", "node", "java")),
+        ("services", ("services", "provide", "offer", "build", "develop", "solution")),
+        ("careers", ("career", "job", "internship", "opening", "apply")),
+    ]
+    for topic, terms in rules:
+        if any(term in lower for term in terms):
+            return topic, True
+    return "general", False
 
 
-def load_json(file_path: str) -> str:
+def detect_query_service(query: str) -> tuple[str, bool]:
+    lower = query.lower()
+    rules = [
+        ("website", ("website", "web app", "web development", "wordpress", "cms")),
+        ("mobile_app", ("mobile app", "ios", "android", "flutter", "react native")),
+        ("ecommerce", ("ecommerce", "e-commerce", "shopify", "online store", "marketplace")),
+        ("erp", ("erpnext", "odoo", "erp ", "enterprise resource planning")),
+        ("crm", ("crm", "customer relationship management")),
+        ("ai_automation", ("chatbot", "rag", "ai agent", "voice agent", "machine learning", "automation")),
+        ("software", ("software", "saas", "backend", "database", "api", "cloud", "devops")),
+    ]
+    for service, terms in rules:
+        if any(term in lower for term in terms):
+            return service, True
+    return "general", False
+
+
+def build_metadata_filter(
+    detected_intent,
+    detected_topic,
+    topic_confident,
+    detected_service,
+    service_confident,
+    filter_level=0,
+):
+    """Backward-compatible helper.
+
+    Metadata is intentionally soft in the new retriever, so this returns only tenant/source-safe
+    neutral filters. Existing imports do not break, but wrong metadata cannot hide good chunks.
     """
-    RAG Highly Dense Context Optimization for Dynamic JSON layout.
-    Injects context into every structural line for precise vector retrieval.
+    return {}
+
+
+def _active_source_query(tenant_id: str | None) -> dict[str, Any]:
+    query: dict[str, Any] = {"enabled": True}
+    if tenant_id is not None:
+        query["tenant_id"] = tenant_id
+    return query
+
+
+def _chunk_query(active_ids: list[str], tenant_id: str | None) -> dict[str, Any]:
+    query: dict[str, Any] = {"source_id": {"$in": active_ids}, "status": {"$ne": "disabled"}}
+    if tenant_id is not None:
+        query["tenant_id"] = tenant_id
+    return query
+
+
+def get_filtered_candidates(
+    active_ids,
+    identifiers,
+    specific_keywords,
+    generic_keywords,
+    metadata_filter,
+    tenant_id: str | None = None,
+):
+    """Backward-compatible candidate API with safe full-pool scanning.
+
+    Company knowledge bases are normally small enough to score all active chunks. This avoids
+    losing the correct chunk because a noisy regex prefilter selected the wrong pool.
     """
-    try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            data = json.load(f)
-        
-        output = []
-        
-        def parse_element(element, context_summary="", prefix=""):
-            if isinstance(element, dict):
-                local_context = context_summary
-                for identity_key in ['name', 'title', 'id', 'record_id', 'type']:
-                    if identity_key in element and not isinstance(element[identity_key], (dict, list)):
-                        local_context = f"{identity_key} '{element[identity_key]}'"
-                        break
-                
-                for k, v in element.items():
-                    current_key = f"{prefix}.{k}" if prefix else k
-                    if isinstance(v, (dict, list)):
-                        parse_element(v, local_context, current_key)
-                    else:
-                        if v is not None and str(v).strip():
-                            ctx_str = f"Regarding {local_context}: " if local_context else ""
-                            output.append(f"{ctx_str}The field '{current_key}' or '{k}' has the exact value: '{v}'")
-            
-            elif isinstance(element, list):
-                for idx, item in enumerate(element):
-                    current_prefix = f"{prefix}[{idx}]" if prefix else f"Record_{idx}"
-                    parse_element(item, context_summary, current_prefix)
-            else:
-                if element is not None and str(element).strip():
-                    output.append(f"Value for {prefix or 'element'}: '{element}'")
-
-        parse_element(data)
-        return "\n".join(output) if output else "[Empty JSON Content]"
-    except Exception as e:
-        return f"[JSON Load Error: {str(e)}]"
+    maximum = max(50, int(os.getenv("RAG_MAX_SCAN_CHUNKS", "1500")))
+    query = _chunk_query([str(value) for value in active_ids], tenant_id)
+    if metadata_filter:
+        query = {"$and": [query, metadata_filter]}
+    return list(chunks_collection.find(query).sort("created_at", -1).limit(maximum))
 
 
-def load_csv(file_path: str) -> str:
-    """
-    RAG Highly Dense Context Optimization for dynamic CSV rows.
-    Ensures ID and entity name mappings are repeated on every attribute line.
-    """
-    try:
-        output = []
-        filename = os.path.basename(file_path)
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            sample = f.read(2048)
-            f.seek(0)
-            try:
-                dialect = csv.Sniffer().sniff(sample)
-                reader = csv.reader(f, dialect)
-            except Exception:
-                reader = csv.reader(f)
-                
-            rows = list(reader)
-            if not rows:
-                return "[Empty CSV Content]"
-            
-            headers = [h.strip() if h.strip() else f"Column_{i+1}" for i, h in enumerate(rows[0])]
-            
-            for idx, row in enumerate(rows[1:]):
-                if not any(cell.strip() for cell in row):
-                    continue
-                
-                row_identity = f"Record Row {idx + 1}"
-                for i, cell in enumerate(row):
-                    if i < len(headers) and headers[i].lower() in ['name', 'title', 'id', 'record id', 'record_id']:
-                        if cell.strip():
-                            row_identity = f"Entity ({headers[i]}: {cell.strip()})"
-                            break
-
-                row_items = []
-                for i, cell in enumerate(row):
-                    val = cell.strip()
-                    if val:
-                        header_name = headers[i] if i < len(headers) else f"Column_{i+1}"
-                        row_items.append(f"For {row_identity} in {filename} -> the '{header_name}' is '{val}'")
-                
-                if row_items:
-                    output.extend(row_items)
-                    
-        return "\n".join(output)
-    except Exception as e:
-        return f"[CSV Load Error: {str(e)}]"
+def _normalized_bm25(scores: np.ndarray) -> np.ndarray:
+    if scores.size == 0:
+        return scores
+    maximum = float(np.max(scores))
+    if maximum <= 0:
+        return np.zeros_like(scores, dtype=float)
+    return np.asarray(scores, dtype=float) / maximum
 
 
-def load_xlsx(file_path: str) -> str:
-    """
-    RAG Highly Dense Context Optimization for Excel sheets.
-    """
-    if openpyxl:
-        try:
-            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-            output = []
-            filename = os.path.basename(file_path)
-            for sheet in wb.sheetnames:
-                ws = wb[sheet]
-                rows = list(ws.iter_rows(values_only=True))
-                if not rows:
-                    continue
-                
-                headers = [str(cell).strip() if cell is not None and str(cell).strip() else f"Col_{i+1}" for i, cell in enumerate(rows[0])]
-                
-                for idx, row in enumerate(rows[1:]):
-                    if any(cell is not None for cell in row):
-                        row_identity = f"Row {idx+2}"
-                        for i, cell in enumerate(row):
-                            if i < len(headers) and headers[i].lower() in ['name', 'title', 'id', 'record id', 'record_id']:
-                                if cell is not None and str(cell).strip():
-                                    row_identity = f"Entity ({headers[i]}: {str(cell).strip()})"
-                                    break
-                                    
-                        row_items = []
-                        for i, cell in enumerate(row):
-                            if cell is not None and str(cell).strip():
-                                header_name = headers[i] if i < len(headers) else f"Col_{i+1}"
-                                row_items.append(f"In Sheet '{sheet}' of '{filename}', for {row_identity} -> '{header_name}' is '{str(cell).strip()}'")
-                        
-                        if row_items:
-                            output.extend(row_items)
-            return "\n".join(output)
-        except Exception as e:
-            return f"[Excel Load Error: {str(e)}]"
-    else:
-        return f"[openpyxl not installed. Unable to load Excel file {os.path.basename(file_path)}]"
+def _valid_embedding(embedding: Any, expected_dimension: int) -> bool:
+    return (
+        isinstance(embedding, list)
+        and len(embedding) == expected_dimension
+        and all(isinstance(value, (int, float)) for value in embedding)
+    )
 
 
-def load_any_file(file_path: str) -> Document:
-    ext = os.path.splitext(file_path)[1].lower()
-    metadata = {
-        "source_name": os.path.basename(file_path),
-        "source_type": ext.replace(".", "")
+def _lexical_coverage(searchable: str, terms: list[str]) -> float:
+    if not terms:
+        return 0.0
+    matched = sum(1 for term in terms if _contains(searchable, term))
+    return matched / len(terms)
+
+
+def _explicit_quantity_evidence(text: str, subject: str | None) -> bool:
+    lower = text.lower()
+    if any(phrase in lower for phrase in UNAVAILABLE_PHRASES):
+        return False
+    if not subject:
+        return bool(re.search(r"\b(?:total|count|number of)\b.{0,40}\b\d[\d,]*\+?\b", lower))
+
+    subject_patterns = {
+        "projects": r"projects?",
+        "clients": r"(?:clients?|customers?|businesses)",
+        "employees": r"(?:employees?|developers?|team members?|staff)",
+        "offices": r"(?:offices?|locations?|branches)",
+        "reviews": r"(?:reviews?|ratings?)",
+        "years": r"years?",
+        "price": r"(?:price|cost|fee|charge|rate)",
     }
-    
-    if ext == ".txt":
-        content = load_txt(file_path)
-    elif ext == ".pdf":
-        content = load_pdf(file_path)
-    elif ext in (".docx", ".doc"):
-        content = load_docx(file_path)
-    elif ext == ".json":
-        content = load_json(file_path)
-    elif ext == ".csv":
-        content = load_csv(file_path)
-    elif ext in (".xlsx", ".xls"):
-        content = load_xlsx(file_path)
-    elif ext in (".md", ".markdown"):
-        content = load_txt(file_path)
-    else:
-        try:
-            content = load_txt(file_path)
-        except Exception:
-            content = f"[Unsupported file format: {ext}]"
-
-    return Document(content, metadata)
+    noun = subject_patterns.get(subject, re.escape(subject))
+    patterns = [
+        rf"\b(?:total|confirmed|verified|completed|delivered|worked on)\b.{{0,45}}\b\d[\d,]*(?:\.\d+)?\+?\b.{{0,20}}\b{noun}\b",
+        rf"\b\d[\d,]*(?:\.\d+)?\+?\b.{{0,20}}\b{noun}\b.{{0,35}}\b(?:total|completed|delivered|served|published|currently)\b",
+        rf"\b(?:we|company|codeqlik)\b.{{0,35}}\b(?:completed|delivered|served|has|have)\b.{{0,20}}\b\d[\d,]*(?:\.\d+)?\+?\b.{{0,15}}\b{noun}\b",
+    ]
+    if subject == "price":
+        patterns.extend([
+            r"(?:₹|\$|€|£)\s*\d[\d,]*(?:\.\d+)?",
+            r"\b\d[\d,]*(?:\.\d+)?\s*(?:INR|USD|EUR|GBP)\b",
+        ])
+    return any(re.search(pattern, lower, re.I) for pattern in patterns)
 
 
-# ==========================================
-# 2. INTENT & METADATA CONFIGURATION
-# ==========================================
-
-def detect_query_topic(query: str) -> (str, bool):
-    q = query.lower()
-    if any(w in q for w in ["technology", "technologies", "tech stack", "languages", "frameworks", "python", "javascript", "react", "node", "mongodb", "postgresql", "mysql", "fastapi", "langgraph", "groq", "llama"]):
-        return "technologies", True
-    if any(w in q for w in ["pricing", "price", "cost", "budget", "quote", "charges", "rate", "fees"]):
-        return "pricing", True
-    if any(w in q for w in ["contact", "address", "phone", "email", "office", "location", "reach us", "get in touch"]):
-        return "contact", True
-    if any(w in q for w in ["portfolio", "projects", "case study", "case studies", "our work", "clients", "track record", "delivered"]):
-        return "portfolio", True
-    if any(w in q for w in ["faq", "frequently asked questions", "common questions"]):
-        return "faq", True
-    if any(w in q for w in ["policy", "policies", "refund", "privacy", "terms of service", "cancellation", "tos"]):
-        return "policies", True
-    if any(w in q for w in ["service", "services", "provide", "offer", "specialty", "expertise", "custom development", "solution"]):
-        return "services", True
-    return "general", False
+def _needs_exact_fact(query: str, analysis: dict[str, Any]) -> str | None:
+    lower = query.lower()
+    if analysis.get("requires_explicit_quantity"):
+        return "quantity"
+    if any(term in lower for term in ("ceo", "founder", "co-founder", "owner", "managing director")):
+        return "leadership"
+    if any(term in lower for term in ("iso", "certified", "certification", "soc 2", "hipaa", "gdpr compliant")):
+        return "certification"
+    if any(term in lower for term in ("annual revenue", "turnover", "company revenue")):
+        return "revenue"
+    return None
 
 
-def detect_query_service(query: str) -> (str, bool):
-    q = query.lower()
-    if any(w in q for w in ["website", "web app", "web development", "react", "frontend", "html", "css", "static site"]):
-        return "website", True
-    if any(w in q for w in ["mobile app", "ios", "android", "flutter", "react native", "swift", "kotlin", "mobile application"]):
-        return "mobile_app", True
-    if any(w in q for w in ["ecommerce", "e-commerce", "shopify", "woocommerce", "online store", "shopping cart", "payment gateway"]):
-        return "ecommerce", True
-    if any(w in q for w in ["crm", "erp", "dashboard", "admin panel", "sales force", "hubspot", "management system"]):
-        return "crm", True
-    if any(w in q for w in ["ai automation", "chatbot", "rag", "langgraph", "agentic", "openai", "groq", "llama", "artificial intelligence", "automation script"]):
-        return "ai_automation", True
-    if any(w in q for w in ["software", "custom software", "saas", "cloud services", "backend", "database", "api"]):
-        return "software", True
-    return "general", False
+def _answerability(query: str, analysis: dict[str, Any], chunks: list[dict[str, Any]]) -> tuple[bool, str]:
+    if not chunks:
+        return False, "no_relevant_context"
+
+    combined = "\n".join(str(chunk.get("content") or chunk.get("chunk_text", "")) for chunk in chunks)
+    combined_lower = combined.lower()
+    answer_modes = {str(chunk.get("answer_mode", "direct")) for chunk in chunks}
+    verification_statuses = {str(chunk.get("verification_status", "")) for chunk in chunks}
+
+    if "verified_information_unavailable" in answer_modes:
+        return False, "verified_information_unavailable"
+
+    exact_fact = _needs_exact_fact(query, analysis)
+    if exact_fact and any(phrase in combined_lower for phrase in UNAVAILABLE_PHRASES):
+        return False, "verified_information_unavailable"
+    if exact_fact == "quantity":
+        subject = analysis.get("quantitative_subject")
+        supporting = [
+            chunk for chunk in chunks
+            if _explicit_quantity_evidence(str(chunk.get("content") or chunk.get("chunk_text", "")), subject)
+        ]
+        if not supporting:
+            return False, "explicit_quantity_not_found"
+        if all(
+            str(chunk.get("answer_mode", "direct")) in {"requires_confirmation", "cautious_direct"}
+            or str(chunk.get("verification_status", "")).endswith("requires_review")
+            for chunk in supporting
+        ):
+            return False, "quantity_claim_requires_confirmation"
+
+    if exact_fact in {"leadership", "certification", "revenue"}:
+        direct_chunks = [
+            chunk for chunk in chunks
+            if str(chunk.get("answer_mode", "direct")) not in {"requires_confirmation", "cautious_direct"}
+            and "conflicting" not in str(chunk.get("verification_status", "")).lower()
+        ]
+        if not direct_chunks:
+            return False, f"{exact_fact}_not_verified"
+
+    if exact_fact and "conflicting_source_claims" in verification_statuses:
+        return False, "conflicting_source_claims"
+    return True, "grounded_context_available"
 
 
-def build_metadata_filter(detected_intent, detected_topic, topic_confident, detected_service, service_confident, filter_level=0):
-    if filter_level >= 3:
-        return {}
-    conditions = []
-    if filter_level < 3:
-        conditions.append({
-            "$or": [
-                {"intent_scope": {"$in": [detected_intent, "all"]}},
-                {"intent_scope": {"$exists": False}}
-            ]
-        })
-    if filter_level < 2 and topic_confident:
-        conditions.append({
-            "$or": [
-                {"topic": {"$in": [detected_topic, "general"]}},
-                {"$and": [{"topic": {"$exists": False}}, {"category": {"$in": [detected_topic, "general"]}}]},
-                {"$and": [{"topic": {"$exists": False}}, {"category": {"$exists": False}}]}
-            ]
-        })
-    if filter_level < 1 and service_confident:
-        conditions.append({
-            "$or": [
-                {"service": {"$in": [detected_service, "general"]}},
-                {"service": {"$exists": False}}
-            ]
-        })
-    if not conditions:
-        return {}
-    if len(conditions) == 1:
-        return conditions[0]
-    return {"$and": conditions}
-
-
-def get_filtered_candidates(active_ids, identifiers, specific_keywords, generic_keywords, metadata_filter):
-    candidates = []
-    candidate_ids = set()
-    
-    def merge_filters(base, meta):
-        if not meta:
-            return base
-        return {"$and": [base, meta]}
-        
-    target_pool_size = 80
-        
-    if identifiers:
-        id_filter = {"source_id": {"$in": active_ids}}
-        regex_conditions = []
-        for kw in identifiers:
-            regex_conditions.extend([
-                {"chunk_text": re.compile(re.escape(kw), re.I)},
-                {"title": re.compile(re.escape(kw), re.I)},
-                {"category": re.compile(re.escape(kw), re.I)},
-                {"keywords": re.compile(re.escape(kw), re.I)}
-            ])
-        id_filter["$or"] = regex_conditions
-        query = merge_filters(id_filter, metadata_filter)
-        
-        id_candidates = list(chunks_collection.find(query).sort("created_at", -1).limit(30))
-        for c in id_candidates:
-            c_id = str(c["_id"])
-            if c_id not in candidate_ids:
-                candidates.append(c)
-                candidate_ids.add(c_id)
-
-    if len(candidates) < target_pool_size and specific_keywords:
-        specific_filter = {"source_id": {"$in": active_ids}}
-        regex_conditions = []
-        for kw in specific_keywords:
-            regex_conditions.extend([
-                {"chunk_text": re.compile(re.escape(kw), re.I)},
-                {"title": re.compile(re.escape(kw), re.I)},
-                {"category": re.compile(re.escape(kw), re.I)},
-                {"keywords": re.compile(re.escape(kw), re.I)}
-            ])
-        specific_filter["$or"] = regex_conditions
-        query = merge_filters(specific_filter, metadata_filter)
-        
-        specific_candidates = list(chunks_collection.find(query).sort("created_at", -1).limit(50))
-        for c in specific_candidates:
-            c_id = str(c["_id"])
-            if c_id not in candidate_ids:
-                candidates.append(c)
-                candidate_ids.add(c_id)
-
-    if len(candidates) < target_pool_size and generic_keywords:
-        generic_filter = {"source_id": {"$in": active_ids}}
-        regex_conditions = []
-        for kw in generic_keywords:
-            regex_conditions.extend([
-                {"chunk_text": re.compile(re.escape(kw), re.I)},
-                {"title": re.compile(re.escape(kw), re.I)},
-                {"category": re.compile(re.escape(kw), re.I)},
-                {"keywords": re.compile(re.escape(kw), re.I)}
-            ])
-        generic_filter["$or"] = regex_conditions
-        query = merge_filters(generic_filter, metadata_filter)
-        
-        generic_candidates = list(chunks_collection.find(query).sort("created_at", -1).limit(target_pool_size - len(candidates)))
-        for c in generic_candidates:
-            c_id = str(c["_id"])
-            if c_id not in candidate_ids:
-                candidates.append(c)
-                candidate_ids.add(c_id)
-
-    if not candidates:
-        query = merge_filters({"source_id": {"$in": active_ids}}, metadata_filter)
-        candidates = list(chunks_collection.find(query).sort("created_at", -1).limit(40))
-        
-    return candidates
-
-
-def validate_context_relevance(query: str, chunks: list[dict], threshold: float = 0.18) -> bool:
+def validate_context_relevance(query: str, chunks: list[dict], threshold: float = 0.30) -> bool:
     if not chunks:
         return False
-    top_score = chunks[0].get("final_relevance_score", 0.0)
-    return top_score >= threshold
+    top = chunks[0]
+    return (
+        float(top.get("final_relevance_score", 0.0)) >= threshold
+        and (
+            float(top.get("semantic_score", 0.0)) >= float(os.getenv("RAG_MIN_SEMANTIC_SCORE", "0.20"))
+            or float(top.get("lexical_coverage", 0.0)) >= 0.45
+            or float(top.get("exact_phrase_score", 0.0)) > 0
+        )
+    )
 
 
-# ==========================================
-# 3. OPTIMIZED RETRIEVER LOGIC
-# ==========================================
-
-def retrieve_company_context_details(query: str, limit: int = 4, intent: str = None) -> dict:
-    # 1. Query Analysis
+def retrieve_company_context_details(
+    query: str,
+    limit: int = 4,
+    intent: str = None,
+    tenant_id: str = None,
+) -> dict:
     analysis = analyze_query(query)
     if not analysis.get("should_use_rag", True):
         return {
             "context_text": "No RAG context needed for general chat.",
             "confidence": 0.0,
-            "sources": []
+            "sources": [],
+            "chunks": [],
+            "answerable": False,
+            "reason": "rag_not_needed",
+            "query_analysis": analysis,
         }
 
-    # 2. Get active sources
-    active_sources = list(sources_collection.find({"enabled": True}, {"_id": 1, "title": 1}))
+    active_sources = list(
+        sources_collection.find(
+            _active_source_query(tenant_id),
+            {"_id": 1, "title": 1, "tenant_id": 1},
+        )
+    )
     if not active_sources:
         return {
-            "context_text": "No active knowledge sources are configured. Respond with general polite support protocols.",
+            "context_text": "No active knowledge sources are configured.",
             "confidence": 0.0,
-            "sources": []
+            "sources": [],
+            "chunks": [],
+            "answerable": False,
+            "reason": "no_active_sources",
+            "query_analysis": analysis,
         }
 
-    active_ids = [str(s["_id"]) for s in active_sources]
-    active_titles = {str(s["_id"]): s.get("title", "Unknown Source") for s in active_sources}
+    active_ids = [str(source["_id"]) for source in active_sources]
+    active_titles = {str(source["_id"]): source.get("title", "Unknown Source") for source in active_sources}
 
-    # 3. Token & Identifier Extraction (Alphanumeric and short string handling)
-    keywords = list(analysis.get("keywords", []))
-    query_terms = re.findall(r'[a-zA-Z0-9\-]{2,}', query) # Length decreased to 2 to safely catch 'id'
-    
-    for term in query_terms:
-        term_lower = term.lower()
-        if term_lower not in [k.lower() for k in keywords] and term_lower not in {"give", "details", "order", "what", "who", "where", "how", "with", "from", "that", "this"}:
-            keywords.append(term)
+    query_terms = list(dict.fromkeys(
+        [str(value).lower() for value in analysis.get("keywords", []) if str(value).strip()]
+        + _word_tokens(query)
+    ))
+    identifiers = [str(value) for value in analysis.get("entities", []) if str(value).strip()]
+    meaningful_terms = [term for term in query_terms if term not in STOPWORDS]
+    specific_keywords = [term for term in meaningful_terms if term not in GENERIC_WORDS]
+    generic_keywords = [term for term in meaningful_terms if term in GENERIC_WORDS]
 
-    identifiers = []
-    for num in re.findall(r'\b\d{2,}\b', query):
-        identifiers.append(num)
-    for code in re.findall(r'\b[a-zA-Z0-9]+-\d+\b', query):
-        identifiers.append(code)
+    detected_topic, topic_confident = detect_query_topic(query)
+    detected_service, service_confident = detect_query_service(query)
+    intent_map = {
+        "client_lead": "client", "customer_support": "support", "hiring_support": "hiring",
+        "general_chat": "greet", "client": "client", "support": "support", "hiring": "hiring",
+        "greet": "greet", "all": "all",
+    }
+    detected_intent = intent_map.get(intent, "all")
+    analysis.update({
+        "detected_query_topic": detected_topic,
+        "detected_query_service": detected_service,
+        "detected_intent_scope": detected_intent,
+    })
 
-    # REMOVED 'id' from GENERIC_WORDS so it stays as an important query token
-    GENERIC_WORDS = {"give", "details", "order", "what", "who", "where", "how", "with", "from", "that", "this", "company", "service", "project", "client", "support", "hiring", "system", "website", "application", "business", "information"}
-    
-    specific_keywords = [k for k in keywords if k.lower() not in GENERIC_WORDS and k not in identifiers]
-    generic_keywords = [k for k in keywords if k.lower() in GENERIC_WORDS and k not in identifiers]
-
-    # 4. Metadata Guard Filter Loop (Protects against wrong manual inputs)
-    candidates = []
-    if USE_METADATA_RAG:
-        detected_topic, topic_confident = detect_query_topic(query)
-        detected_service, service_confident = detect_query_service(query)
-        
-        intent_map = {
-            "client_lead": "client", "customer_support": "support", "hiring_support": "hiring",
-            "general_chat": "greet", "client": "client", "support": "support",
-            "hiring": "hiring", "greet": "greet", "all": "all"
-        }
-        detected_intent = intent_map.get(intent, "all")
-        
-        analysis["detected_query_topic"] = detected_topic
-        analysis["detected_query_service"] = detected_service
-        analysis["detected_intent_scope"] = detected_intent
-        
-        best_candidates = []
-        for level in range(4):
-            meta_filter = build_metadata_filter(
-                detected_intent, detected_topic, topic_confident,
-                detected_service, service_confident, filter_level=level
-            )
-            level_candidates = get_filtered_candidates(active_ids, identifiers, specific_keywords, generic_keywords, meta_filter)
-            
-            # Agar accurate candidates mil gaye toh loop break karo
-            if len(level_candidates) >= 15:
-                best_candidates = level_candidates
-                break
-            best_candidates = level_candidates
-
-        # CRITICAL PROTECTION: Agar galat metadata ki wajah se chunks khali bache, bypass filters completely
-        if len(best_candidates) < 5:
-            best_candidates = get_filtered_candidates(active_ids, identifiers, specific_keywords, generic_keywords, {})
-            
-        candidates = best_candidates
-    else:
-        candidates = get_filtered_candidates(active_ids, identifiers, specific_keywords, generic_keywords, {})
-
+    candidates = get_filtered_candidates(
+        active_ids,
+        identifiers,
+        specific_keywords,
+        generic_keywords,
+        {},
+        tenant_id=tenant_id,
+    )
     if not candidates:
         return {
             "context_text": "No highly relevant knowledge found.",
             "confidence": 0.0,
-            "sources": []
+            "sources": [],
+            "chunks": [],
+            "answerable": False,
+            "reason": "no_candidates",
+            "query_analysis": analysis,
         }
-        
-    chunks_text = [c.get("chunk_text", "") for c in candidates]
 
-    # --- Hybrid Search Scoring Engine ---
-    # BM25
-    tokenized_chunks = [re.findall(r'[\w-]+', chunk.lower()) for chunk in chunks_text]
-    tokenized_query = re.findall(r'[\w-]+', query.lower())
-    bm25 = BM25Okapi(tokenized_chunks)
-    bm25_scores = bm25.get_scores(tokenized_query)
-    bm25_indices = np.argsort(bm25_scores)[::-1][:25].tolist()
+    searchable_texts = [_searchable_text(candidate) for candidate in candidates]
+    canonical_query = " ".join([query] + list(analysis.get("query_expansions", [])))
+    tokenized_documents = [_word_tokens(text) for text in searchable_texts]
+    tokenized_query = _word_tokens(canonical_query)
+    bm25 = BM25Okapi(tokenized_documents)
+    bm25_scores = _normalized_bm25(np.asarray(bm25.get_scores(tokenized_query), dtype=float))
 
-    # Semantic Embedding Match
-    from rag.embeddings import embeddings_model
-    query_embedding = embeddings_model.embed_query(query)
-    doc_embeddings = embeddings_model.embed_documents(chunks_text)
-    similarities = cosine_similarity([query_embedding], doc_embeddings)[0]
-    semantic_indices = similarities.argsort()[::-1][:30].tolist()
+    query_embedding = embeddings_model.embed_query(canonical_query)
+    expected_dimension = len(query_embedding)
+    document_embeddings: list[list[float] | None] = []
+    missing_indices: list[int] = []
+    missing_texts: list[str] = []
+    for index, candidate in enumerate(candidates):
+        embedding = candidate.get("embedding")
+        if _valid_embedding(embedding, expected_dimension):
+            document_embeddings.append(embedding)
+        else:
+            document_embeddings.append(None)
+            missing_indices.append(index)
+            missing_texts.append(searchable_texts[index])
+    if missing_texts:
+        computed = embeddings_model.embed_documents(missing_texts)
+        for index, embedding in zip(missing_indices, computed):
+            document_embeddings[index] = embedding
 
-    # Entity & Internal Key Substring Matching
-    entity_indices = []
-    query_entities = analysis.get("entities", [])
-    for idx, chunk in enumerate(chunks_text):
-        chunk_lower = chunk.lower()
-        for kw in specific_keywords:
-            if kw.lower() in chunk_lower:
-                entity_indices.append(idx)
-                break
-        for ent in query_entities:
-            ent_text = ent["text"] if isinstance(ent, dict) else str(ent)
-            if ent_text.lower() in chunk_lower and idx not in entity_indices:
-                entity_indices.append(idx)
-                break
+    similarities = cosine_similarity([query_embedding], document_embeddings)[0]
+    quantity_subject = analysis.get("quantitative_subject")
+    ranked_candidates: list[dict[str, Any]] = []
 
-    # Exact Match System
-    exact_indices = []
-    query_terms_clean = re.findall(r'[a-zA-Z0-9\-]{2,}', query.lower())
-    for idx, chunk in enumerate(chunks_text):
-        chunk_lower = chunk.lower()
-        for term in query_terms_clean:
-            if term in chunk_lower:
-                exact_indices.append(idx)
-                break
+    for index, candidate in enumerate(candidates):
+        searchable_lower = searchable_texts[index].lower()
+        title_lower = str(candidate.get("title", "")).lower()
+        semantic = max(0.0, float(similarities[index]))
+        lexical = _lexical_coverage(searchable_lower, meaningful_terms)
+        title_coverage = _lexical_coverage(title_lower, meaningful_terms)
+        exact_phrase = 1.0 if len(query.strip()) >= 5 and query.lower().strip() in searchable_lower else 0.0
+        identifier_score = 1.0 if identifiers and any(_contains(searchable_lower, identifier) for identifier in identifiers) else 0.0
+        quantity_evidence = 1.0 if _explicit_quantity_evidence(str(candidate.get("content") or candidate.get("chunk_text", "")), quantity_subject) else 0.0
 
-    # Score Weight Merger
-    scores = {}
-    for idx in semantic_indices:
-        scores[idx] = scores.get(idx, 0.0) + (similarities[idx] * 0.5)
+        metadata_bonus = 0.0
+        if USE_METADATA_RAG:
+            if topic_confident and str(candidate.get("topic", "")).lower() == detected_topic:
+                metadata_bonus += 0.025
+            if service_confident and str(candidate.get("service", "")).lower() == detected_service:
+                metadata_bonus += 0.02
+            if str(candidate.get("intent_scope", "all")).lower() in {detected_intent, "all"}:
+                metadata_bonus += 0.01
 
-    for rank, idx in enumerate(bm25_indices):
-        bm25_score = ((len(bm25_indices) - rank) / len(bm25_indices))
-        scores[idx] = scores.get(idx, 0.0) + (bm25_score * 0.3)
+        score = (
+            semantic * 0.56
+            + float(bm25_scores[index]) * 0.20
+            + lexical * 0.12
+            + title_coverage * 0.06
+            + exact_phrase * 0.04
+            + identifier_score * 0.08
+            + quantity_evidence * (0.08 if analysis.get("requires_explicit_quantity") else 0.0)
+            + metadata_bonus
+        )
 
-    for idx in set(entity_indices):
-        scores[idx] = scores.get(idx, 0.0) + 0.35  # Extra structural tag boost
+        # Count/list distinction: a portfolio-example chunk is related but insufficient for a total.
+        if analysis.get("requires_explicit_quantity") and not quantity_evidence:
+            score *= 0.74
+        if str(candidate.get("answer_mode")) == "verified_information_unavailable":
+            score += 0.10
 
-    for idx in set(exact_indices):
-        scores[idx] = scores.get(idx, 0.0) + 0.4
+        copy = dict(candidate)
+        copy.update({
+            "relevance_score": min(score, 1.0),
+            "semantic_score": round(semantic, 5),
+            "bm25_score": round(float(bm25_scores[index]), 5),
+            "lexical_coverage": round(lexical, 5),
+            "title_coverage": round(title_coverage, 5),
+            "exact_phrase_score": exact_phrase,
+            "quantity_evidence": bool(quantity_evidence),
+            "match_reasons": [
+                reason for reason, active in (
+                    ("semantic", semantic >= 0.25), ("bm25", bm25_scores[index] > 0),
+                    ("lexical", lexical > 0), ("title", title_coverage > 0),
+                    ("exact_phrase", exact_phrase > 0), ("quantity_evidence", quantity_evidence > 0),
+                ) if active
+            ],
+        })
+        ranked_candidates.append(copy)
 
-    ranked_indices = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    
-    ranked_candidates = []
-    for idx, hybrid_score in ranked_indices[:20]:
-        candidate = dict(candidates[idx])
-        candidate["relevance_score"] = min(hybrid_score, 1.0)
-        ranked_candidates.append(candidate)
+    ranked_candidates.sort(key=lambda item: item["relevance_score"], reverse=True)
+    reranked = rerank_chunks(ranked_candidates[: min(30, len(ranked_candidates))], query, analysis)
 
-    # 5. Reranking
-    reranked = rerank_chunks(ranked_candidates, query, analysis)
-
-    # 6. Context Validation
-    is_valid = validate_context_relevance(query, reranked, threshold=0.18)
-    if not is_valid:
+    minimum_score = float(os.getenv("RAG_MIN_HYBRID_SCORE", "0.30"))
+    relative_ratio = float(os.getenv("RAG_RELATIVE_SCORE_RATIO", "0.68"))
+    if not reranked or not validate_context_relevance(query, reranked, threshold=minimum_score):
         return {
             "context_text": "No highly relevant knowledge found.",
             "confidence": 0.0,
-            "sources": []
+            "sources": [],
+            "chunks": [],
+            "answerable": False,
+            "reason": "relevance_below_threshold",
+            "query_analysis": analysis,
         }
 
-    top_chunks = reranked[:limit]
-    context_blocks = []
-    sources_used = []
-    
-    for chunk in top_chunks:
-        src_id = chunk.get("source_id")
-        source_name = active_titles.get(src_id, chunk.get("source_name", "Unknown Source"))
-        source_type = chunk.get("source_type", "Text")
-        category = chunk.get("category", "General")
-        text = chunk.get("chunk_text", "").strip()
-        
-        meta_str = f"Source: {source_name} ({source_type}) | Category: {category}"
-        meta = chunk.get("metadata", {})
-        if "page_number" in meta:
-            meta_str += f" | Page: {meta['page_number']}"
-        if "sheet_name" in meta:
-            meta_str += f" | Sheet: {meta['sheet_name']}"
-            
-        context_blocks.append(f"=== {meta_str} ===\n{text}")
-        if source_name not in sources_used:
-            sources_used.append(source_name)
+    top_score = float(reranked[0].get("final_relevance_score", 0.0))
+    selected = [
+        chunk for chunk in reranked
+        if float(chunk.get("final_relevance_score", 0.0)) >= minimum_score
+        and float(chunk.get("final_relevance_score", 0.0)) >= top_score * relative_ratio
+    ][: max(1, limit)]
 
-    top_confidence = top_chunks[0].get("final_relevance_score", 0.0) if top_chunks else 0.0
+    answerable, reason = _answerability(query, analysis, selected)
+    context_blocks: list[str] = []
+    source_names: list[str] = []
+    chunk_debug: list[dict[str, Any]] = []
+
+    if not answerable:
+        context_blocks.append(
+            "=== GROUNDING GUARD ===\n"
+            "The retrieved material does not explicitly verify the exact fact requested. "
+            "Do not infer a total by counting examples and do not fill missing company facts from "
+            "general model knowledge. State that verified information is unavailable or requires "
+            "authorized confirmation."
+        )
+
+    for chunk in selected:
+        source_id = str(chunk.get("source_id", ""))
+        source_name = active_titles.get(source_id, chunk.get("source_name", "Unknown Source"))
+        if source_name not in source_names:
+            source_names.append(source_name)
+        source_type = chunk.get("source_type", "text")
+        category = chunk.get("category", "general")
+        content = str(chunk.get("content") or chunk.get("chunk_text", "")).strip()
+        metadata = chunk.get("metadata") or {}
+        locator = metadata.get("source_locator") or {}
+        locator_text = ""
+        if locator:
+            locator_text = " | Locator: " + ", ".join(f"{key}={value}" for key, value in locator.items() if value not in (None, ""))
+        context_blocks.append(
+            f"=== Source: {source_name} ({source_type}) | Category: {category}{locator_text} ===\n"
+            f"Title: {chunk.get('title', '')}\n"
+            f"Verification: {chunk.get('verification_status', 'unknown')} | Answer mode: {chunk.get('answer_mode', 'direct')}\n"
+            f"{content}"
+        )
+        chunk_debug.append({
+            "knowledge_id": chunk.get("knowledge_id"),
+            "title": chunk.get("title"),
+            "source": source_name,
+            "final_score": chunk.get("final_relevance_score"),
+            "semantic_score": chunk.get("semantic_score"),
+            "bm25_score": chunk.get("bm25_score"),
+            "lexical_coverage": chunk.get("lexical_coverage"),
+            "quantity_evidence": chunk.get("quantity_evidence"),
+            "verification_status": chunk.get("verification_status"),
+            "answer_mode": chunk.get("answer_mode"),
+            "risk_flags": chunk.get("risk_flags", []),
+        })
+
+    if RAG_DEBUG:
+        print("\n========== RAG DEBUG ==========")
+        print("Query:", query)
+        print("Canonical query:", canonical_query)
+        print("Analysis:", analysis)
+        print("Candidates:", len(candidates))
+        print("Selected:", chunk_debug)
+        print("Answerable:", answerable, "Reason:", reason)
+        print("================================\n")
 
     return {
         "context_text": "\n\n".join(context_blocks),
-        "confidence": float(top_confidence),
-        "sources": sources_used
+        "confidence": float(selected[0].get("final_relevance_score", 0.0)) if selected else 0.0,
+        "sources": source_names,
+        "chunks": chunk_debug,
+        "answerable": answerable,
+        "reason": reason,
+        "query_analysis": analysis,
     }
 
 
-def retrieve_company_context(query: str, limit: int = 4) -> str:
-    """
-    Wrapper for backward compatibility.
-    """
-    details = retrieve_company_context_details(query, limit)
-    return details["context_text"]
+def retrieve_company_context(query: str, limit: int = 4, tenant_id: str = None) -> str:
+    """Backward-compatible wrapper."""
+    return retrieve_company_context_details(query, limit=limit, tenant_id=tenant_id)["context_text"]

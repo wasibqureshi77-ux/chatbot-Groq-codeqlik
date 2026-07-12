@@ -40,6 +40,7 @@ function Admin() {
 
     const [activeTab, setActiveTab] = useState("dashboard");
     const [loading, setLoading] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Search / Filter states
     const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +70,8 @@ function Admin() {
         total_chunks: 0,
         last_updated: "N/A"
     });
+    const [previewMode, setPreviewMode] = useState("desktop");
+    const [settingsSubTab, setSettingsSubTab] = useState("branding");
     const [settings, setSettings] = useState({
         companyName: "",
         companyDescription: "",
@@ -112,9 +115,17 @@ function Admin() {
         contact_email: "",
         contact_phone: "",
         chatbot_greeting: "",
+        prompt_nature: "",
+        prompt_response_feel: "",
+        prompt_greeting_examples: "",
         fallback_message: "",
         support_email: "",
-        support_phone: ""
+        support_phone: "",
+        // Popup/Welcome Card Text Fields
+        launcherCardLabel: "CODEQLIK AI",
+        launcherCardTitle: "Let's build something powerful.",
+        launcherCardDescription: "Tell us what you're planning, and our AI assistant will guide you.",
+        launcherCardCTA: "Start Conversation →"
     });
     const [settingsLoading, setSettingsLoading] = useState(true);
 
@@ -490,10 +501,10 @@ function Admin() {
     const handleLogoUpload = async (e, type) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const formData = new FormData();
         formData.append("file", file);
-        
+
         try {
             const res = await apiFetch(`${API_ROOT}/api/admin/settings/upload-logo`, {
                 method: "POST",
@@ -830,6 +841,8 @@ function Admin() {
     const launcherGreetingBgStart = settings.launcherGreetingBgStart || settings.primaryColor || "#ff7e21";
     const launcherGreetingBgEnd = settings.launcherGreetingBgEnd || "#ff477e";
     const launcherSize = clampNumber(settings.launcherSize, 44, 96, 60);
+    const launcherIconSize = settings.launcherIconSize ? clampNumber(settings.launcherIconSize, 14, 80, 28) : null;
+    const launcherIconWhite = !!settings.launcherIconWhite;
     const launcherImageInset = Math.max(5, Math.round(launcherSize * 0.12));
     const launcherGreetingFontSize = clampNumber(settings.launcherGreetingFontSize, 7, 18, 9.5);
     const launcherGreetingWidth = clampNumber(settings.launcherGreetingWidth, 72, 180, 112);
@@ -850,7 +863,13 @@ function Admin() {
 
     return (
         <div className="adminPage">
-            <aside className="sidebar">
+            {/* Mobile Sidebar Overlay */}
+            <div
+                className={`sidebarOverlay${sidebarOpen ? " visible" : ""}`}
+                onClick={() => setSidebarOpen(false)}
+            />
+
+            <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
                 <div className="sidebarBrand" style={{ padding: '20px 15px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', marginBottom: '6px' }}>
                         <img src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(255, 126, 33, 0.2)' }} />
@@ -859,31 +878,31 @@ function Admin() {
                     <p style={{ margin: 0, textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>Chatbot Admin Panel</p>
                 </div>
                 <nav className="sidebarMenu">
-                    <button className={`sidebarBtn ${activeTab === "dashboard" ? "active" : ""}`} onClick={() => setActiveTab("dashboard")}>
+                    <button className={`sidebarBtn ${activeTab === "dashboard" ? "active" : ""}`} onClick={() => { setActiveTab("dashboard"); setSidebarOpen(false); }}>
                         📊 Dashboard
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "chats" ? "active" : ""}`} onClick={() => setActiveTab("chats")}>
+                    <button className={`sidebarBtn ${activeTab === "chats" ? "active" : ""}`} onClick={() => { setActiveTab("chats"); setSidebarOpen(false); }}>
                         💬 Chats Log
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "leads" ? "active" : ""}`} onClick={() => setActiveTab("leads")}>
+                    <button className={`sidebarBtn ${activeTab === "leads" ? "active" : ""}`} onClick={() => { setActiveTab("leads"); setSidebarOpen(false); }}>
                         🤝 Client Leads
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "support" ? "active" : ""}`} onClick={() => setActiveTab("support")}>
+                    <button className={`sidebarBtn ${activeTab === "support" ? "active" : ""}`} onClick={() => { setActiveTab("support"); setSidebarOpen(false); }}>
                         🛠️ Support Tickets
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => setActiveTab("hiring")}>
+                    <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => { setActiveTab("hiring"); setSidebarOpen(false); }}>
                         💼 Hiring Candidates
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "meetings" ? "active" : ""}`} onClick={() => setActiveTab("meetings")}>
+                    <button className={`sidebarBtn ${activeTab === "meetings" ? "active" : ""}`} onClick={() => { setActiveTab("meetings"); setSidebarOpen(false); }}>
                         📅 Booked Meetings
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => setActiveTab("knowledge")}>
+                    <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => { setActiveTab("knowledge"); setSidebarOpen(false); }}>
                         📚 Knowledge Sources
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "llm-usage" ? "active" : ""}`} onClick={() => setActiveTab("llm-usage")}>
+                    <button className={`sidebarBtn ${activeTab === "llm-usage" ? "active" : ""}`} onClick={() => { setActiveTab("llm-usage"); setSidebarOpen(false); }}>
                         📊 AI Usage
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}>
+                    <button className={`sidebarBtn ${activeTab === "settings" ? "active" : ""}`} onClick={() => { setActiveTab("settings"); setSidebarOpen(false); }}>
                         ⚙️ Settings
                     </button>
                 </nav>
@@ -899,7 +918,16 @@ function Admin() {
 
             <main className="adminContent">
                 <div className="adminHeader">
-                    <h1>{activeTab === "llm-usage" ? "AI Usage Analytics" : activeTab === "meetings" ? "Booked Meetings" : activeTab.toUpperCase()}</h1>
+                    {/* Hamburger button — visible on mobile only */}
+                    <div className="adminHeaderLeft">
+                        <button className="hamburgerBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+                            ☰
+                        </button>
+                        <div>
+                            <h1>{activeTab === "llm-usage" ? "AI Usage Analytics" : activeTab === "meetings" ? "Booked Meetings" : activeTab === "knowledge" ? "Knowledge Sources" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+                            <p className="adminHeaderBreadcrumb">CodeQlik Admin Panel · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        </div>
+                    </div>
                     <div className="adminHeaderRight">
                         <button className="secondaryBtn" onClick={fetchData}>
                             🔄 Refresh
@@ -912,6 +940,7 @@ function Admin() {
                     </div>
                 </div>
 
+                <div className="adminMainBody">
                 {loading && <p>Loading data summary...</p>}
 
                 {/* ==========================================
@@ -1496,7 +1525,7 @@ function Admin() {
                                             return (
                                                 <tr key={id}>
                                                     <td>
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setSelectedThreadId(m.thread_id);
                                                                 fetchThreadMessages(m.thread_id);
@@ -1534,11 +1563,11 @@ function Admin() {
                                                             {mode === "google_meet" ? "💻 Google Meet" : "📞 Phone Call"}
                                                         </span>
                                                     </td>
-                                                    <td><strong>📅 {date}</strong><br/><span style={{color: "#94a3b8"}}>⏰ {slot}</span></td>
+                                                    <td><strong>📅 {date}</strong><br /><span style={{ color: "#94a3b8" }}>⏰ {slot}</span></td>
                                                     <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{details}</td>
                                                     <td>
-                                                        <select 
-                                                            value={status} 
+                                                        <select
+                                                            value={status}
                                                             onChange={(e) => handleUpdateMeetingStatus(id, e.target.value)}
                                                             style={{
                                                                 padding: "4px 8px",
@@ -1553,7 +1582,7 @@ function Admin() {
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <button 
+                                                        <button
                                                             className="secondaryBtn"
                                                             style={{ padding: "4px 8px", fontSize: "12px" }}
                                                             onClick={() => {
@@ -1853,7 +1882,43 @@ function Admin() {
                         <div className="settingsTabContainer">
                             <div className="settingsLeftColumn">
                                 <form className="settingsForm" onSubmit={saveSettings} style={{ maxWidth: "100%", width: "100%" }}>
-                                    <div className="settingsSection">
+                                    
+                                    {/* Settings Sub-Navigation Bar */}
+                                    <div className="settingsSubNav">
+                                        <button 
+                                            type="button" 
+                                            className={settingsSubTab === "branding" ? "active" : ""} 
+                                            onClick={() => setSettingsSubTab("branding")}
+                                        >
+                                            🏢 Branding
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            className={settingsSubTab === "design" ? "active" : ""} 
+                                            onClick={() => setSettingsSubTab("design")}
+                                        >
+                                            🎨 Widget Look
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            className={settingsSubTab === "launcher" ? "active" : ""} 
+                                            onClick={() => setSettingsSubTab("launcher")}
+                                        >
+                                            💬 Launcher & Popup
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            className={settingsSubTab === "prompt" ? "active" : ""} 
+                                            onClick={() => setSettingsSubTab("prompt")}
+                                        >
+                                            🤖 AI Generator & Persona
+                                        </button>
+                                    </div>
+
+                                    <div className="settingsSubTabContent" style={{ marginTop: "24px" }}>
+                                        {settingsSubTab === "branding" && (
+                                            <div className="animateFadeIn">
+                                                <div className="settingsSection">
                                         <h4>Corporate Branding</h4>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                             <div className="formGroup">
@@ -1918,8 +1983,12 @@ function Admin() {
                                             </div>
                                         </div>
                                     </div>
+                                            </div>
+                                        )}
 
-                                    <div className="settingsSection">
+                                        {settingsSubTab === "design" && (
+                                            <div className="animateFadeIn">
+                                                <div className="settingsSection">
                                         <h4>Chatbot & Widget Customization</h4>
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                                             <div className="formGroup">
@@ -2108,18 +2177,36 @@ function Admin() {
                                                 </div>
                                                 <small className="fieldHint">Use emoji/text, paste an image URL, or upload an image. All three work.</small>
                                             </div>
-                                            <div className="formGroup">
-                                                <label>Launcher Text</label>
-                                                <input
-                                                    type="text"
-                                                    value={settings.launcherText || ""}
-                                                    onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
-                                                    placeholder="Optional button text"
-                                                />
+                                            <div className="formGroup" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                                                <div>
+                                                    <label>Launcher Text</label>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherText || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherText: e.target.value })}
+                                                        placeholder="Optional button text"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label>Invert Icon to White</label>
+                                                    <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
+                                                        <label className="switch">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!settings.launcherIconWhite}
+                                                                onChange={(e) => setSettings({ ...settings, launcherIconWhite: e.target.checked })}
+                                                            />
+                                                            <span className="slider"></span>
+                                                        </label>
+                                                        <span style={{ marginLeft: "8px", fontSize: "12px", color: settings.launcherIconWhite ? "#10b981" : "#94a3b8", fontWeight: "600" }}>
+                                                            {settings.launcherIconWhite ? "On" : "Off"}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Launcher Circle Size</label>
                                                 <input
@@ -2130,21 +2217,35 @@ function Admin() {
                                                     value={launcherSize}
                                                     onChange={(e) => setSettings({ ...settings, launcherSize: Number(e.target.value) })}
                                                 />
-                                                <small className="fieldHint">{launcherSize}px circle. Uploaded image auto-fits inside it.</small>
+                                                <small className="fieldHint">{launcherSize}px circle.</small>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Launcher Icon/Emoji Size</label>
+                                                <input
+                                                    type="range"
+                                                    min="14"
+                                                    max="80"
+                                                    step="1"
+                                                    value={settings.launcherIconSize ?? 28}
+                                                    onChange={(e) => setSettings({ ...settings, launcherIconSize: Number(e.target.value) })}
+                                                />
+                                                <small className="fieldHint">{settings.launcherIconSize ?? 28}px icon/emoji.</small>
                                             </div>
                                             <div className="formGroup">
                                                 <label>Show Launcher Greeting</label>
-                                                <label className="switch">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={showLauncherGreeting}
-                                                        onChange={(e) => setSettings({ ...settings, showLauncherGreeting: e.target.checked })}
-                                                    />
-                                                    <span className="slider"></span>
-                                                </label>
-                                                <span style={{ marginLeft: "12px", color: showLauncherGreeting ? "#10b981" : "#94a3b8", fontWeight: "600" }}>
-                                                    {showLauncherGreeting ? "Enabled" : "Disabled"}
-                                                </span>
+                                                <div style={{ display: "flex", alignItems: "center", height: "38px" }}>
+                                                    <label className="switch">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={showLauncherGreeting}
+                                                            onChange={(e) => setSettings({ ...settings, showLauncherGreeting: e.target.checked })}
+                                                        />
+                                                        <span className="slider"></span>
+                                                    </label>
+                                                    <span style={{ marginLeft: "12px", color: showLauncherGreeting ? "#10b981" : "#94a3b8", fontWeight: "600" }}>
+                                                        {showLauncherGreeting ? "Enabled" : "Disabled"}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -2282,6 +2383,33 @@ function Admin() {
 
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
+                                                <label>Greeting Text Style / Design</label>
+                                                <select
+                                                    value={settings.launcherGreetingDesign || "bubble"}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingDesign: e.target.value })}
+                                                >
+                                                    <option value="bubble">Standard Bubble</option>
+                                                    <option value="glassmorphism">Modern Glassmorphic</option>
+                                                    <option value="flat">Minimal Flat</option>
+                                                    <option value="tooltip">Clean Border Glow</option>
+                                                </select>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Greeting Text Animation</label>
+                                                <select
+                                                    value={settings.launcherGreetingAnimation || "shimmer"}
+                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingAnimation: e.target.value })}
+                                                >
+                                                    <option value="shimmer">Soft Shimmer Glow (Recommended)</option>
+                                                    <option value="bounce">Bounce & Float</option>
+                                                    <option value="pulse">Pulse / Fade</option>
+                                                    <option value="none">None (Static)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                                            <div className="formGroup">
                                                 <label>Primary Color</label>
                                                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                                                     <input
@@ -2342,7 +2470,140 @@ function Admin() {
                                         </div>
                                     </div>
 
-                                    <div className="settingsSection">
+                                    {/* ==========================================
+                                        POPUP CARD CONTENT SECTION
+                                        ========================================== */}
+                                            </div>
+                                        )}
+
+                                        {settingsSubTab === "launcher" && (
+                                            <div className="animateFadeIn">
+                                                <div className="settingsSection">
+                                        <h4>Popup Card Content</h4>
+                                        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "16px", marginTop: "4px" }}>
+                                            Chatbot ke welcome popup card ka content yahan se edit kar sakte hain.
+                                        </p>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                            <div className="formGroup">
+                                                <label>Badge / Label Text</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.launcherCardLabel || ""}
+                                                    onChange={(e) => setSettings({ ...settings, launcherCardLabel: e.target.value })}
+                                                    placeholder="CODEQLIK AI"
+                                                />
+                                                <small className="fieldHint">Top badge text (e.g., "CODEQLIK AI")</small>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>CTA Button Text</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.launcherCardCTA || ""}
+                                                    onChange={(e) => setSettings({ ...settings, launcherCardCTA: e.target.value })}
+                                                    placeholder="Start Conversation →"
+                                                />
+                                                <small className="fieldHint">Call-to-action button label</small>
+                                            </div>
+                                        </div>
+
+                                        <div className="formGroup" style={{ marginTop: "12px" }}>
+                                            <label>Main Heading / Title</label>
+                                            <input
+                                                type="text"
+                                                value={settings.launcherCardTitle || ""}
+                                                onChange={(e) => setSettings({ ...settings, launcherCardTitle: e.target.value })}
+                                                placeholder="Let's build something powerful."
+                                            />
+                                            <small className="fieldHint">Bold headline shown in the popup card</small>
+                                        </div>
+
+                                        <div className="formGroup" style={{ marginTop: "12px" }}>
+                                            <label>Description / Subtitle Text</label>
+                                            <textarea
+                                                rows="2"
+                                                value={settings.launcherCardDescription || ""}
+                                                onChange={(e) => setSettings({ ...settings, launcherCardDescription: e.target.value })}
+                                                placeholder="Tell us what you're planning, and our AI assistant will guide you."
+                                            />
+                                            <small className="fieldHint">Short description shown below the title</small>
+                                        </div>
+
+                                        {/* Live Preview of Card */}
+                                        <div style={{
+                                            marginTop: "20px",
+                                            background: "linear-gradient(135deg, rgba(30,30,40,0.95) 0%, rgba(20,20,35,0.98) 100%)",
+                                            border: "1px solid rgba(255,126,33,0.25)",
+                                            borderRadius: "16px",
+                                            padding: "18px 20px",
+                                            maxWidth: "320px",
+                                            position: "relative",
+                                            boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                                                <div style={{
+                                                    width: "28px", height: "28px", borderRadius: "50%",
+                                                    background: "linear-gradient(135deg, #ff7e21, #ff477e)",
+                                                    display: "flex", alignItems: "center", justifyContent: "center"
+                                                }}>
+                                                    <span style={{ fontSize: "14px" }}>Q</span>
+                                                </div>
+                                                <span style={{
+                                                    fontSize: "10px", fontWeight: "700", letterSpacing: "1.5px",
+                                                    color: "#ff7e21", textTransform: "uppercase"
+                                                }}>
+                                                    {settings.launcherCardLabel || "CODEQLIK AI"}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: "15px", fontWeight: "700", color: "#fff", lineHeight: "1.35", marginBottom: "8px" }}>
+                                                {settings.launcherCardTitle || "Let's build something powerful."}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)", lineHeight: "1.5", marginBottom: "14px" }}>
+                                                {settings.launcherCardDescription || "Tell us what you're planning, and our AI assistant will guide you."}
+                                            </div>
+                                            <button style={{
+                                                background: "transparent", border: "none", color: "#ff7e21",
+                                                fontWeight: "600", fontSize: "13px", cursor: "pointer", padding: "0",
+                                                display: "flex", alignItems: "center", gap: "4px"
+                                            }}>
+                                                {settings.launcherCardCTA || "Start Conversation →"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                            </div>
+                                        )}
+
+                                        {settingsSubTab === "prompt" && (
+                                            <div className="animateFadeIn">
+                                                <div className="settingsSection">
+                                        <h4>Prompt Customizations (AI Generator)</h4>
+                                        <div className="formGroup">
+                                            <label>Bot Persona / Nature (e.g., knowledgeable and helpful human support representative)</label>
+                                            <input
+                                                type="text"
+                                                value={settings.promptNature || settings.prompt_nature || ""}
+                                                onChange={(e) => setSettings({ ...settings, promptNature: e.target.value, prompt_nature: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="formGroup">
+                                            <label>Response Feel (e.g., Warm and natural, Clear and confident)</label>
+                                            <textarea
+                                                rows="4"
+                                                value={settings.promptResponseFeel || settings.prompt_response_feel || ""}
+                                                onChange={(e) => setSettings({ ...settings, promptResponseFeel: e.target.value, prompt_response_feel: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="formGroup">
+                                            <label>Greeting Examples (e.g., Hello!, Hi there!, Greetings!)</label>
+                                            <input
+                                                type="text"
+                                                value={settings.promptGreetingExamples || settings.prompt_greeting_examples || ""}
+                                                onChange={(e) => setSettings({ ...settings, promptGreetingExamples: e.target.value, prompt_greeting_examples: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                                <div style={{ height: "16px" }}></div>
+                                                <div className="settingsSection">
                                         <h4>Fallback & Bound Redirection</h4>
                                         <div className="formGroup">
                                             <label>Default Fallback / Bound Restriction Redirect Message</label>
@@ -2356,7 +2617,13 @@ function Admin() {
                                     </div>
 
                                     <button className="primaryBtn" type="submit">Save Configurations</button>
-                                </form>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "flex-end" }}>
+                                        <button className="primaryBtn" type="submit">💾 Save Settings</button>
+                                    </div></form>
                             </div>
 
                             <div className="settingsRightColumn">
@@ -2365,12 +2632,36 @@ function Admin() {
                                     <h3>Widget Preview Look</h3>
                                     <p className="previewSubtitle">Interactive Mockup aligned to current customizing parameters</p>
 
-                                    <div className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} style={{ height: "450px" }}>
+                                    <div className="previewModeSelector" style={{ display: "flex", gap: "8px", marginBottom: "16px", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "8px", width: "fit-content" }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewMode("desktop")}
+                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "desktop" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                        >
+                                            Desktop
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewMode("tablet")}
+                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "tablet" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                        >
+                                            Tablet
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewMode("mobile")}
+                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "mobile" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                        >
+                                            Mobile
+                                        </button>
+                                    </div>
+
+                                    <div className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} style={{ height: "450px", width: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : "100%", maxWidth: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : "400px", transition: "all 0.3s ease" }}>
                                         <div className="mockHeader" style={{ backgroundColor: settings.theme === "dark" ? "#0f172a" : (settings.primaryColor || "#ff7e21") }}>
                                             <div className="mockLogo">
-                                                <img 
-                                                    src={activeWidgetLogo} 
-                                                    alt="Logo" 
+                                                <img
+                                                    src={activeWidgetLogo}
+                                                    alt="Logo"
                                                 />
                                             </div>
                                             <div className="mockHeaderText">
@@ -2426,6 +2717,7 @@ function Admin() {
                                             "--mock-launcher-greeting-offset-y": `${launcherGreetingOffsetY}px`,
                                             "--mock-launcher-size": `${launcherSize}px`,
                                             "--mock-launcher-image-inset": `${launcherImageInset}px`,
+                                            "--mock-launcher-icon-size": launcherIconSize ? `${launcherIconSize}px` : undefined,
                                             width: `${launcherPreviewWidth}px`,
                                             height: `${launcherPreviewHeight}px`
                                         }}
@@ -2439,7 +2731,7 @@ function Admin() {
                                             title={settings.launcherGreeting || "Hello! Welcome to CodeQlik"}
                                         >
                                             {launcherIconIsImage ? (
-                                                <img className="mockLauncherIconImage" src={launcherIconImageUrl} alt="Launcher icon preview" />
+                                                <img className="mockLauncherIconImage" src={launcherIconImageUrl} alt="Launcher icon preview" style={{ filter: launcherIconWhite ? "brightness(0) invert(1)" : "none" }} />
                                             ) : !isDefaultLauncherIcon(launcherIconValue) ? (
                                                 <span className="mockLauncherCustomIcon">{launcherIconValue}</span>
                                             ) : (
@@ -2629,7 +2921,7 @@ function Admin() {
                         </div>
 
                         {/* Bottom: Model-wise Usage & Daily Chart */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                        <div className="llmBottomGrid">
                             {/* Model Usage Table */}
                             <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
                                 <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Model-wise Breakdown</h3>
@@ -2773,6 +3065,7 @@ function Admin() {
 
                     </div>
                 )}
+                </div>{/* end adminMainBody */}
             </main>
 
             {/* ==========================================

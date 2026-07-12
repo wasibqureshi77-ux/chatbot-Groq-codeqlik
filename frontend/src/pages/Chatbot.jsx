@@ -424,7 +424,19 @@ function Chatbot() {
                         </div>
 
                         {settings.suggestions && settings.suggestions.length > 0 && !loading && fixedOptions.length === 0 && (
-                            <div className="chatSuggestions" style={{ display: "flex", gap: "8px", flexWrap: "wrap", padding: "10px 24px", background: "#0b0f19", borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                            <div 
+                                className="chatSuggestions" 
+                                style={{ 
+                                    display: "flex", 
+                                    gap: "8px", 
+                                    overflowX: "auto", 
+                                    padding: "10px 24px", 
+                                    background: "#0b0f19", 
+                                    borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+                                    scrollbarWidth: "none",
+                                    msOverflowStyle: "none"
+                                }}
+                            >
                                 {settings.suggestions.map((suggestion, idx) => (
                                     <button 
                                         key={idx} 
@@ -441,7 +453,9 @@ function Chatbot() {
                                             cursor: "pointer",
                                             fontSize: "12px",
                                             fontWeight: "500",
-                                            transition: "all 0.2s"
+                                            transition: "all 0.2s",
+                                            whiteSpace: "nowrap",
+                                            flexShrink: 0
                                         }}
                                     >
                                         {suggestion}

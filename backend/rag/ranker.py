@@ -1,75 +1,46 @@
+from __future__ import annotations
+
+
 def rerank_chunks(chunks: list[dict], query: str, analyzer_res: dict) -> list[dict]:
-    """
-    Reranks chunks based on relevance_score, category boosting, source priority,
-    and query type alignment.
-    Returns the top chunks sorted by final score descending.
-    """
-    reranked = []
-    
-    category_boost = analyzer_res.get("category_boost", "None")
-    query_type = analyzer_res.get("query_type", "general")
-    query_lower = query.lower()
+    """Apply only soft metadata boosts; never rescue a semantically weak chunk."""
+    category_boost = str(analyzer_res.get("category_boost", "None")).lower()
+    detected_topic = str(analyzer_res.get("detected_query_topic") or "").lower()
+    detected_service = str(analyzer_res.get("detected_query_service") or "").lower()
+    detected_intent = str(analyzer_res.get("detected_intent_scope") or "").lower()
+    query_lower = query.lower().strip()
 
+    reranked: list[dict] = []
     for chunk in chunks:
-        # Start with base relevance score calculated in filters
-        score = chunk.get("relevance_score", 0.1)
-        
-        # 1. Category Boosting
-        chunk_category = chunk.get("category", "")
-        if category_boost != "None" and chunk_category.lower() == category_boost.lower():
-            score += 0.2
-            
-        # 2. Source Type Priority Boosting
-        source_type = chunk.get("source_type", "").lower()
-        
-        # Database/CSV record boosting for product/inventory inquiries
-        if query_type == "service_inquiry" or "product" in query_lower:
-            if source_type in ("database", "csv", "xlsx", "db_mongodb", "db_mysql", "db_postgresql", "db_sqlserver"):
-                score += 0.15
-        
-        # Policy boosting for policy questions
-        if query_type == "policy_question" and source_type in ("document", "manual"):
-            score += 0.1
-            
-        # 3. Exact phrase match boost
-        if query_lower in chunk.get("chunk_text", "").lower():
-            score += 0.1
-            
-        # 4. Metadata boosts (RAG improvements)
-        detected_topic = analyzer_res.get("detected_query_topic")
-        detected_service = analyzer_res.get("detected_query_service")
-        detected_intent = analyzer_res.get("detected_intent_scope")
+        score = float(chunk.get("relevance_score", 0.0))
+        reasons = list(chunk.get("match_reasons", []))
 
-        ch_topic = chunk.get("topic", chunk.get("category", "general"))
-        ch_service = chunk.get("service", "general")
-        ch_intent = chunk.get("intent_scope", "all")
+        chunk_category = str(chunk.get("category", "")).lower()
+        chunk_topic = str(chunk.get("topic", "")).lower()
+        chunk_service = str(chunk.get("service", "")).lower()
+        chunk_intent = str(chunk.get("intent_scope", "all")).lower()
+        title = str(chunk.get("title", "")).lower()
+        searchable = str(chunk.get("retrieval_text") or chunk.get("chunk_text", "")).lower()
 
-        if detected_topic and ch_topic.lower() == detected_topic.lower():
-            score += 0.15
-        if detected_service and ch_service.lower() == detected_service.lower():
-            score += 0.10
-        if detected_intent and ch_intent.lower() == detected_intent.lower():
-            score += 0.10
+        if category_boost not in {"", "none"} and category_boost in chunk_category:
+            score += 0.035
+            reasons.append("category")
+        if detected_topic and detected_topic == chunk_topic:
+            score += 0.04
+            reasons.append("topic")
+        if detected_service and detected_service == chunk_service:
+            score += 0.03
+            reasons.append("service")
+        if detected_intent and chunk_intent in {detected_intent, "all"}:
+            score += 0.02
+            reasons.append("intent")
+        if len(query_lower) >= 5 and (query_lower in title or query_lower in searchable):
+            score += 0.05
+            reasons.append("exact_phrase")
 
-        # 5. Limit score to max of 1.0
-        final_score = min(score, 1.0)
-        
-        # Create chunk copy with updated score
-        chunk_copy = dict(chunk)
-        chunk_copy["final_relevance_score"] = round(final_score, 3)
-        
-        # Include reason matched for metadata visibility
-        reasons = []
-        if category_boost != "None" and chunk_category.lower() == category_boost.lower():
-            reasons.append("category_boost")
-        if query_lower in chunk.get("chunk_text", "").lower():
-            reasons.append("exact_phrase_match")
-        if not reasons:
-            reasons.append("keyword_match")
-        chunk_copy["match_reason"] = ", ".join(reasons)
-        
-        reranked.append(chunk_copy)
-        
-    # Sort by final score descending
-    reranked.sort(key=lambda x: x["final_relevance_score"], reverse=True)
+        copy = dict(chunk)
+        copy["final_relevance_score"] = round(min(score, 1.0), 5)
+        copy["match_reason"] = ", ".join(dict.fromkeys(reasons)) or "hybrid_match"
+        reranked.append(copy)
+
+    reranked.sort(key=lambda item: item["final_relevance_score"], reverse=True)
     return reranked
