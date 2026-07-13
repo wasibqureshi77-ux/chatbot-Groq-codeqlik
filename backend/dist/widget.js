@@ -1258,24 +1258,68 @@
             border: 1px solid ${isDark ? `${primary}33` : borderColor};
           }
 
+          .cq-typing-bubble {
+            display: inline-flex !important;
+            align-items: flex-start !important;
+            justify-self: start !important;
+            width: max-content !important;
+            min-width: 0 !important;
+            max-width: 210px !important;
+            min-height: 0 !important;
+            height: auto !important;
+            padding: 0 2px !important;
+            border-radius: 0 !important;
+            white-space: normal !important;
+            line-height: 1 !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+          .cq-bot-row .cq-msg.cq-typing-bubble {
+            width: max-content !important;
+            max-width: 210px !important;
+            min-height: 0 !important;
+            justify-self: start !important;
+            white-space: normal !important;
+          }
           .cq-typing-indicator {
             display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 2px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            padding: 0;
+            white-space: nowrap;
           }
-          .cq-typing-indicator span {
+          .cq-typing-text {
+            color: ${isDark ? "rgba(248, 250, 252, 0.68)" : "rgba(15, 23, 42, 0.58)"};
+            font-size: 11px;
+            font-weight: 650;
+            letter-spacing: 0;
+            line-height: 1;
+          }
+          .cq-typing-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            min-height: 16px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: ${isDark ? "rgba(255, 126, 33, 0.13)" : "rgba(255, 126, 33, 0.1)"};
+            border: 1px solid ${isDark ? "rgba(255, 126, 33, 0.2)" : "rgba(255, 126, 33, 0.16)"};
+            box-shadow: ${isDark ? "0 4px 12px rgba(0, 0, 0, 0.12)" : "0 4px 12px rgba(15, 23, 42, 0.06)"};
+          }
+          .cq-typing-dots span {
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: ${isDark ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.5)"};
+            width: 4px;
+            height: 4px;
+            background-color: ${isDark ? primary : primary};
             border-radius: 50%;
             animation: cqBounce 1.4s infinite ease-in-out both;
           }
-          .cq-typing-indicator span:nth-child(1) {
+          .cq-typing-dots span:nth-child(1) {
             animation-delay: -0.32s;
           }
-          .cq-typing-indicator span:nth-child(2) {
+          .cq-typing-dots span:nth-child(2) {
             animation-delay: -0.16s;
           }
           @keyframes cqBounce {
@@ -1803,7 +1847,9 @@
         const bubble = document.createElement("div");
         bubble.className = `cq-msg cq-${type === "typing" ? "bot" : type}`;
         if (type === "typing") {
-          bubble.innerHTML = `<div class="cq-typing-indicator"><span></span><span></span><span></span></div>`;
+          bubble.classList.add("cq-typing-bubble");
+          const typingName = cfg.companyName || cfg.company_name || "CodeQlik";
+          bubble.innerHTML = `<div class="cq-typing-indicator" role="status" aria-live="polite"><span class="cq-typing-text">${escapeHtml(typingName)} is typing</span><span class="cq-typing-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>`;
         } else {
           bubble.textContent = "";
         }

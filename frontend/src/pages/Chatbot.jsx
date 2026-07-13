@@ -295,6 +295,22 @@ function Chatbot() {
         maxWidth: "70%",
         lineHeight: "1.5"
     };
+    const typingBubbleStyle = {
+        ...botBubbleStyle,
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "5px",
+        width: "max-content",
+        maxWidth: "210px",
+        minHeight: 0,
+        padding: "0 2px",
+        borderRadius: 0,
+        lineHeight: 1,
+        background: "transparent",
+        border: "0",
+        boxShadow: "none"
+    };
     const userBubbleStyle = {
         background: settings.primaryColor || "#d96216",
         color: "#ffffff",
@@ -411,7 +427,8 @@ function Chatbot() {
                                             settings.botAvatar || "CQ"
                                         )}
                                     </div>
-                                    <div className="messageBubble botBubble typingBubble" style={botBubbleStyle}>
+                                    <div className="messageBubble botBubble typingBubble" style={typingBubbleStyle}>
+                                        <span className="typingLabel">{settings.companyName || "CodeQlik"} is typing</span>
                                         <div className="dot-pulse">
                                             <span></span>
                                             <span></span>
