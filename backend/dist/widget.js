@@ -378,6 +378,8 @@
             min-width: ${launcherSize}px;
             width: ${launcherSize}px;
             height: ${launcherSize}px;
+            max-width: calc(100vw - 30px);
+            max-height: calc(100dvh - 50px);
             border-radius: 999px;
             border: none;
             background: linear-gradient(135deg, #ff7e21 0%, #ff477e 100%) !important;
@@ -394,6 +396,8 @@
             font-weight: 600;
             overflow: hidden;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
           #cq-btn img {
             width: ${launcherIconSize ? launcherIconSize + "px" : `calc(100% - ${launcherImageInset * 2}px)`};
@@ -432,14 +436,22 @@
             z-index: 2147483646 !important;
             cursor: pointer;
             
-            background: linear-gradient(135deg, rgba(7, 9, 13, 0.96), rgba(14, 17, 23, 0.94)) !important;
-            border: 1px solid rgba(255, 132, 43, 0.35) !important;
+            background: ${
+              cardBgMode === "gradient" 
+                ? `linear-gradient(135deg, ${cardAccentColor}dd 0%, #ff477edd 100%)`
+                : cardBgMode === "dark"
+                ? "#0f172a"
+                : cardBgMode === "light"
+                ? "#ffffff"
+                : "linear-gradient(135deg, rgba(7, 9, 13, 0.96), rgba(14, 17, 23, 0.94))"
+            } !important;
+            border: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`} !important;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55),
-                        0 10px 35px rgba(255, 120, 35, 0.14),
-                        0 0 0 1px rgba(255, 132, 43, 0.05),
+                        0 10px 35px ${cardAccentColor}22,
+                        0 0 0 1px ${cardAccentColor}0d,
                         inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-            backdrop-filter: blur(18px) saturate(130%);
-            -webkit-backdrop-filter: blur(18px) saturate(130%);
+            backdrop-filter: ${cardBgMode === "glassmorphism" ? "blur(18px) saturate(130%)" : "none"} !important;
+            -webkit-backdrop-filter: ${cardBgMode === "glassmorphism" ? "blur(18px) saturate(130%)" : "none"} !important;
             
             overflow: hidden;
             transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s ease, border-color 0.3s, box-shadow 0.3s;
@@ -617,7 +629,7 @@
           .cq-ai-signal__vertical-accent {
             width: 1px;
             align-self: stretch;
-            background: linear-gradient(to bottom, transparent, rgba(255, 132, 43, 0.3), transparent);
+            background: linear-gradient(to bottom, transparent, ${cardAccentColor}44, transparent);
             flex-shrink: 0;
           }
 
@@ -629,9 +641,17 @@
             width: 10px;
             height: 10px;
             transform: rotate(45deg);
-            background: #07090d;
-            border-right: 1px solid rgba(255, 132, 43, 0.35);
-            border-bottom: 1px solid rgba(255, 132, 43, 0.35);
+            background: ${
+              cardBgMode === "gradient"
+                ? cardAccentColor
+                : cardBgMode === "dark"
+                ? "#0f172a"
+                : cardBgMode === "light"
+                ? "#ffffff"
+                : "#0d0f14"
+            };
+            border-right: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`};
+            border-bottom: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`};
             z-index: 1;
             transition: border-color 0.3s;
           }
@@ -1027,11 +1047,22 @@
             opacity: 0;
             transition: transform 0.3s, opacity 0.3s;
           }
+          @keyframes cqCapsuleCollapse {
+            0% {
+              opacity: 1;
+              transform: translateY(0) scaleX(1) scaleY(1);
+              border-radius: 22px;
+              filter: blur(0);
+            }
+            100% {
+              opacity: 0;
+              transform: translateY(20px) scaleX(0.12) scaleY(0.12);
+              border-radius: 999px;
+              filter: blur(8px);
+            }
+          }
           .cq-ai-signal--closing {
-            transform: translateY(20px) scaleX(0.12) scaleY(0.12) !important;
-            opacity: 0 !important;
-            border-radius: 999px !important;
-            transition: all 0.55s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            animation: cqCapsuleCollapse 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
           }
 
           /* Launcher energy pulse & confirmation pulse */
@@ -1071,7 +1102,9 @@
             ${sideCss}
             bottom: calc(${widgetBottomOffset}px + env(safe-area-inset-bottom));
             width: ${cfg.width};
+            max-width: min(calc(100vw - 20px), ${cfg.width});
             height: ${cfg.height};
+            max-height: min(calc(100dvh - ${widgetBottomOffset + 20}px - env(safe-area-inset-bottom)), ${cfg.height});
             background: ${bg};
             color: ${text};
             border-radius: 20px;
@@ -1160,11 +1193,13 @@
           #cq-msgs {
             flex: 1;
             padding: 16px;
-            overflow: auto;
+            overflow-y: auto;
+            overflow-x: hidden;
             font-size: 14px;
             display: flex;
             flex-direction: column;
             gap: 12px;
+            min-height: 0;
           }
           .cq-msg-row {
             display: flex;
@@ -1205,6 +1240,9 @@
             border-radius: 16px;
             max-width: 78%;
             white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            hyphens: auto;
             line-height: 1.45;
           }
           .cq-user {
@@ -1271,11 +1309,15 @@
             background: ${isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)"};
             color: ${text};
             border-radius: 999px;
-            padding: 8px 14px;
+            padding: 10px 14px;
             cursor: pointer;
             font-size: 12px;
             font-weight: 500;
             transition: all 0.2s;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            touch-action: manipulation;
           }
           .cq-suggestion:hover {
             border-color: ${primary};
@@ -1285,8 +1327,8 @@
           }
           .cq-inline-options {
             display: flex;
+            flex-direction: column;
             gap: 8px;
-            flex-wrap: wrap;
             margin-top: 12px;
           }
           .cq-fixed-option {
@@ -1294,15 +1336,22 @@
             background: ${isDark ? "rgba(255, 126, 33, 0.14)" : "rgba(255, 126, 33, 0.10)"};
             color: ${isDark ? "#ffffff" : primary};
             border-radius: 8px;
-            padding: 8px 12px;
+            padding: 10px 12px;
             cursor: pointer;
             font-size: 12px;
             font-weight: 700;
             transition: all 0.2s;
+            min-height: 40px;
+            width: 100%;
+            text-align: left;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
           }
           .cq-fixed-option:hover:not(:disabled) {
             background: ${primary};
             color: #ffffff;
+            transform: translateY(-1px);
           }
           .cq-fixed-option:disabled {
             opacity: 0.45;
@@ -1313,17 +1362,19 @@
             display: flex !important;
             border-top: 1px solid ${borderColor};
             background: ${isDark ? "rgba(20, 20, 26, 0.95)" : "#ffffff"} !important;
-            padding: 12px 16px !important;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
             align-items: center !important;
             gap: 10px !important;
             pointer-events: auto !important;
+            flex-shrink: 0;
           }
 
           #cq-input {
             flex: 1 !important;
-            height: 40px !important;
-            padding: 0 14px !important;
-            border: 1px solid gray !important;
+            min-height: 44px !important;
+            height: auto !important;
+            padding: 10px 14px !important;
+            border: 1px solid ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"} !important;
             border-radius: 10px !important;
             outline: none !important;
             background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "#f9fafb"} !important;
@@ -1334,24 +1385,29 @@
             cursor: text !important;
             user-select: text !important;
             -webkit-user-select: text !important;
+            resize: none !important;
+            max-height: 100px !important;
           }
           #cq-input:focus {
             border-color: ${primary} !important;
+            box-shadow: 0 0 0 2px ${isDark ? `${primary}20` : `${primary}15`} !important;
           }
 
           #cq-send {
             background: ${primary};
             color: #fff;
             border: 0;
-            height: 40px;
-            width: 40px;
-            min-width: 40px;
+            min-width: 44px;
+            width: 44px;
+            height: 44px;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
           }
           #cq-send:hover {
             background: ${isDark ? "#e06310" : "#ff8c3a"};
@@ -1389,27 +1445,47 @@
           #cq-close:hover {
             opacity: 1;
             background: rgba(255, 255, 255, 0.15);
-          }
-
-          @media (max-width: 560px), (max-height: 560px) {
+                 @media (max-width: 576px), (max-height: 576px) {
             #cq-box {
-              width: 100% !important;
-              height: 100vh !important;
+              width: 100vw !important;
+              max-width: 100vw !important;
               height: 100dvh !important;
+              max-height: 100dvh !important;
               min-width: 0 !important;
               min-height: 0 !important;
-              max-height: 100vh !important;
-              max-height: 100dvh !important;
               bottom: 0 !important;
               right: 0 !important;
               left: 0 !important;
               border-radius: 0 !important;
-              max-width: 100vw !important;
               border: none !important;
+            }
+            #cq-btn {
+              bottom: calc(14px + env(safe-area-inset-bottom)) !important;
+              ${right ? "right: 14px !important;" : "left: 14px !important;"}
+              min-width: 48px !important;
+              width: 48px !important;
+              height: 48px !important;
+              font-size: 18px !important;
+            }
+            #cq-btn img {
+              width: calc(100% - 10px) !important;
+              height: calc(100% - 10px) !important;
+            }
+            #cq-btn .cq-launcher-chat-icon {
+              width: 22px !important;
+              height: 22px !important;
+            }
+            #cq-btn .cq-launcher-custom-icon {
+              font-size: 16px !important;
             }
             #cq-head {
               padding: calc(14px + env(safe-area-inset-top)) 16px 14px !important;
               gap: 8px !important;
+              flex-shrink: 0;
+            }
+            #cq-msgs {
+              padding: 12px 14px !important;
+              gap: 10px !important;
             }
             .cq-msg-row.cq-bot-row {
               display: grid !important;
@@ -1423,23 +1499,23 @@
             .cq-msg-avatar {
               width: 28px !important;
               height: 28px !important;
+              flex-shrink: 0;
             }
             .cq-msg {
               padding: 10px 12px !important;
               font-size: 13.5px !important;
               max-width: 85% !important;
+              white-space: pre-wrap !important;
+              word-break: break-word !important;
+              overflow-wrap: break-word !important;
             }
             .cq-bot-row .cq-msg {
               grid-column: 2 !important;
               width: auto !important;
-              max-width: 88% !important;
-              white-space: normal !important;
+              max-width: none !important;
             }
             .cq-bot-row .cq-msg-avatar {
               grid-column: 1 !important;
-            }
-            .cq-bot-row .cq-msg > div {
-              white-space: normal !important;
             }
             .cq-user-row .cq-msg {
               width: auto !important;
@@ -1450,21 +1526,41 @@
               padding: 0 12px 8px !important;
             }
             .cq-suggestion {
-              padding: 7px 11px !important;
+              padding: 8px 11px !important;
               font-size: 11.5px !important;
+              min-height: 34px !important;
             }
             #cq-form {
               padding: 9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
               gap: 8px !important;
             }
-
+            #cq-input {
+              min-height: 40px !important;
+              font-size: 13px !important;
+              padding: 8px 12px !important;
+            }
+            #cq-send {
+              min-width: 40px !important;
+              width: 40px !important;
+              height: 40px !important;
+            }
+            .cq-inline-options {
+              gap: 6px !important;
+              margin-top: 10px !important;
+            }
+            .cq-fixed-option {
+              padding: 8px 10px !important;
+              min-height: 36px !important;
+              font-size: 11.5px !important;
+            }
+ 
             /* Responsive greeting welcome card on mobile */
             #cq-launcher-card.cq-ai-signal {
               width: calc(100vw - 28px) !important;
               max-width: 300px !important;
               padding: 12px !important;
               ${right ? "right: 14px !important;" : "left: 14px !important;"}
-              bottom: calc(${launcherBottomOffset + launcherSize + 14}px + env(safe-area-inset-bottom)) !important;
+              bottom: calc(14px + 48px + 12px + env(safe-area-inset-bottom)) !important;
               border-radius: ${cardBorderRadius - 4}px !important;
             }
             .cq-ai-signal__panel {
@@ -1502,7 +1598,7 @@
                 display: none !important;
               }
             }
-          }
+          }       }
         </style>
       `);
 
@@ -1549,6 +1645,15 @@
       const suggestions = $("cq-suggestions");
       const sendBtn = $("cq-send");
       const launcherCard = $("cq-launcher-card");
+
+      // Hide welcome popup card on window scroll
+      if (launcherCard) {
+        window.addEventListener("scroll", () => {
+          if (window.scrollY > 30 && !box.classList.contains("cq-open") && !launcherCard.classList.contains("cq-ai-signal--closing") && launcherCard.style.display !== "none") {
+            dismissCard(false);
+          }
+        }, { passive: true });
+      }
 
       let fixedOptions = [];
       const defaultPlaceholder = cfg.placeholder;
@@ -1667,6 +1772,7 @@
 
       function dismissCard(explicit = false) {
         if (launcherCard) {
+          launcherCard.classList.remove("cq-launcher-card--animate-entry");
           launcherCard.classList.add("cq-ai-signal--closing");
           if (explicit && cardOncePerSession) {
             sessionStorage.setItem("codeqlik_card_dismissed", "true");

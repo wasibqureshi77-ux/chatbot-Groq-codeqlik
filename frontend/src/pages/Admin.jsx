@@ -42,6 +42,16 @@ function Admin() {
     const [loading, setLoading] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // Responsive Mobile/Collapsible states
+    const [expandedItems, setExpandedItems] = useState({});
+    const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
+    const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+    const [mobileChatView, setMobileChatView] = useState("list");
+
+    const toggleExpandItem = (id) => {
+        setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
     // Search / Filter states
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
@@ -58,6 +68,12 @@ function Admin() {
     const [selectedThreadMessages, setSelectedThreadMessages] = useState([]);
     const [selectedThreadProfile, setSelectedThreadProfile] = useState({});
 
+    useEffect(() => {
+        if (selectedThreadId) {
+            setMobileChatView("chat");
+        }
+    }, [selectedThreadId]);
+
     const [leads, setLeads] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [candidates, setCandidates] = useState([]);
@@ -71,6 +87,7 @@ function Admin() {
         last_updated: "N/A"
     });
     const [previewMode, setPreviewMode] = useState("desktop");
+    const [previewWidgetOpen, setPreviewWidgetOpen] = useState(false);
     const [settingsSubTab, setSettingsSubTab] = useState("branding");
     const [settings, setSettings] = useState({
         companyName: "",
@@ -125,7 +142,10 @@ function Admin() {
         launcherCardLabel: "CODEQLIK AI",
         launcherCardTitle: "Let's build something powerful.",
         launcherCardDescription: "Tell us what you're planning, and our AI assistant will guide you.",
-        launcherCardCTA: "Start Conversation →"
+        launcherCardCTA: "Start Conversation →",
+        launcherCardBackground: "glassmorphism",
+        launcherCardTextColor: "#ffffff",
+        launcherCardAccentColor: "#ff7e21"
     });
     const [settingsLoading, setSettingsLoading] = useState(true);
 
@@ -256,11 +276,17 @@ function Admin() {
                     setChatsList(data);
 
                     // Maintain selected thread
-                    if (selectedThreadId) {
-                        fetchThreadMessages(selectedThreadId);
-                    } else if (data.length > 0) {
-                        setSelectedThreadId(data[0].thread_id);
-                        fetchThreadMessages(data[0].thread_id);
+                    if (window.innerWidth >= 768) {
+                        if (selectedThreadId) {
+                            fetchThreadMessages(selectedThreadId);
+                        } else if (data.length > 0) {
+                            setSelectedThreadId(data[0].thread_id);
+                            fetchThreadMessages(data[0].thread_id);
+                        }
+                    } else {
+                        // Ensure we always default to list view on mobile
+                        setMobileChatView("list");
+                        setSelectedThreadId(null);
                     }
                 }
             } else if (activeTab === "leads") {
@@ -808,6 +834,7 @@ function Admin() {
                             <option value="website">website</option>
                             <option value="mobile_app">mobile app</option>
                             <option value="ecommerce">ecommerce</option>
+                            <option value="erp">erp</option>
                             <option value="crm">crm</option>
                             <option value="ai_automation">ai automation</option>
                             <option value="software">software</option>
@@ -907,12 +934,19 @@ function Admin() {
                     </button>
                 </nav>
 
-                <button
-                    onClick={() => { sessionStorage.removeItem("admin_token"); window.location.replace("/"); }}
-                    style={{ marginTop: 'auto', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer', width: '100%', display: 'block', textAlign: 'center' }}
-                >
-                    Logout
-                </button>
+                <div className="sidebarFooter" style={{ padding: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.04)', marginTop: 'auto' }}>
+                    <button
+                        className="logoutBtn"
+                        onClick={() => { sessionStorage.removeItem("admin_token"); window.location.replace("/"); }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                        Logout
+                    </button>
+                </div>
             </aside>
 
 
@@ -920,17 +954,25 @@ function Admin() {
                 <div className="adminHeader">
                     {/* Hamburger button — visible on mobile only */}
                     <div className="adminHeaderLeft">
-                        <button className="hamburgerBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
-                            ☰
+                         <button className="hamburgerBtn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="4" y1="12" x2="20" y2="12" />
+                                <line x1="4" y1="6" x2="16" y2="6" />
+                                <line x1="4" y1="18" x2="18" y2="18" />
+                            </svg>
                         </button>
                         <div>
                             <h1>{activeTab === "llm-usage" ? "AI Usage Analytics" : activeTab === "meetings" ? "Booked Meetings" : activeTab === "knowledge" ? "Knowledge Sources" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
-                            <p className="adminHeaderBreadcrumb">CodeQlik Admin Panel · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</p>
                         </div>
                     </div>
                     <div className="adminHeaderRight">
-                        <button className="secondaryBtn" onClick={fetchData}>
-                            🔄 Refresh
+                        <button className="secondaryBtn refreshBtn" onClick={() => window.location.reload()} aria-label="Refresh page">
+                            <svg className="refreshIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M23 4v6h-6" />
+                                <path d="M1 20v-6h6" />
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                            </svg>
+                            <span className="desktop-only">Refresh</span>
                         </button>
                         {activeTab === "leads" && (
                             <button className="primaryBtn" onClick={exportLeadsCSV}>
@@ -1048,24 +1090,25 @@ function Admin() {
                     ========================================== */}
                 {!loading && activeTab === "chats" && (
                     <div>
-                        <div className="filterRow">
-                            <div className="searchBox">
+                        <div className="filterRow" style={{ background: "rgba(15, 23, 42, 0.4)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255, 126, 33, 0.15)", display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+                            <div className="searchBox" style={{ flex: 1, minWidth: "220px" }}>
                                 <span className="searchBoxIcon">🔍</span>
                                 <input
                                     type="text"
                                     placeholder="Search logs, thread ID, user inputs..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{ background: "rgba(0, 0, 0, 0.2)" }}
                                 />
                             </div>
-                            <div className="filterControls">
-                                <select value={extraFilter} onChange={(e) => setExtraFilter(e.target.value)}>
-                                    <option value="">All Intents</option>
-                                    <option value="company_info">Company Info</option>
-                                    <option value="client_lead">Client Lead</option>
-                                    <option value="customer_support">Customer Support</option>
-                                    <option value="hiring_support">Hiring Support</option>
-                                    <option value="general_chat">General Chat</option>
+                            <div className="filterControls" style={{ minWidth: "160px" }}>
+                                <select value={extraFilter} onChange={(e) => setExtraFilter(e.target.value)} style={{ width: "100%", background: "rgba(0, 0, 0, 0.2)", border: "1px solid rgba(255, 126, 33, 0.3)", borderRadius: "8px", color: "var(--text-main)", padding: "10px 14px", fontWeight: "500" }}>
+                                    <option value="">✨ All Intents</option>
+                                    <option value="company_info">🏢 Company Info</option>
+                                    <option value="client_lead">🤝 Client Lead</option>
+                                    <option value="customer_support">🛠️ Customer Support</option>
+                                    <option value="hiring_support">💼 Hiring Support</option>
+                                    <option value="general_chat">💬 General Chat</option>
                                 </select>
                             </div>
                         </div>
@@ -1073,7 +1116,7 @@ function Admin() {
                         {chatsList.length === 0 ? (
                             <p>No conversation threads loaded.</p>
                         ) : (
-                            <div className="chatsLayout">
+                            <div className={`chatsLayout mobile-${mobileChatView}`}>
                                 <div className="threadsPanel">
                                     <div className="threadsHeader">
                                         <h4>Conversations (Groups)</h4>
@@ -1105,10 +1148,52 @@ function Admin() {
                                 <div className="conversationPanel">
                                     {selectedThreadId && selectedThreadMessages.length > 0 ? (
                                         <>
-                                            <div className="conversationHeader">
-                                                <h3>Conversation: {chatsList.find(t => t.thread_id === selectedThreadId)?.user_name || "Anonymous User"}</h3>
-                                                <p>Thread ID: {selectedThreadId}</p>
-                                            </div>
+                                            <div className="conversationHeader" style={{
+                                                 display: "flex",
+                                                 flexDirection: "row",
+                                                 alignItems: "center",
+                                                 gap: "12px",
+                                                 padding: "14px 16px",
+                                                 borderBottom: "1px solid var(--border-color)",
+                                                 background: "rgba(15, 23, 42, 0.4)",
+                                                 marginBottom: "12px"
+                                             }}>
+                                                 <button
+                                                     className="secondaryBtn mobile-only"
+                                                     style={{
+                                                         padding: "6px 12px",
+                                                         fontSize: "14px",
+                                                         height: "36px",
+                                                         minHeight: "36px",
+                                                         display: "inline-flex",
+                                                         alignItems: "center",
+                                                         justifyContent: "center",
+                                                         background: "linear-gradient(135deg, rgba(255, 126, 33, 0.15), rgba(255, 71, 126, 0.15))",
+                                                         border: "1px solid rgba(255, 126, 33, 0.3)",
+                                                         borderRadius: "8px",
+                                                         color: "var(--text-main)",
+                                                         cursor: "pointer",
+                                                         fontWeight: "700",
+                                                         margin: 0,
+                                                         boxShadow: "0 2px 8px rgba(255, 126, 33, 0.1)"
+                                                     }}
+                                                     onClick={() => {
+                                                         setMobileChatView("list");
+                                                         setSelectedThreadId(null);
+                                                     }}
+                                                     title="Back to List"
+                                                 >
+                                                     ←
+                                                 </button>
+                                                 <div style={{ flex: 1, minWidth: 0 }}>
+                                                     <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                         {chatsList.find(t => t.thread_id === selectedThreadId)?.user_name || "Anonymous User"}
+                                                     </h3>
+                                                     <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                         ID: {selectedThreadId}
+                                                     </p>
+                                                 </div>
+                                             </div>
                                             <div className="conversationMessages">
                                                 {(() => {
                                                     const thread = chatsList.find(t => t.thread_id === selectedThreadId);
@@ -1247,59 +1332,152 @@ function Admin() {
                         {leads.length === 0 ? (
                             <p>No client leads saved.</p>
                         ) : (
-                            <div className="tableContainer">
-                                <table className="customTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Client Name</th>
-                                            <th>Contact Details</th>
-                                            <th>Company Name</th>
-                                            <th>Project Type</th>
-                                            <th>Requirements details</th>
-                                            <th>Budget / Timeline</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {leads.map((l) => {
-                                            const name = l.name || l.profile?.name || "N/A";
-                                            const email_or_phone = l.email_or_phone || l.profile?.email_or_phone || "N/A";
-                                            const company = l.company || l.profile?.company || "N/A";
-                                            const project_type = l.project_type || l.profile?.project_type || "N/A";
-                                            const requirements = l.requirements || l.profile?.requirements || "N/A";
-                                            const budget = l.budget || l.profile?.budget || "N/A";
-                                            const timeline = l.timeline || l.profile?.timeline || "N/A";
-                                            const status = l.status || "New";
-                                            const id = l.id || l._id;
-                                            return (
-                                                <tr key={id}>
-                                                    <td><strong>{name}</strong></td>
-                                                    <td>{email_or_phone}</td>
-                                                    <td>{company}</td>
-                                                    <td>{project_type}</td>
-                                                    <td style={{ maxWidth: "200px", wordBreak: "break-word" }}>{requirements}</td>
-                                                    <td>
-                                                        <div>Budget: {budget}</div>
-                                                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Timeline: {timeline}</div>
-                                                    </td>
-                                                    <td>
-                                                        <select
-                                                            className="tableSelect"
-                                                            value={status}
-                                                            onChange={(e) => handleLeadStatus(id, e.target.value)}
-                                                        >
-                                                            <option value="New">New</option>
-                                                            <option value="Contacted">Contacted</option>
-                                                            <option value="Qualified">Qualified</option>
-                                                            <option value="Lost">Lost</option>
-                                                        </select>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <>
+                                {/* Desktop View Table */}
+                                <div className="tableContainer desktop-only">
+                                    <table className="customTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Client Name</th>
+                                                <th>Contact Details</th>
+                                                <th>Company Name</th>
+                                                <th>Project Type</th>
+                                                <th>Requirements details</th>
+                                                <th>Budget / Timeline</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {leads.map((l) => {
+                                                const name = l.name || l.profile?.name || "N/A";
+                                                const email_or_phone = l.email_or_phone || l.profile?.email_or_phone || "N/A";
+                                                const company = l.company || l.profile?.company || "N/A";
+                                                const project_type = l.project_type || l.profile?.project_type || "N/A";
+                                                const requirements = l.requirements || l.profile?.requirements || "N/A";
+                                                const budget = l.budget || l.profile?.budget || "N/A";
+                                                const timeline = l.timeline || l.profile?.timeline || "N/A";
+                                                const status = l.status || "New";
+                                                const id = l.id || l._id;
+                                                return (
+                                                    <tr key={id}>
+                                                        <td><strong>{name}</strong></td>
+                                                        <td>{email_or_phone}</td>
+                                                        <td>{company}</td>
+                                                        <td>{project_type}</td>
+                                                        <td style={{ maxWidth: "200px", wordBreak: "break-word" }}>{requirements}</td>
+                                                        <td>
+                                                            <div>Budget: {budget}</div>
+                                                            <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Timeline: {timeline}</div>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                className="tableSelect"
+                                                                value={status}
+                                                                onChange={(e) => handleLeadStatus(id, e.target.value)}
+                                                                style={{
+                                                                    padding: "4px 8px",
+                                                                    borderRadius: "4px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: "600",
+                                                                    border: "1px solid #cbd5e1",
+                                                                    background: status === "Qualified" ? "#d1fae5" : status === "Lost" ? "#fee2e2" : status === "Contacted" ? "#dbeafe" : "#fef3c7",
+                                                                    color: status === "Qualified" ? "#065f46" : status === "Lost" ? "#991b1b" : status === "Contacted" ? "#1e40af" : "#92400e"
+                                                                }}
+                                                            >
+                                                                <option value="New">New</option>
+                                                                <option value="Contacted">Contacted</option>
+                                                                <option value="Qualified">Qualified</option>
+                                                                <option value="Lost">Lost</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="responsiveCardsContainer mobile-only">
+                                    {leads.map((l) => {
+                                        const name = l.name || l.profile?.name || "N/A";
+                                        const email_or_phone = l.email_or_phone || l.profile?.email_or_phone || "N/A";
+                                        const company = l.company || l.profile?.company || "N/A";
+                                        const project_type = l.project_type || l.profile?.project_type || "N/A";
+                                        const requirements = l.requirements || l.profile?.requirements || "N/A";
+                                        const budget = l.budget || l.profile?.budget || "N/A";
+                                        const timeline = l.timeline || l.profile?.timeline || "N/A";
+                                        const status = l.status || "New";
+                                        const id = l.id || l._id;
+                                        const isExpanded = !!expandedItems[id];
+
+                                        return (
+                                            <div className="mobileCard" key={id}>
+                                                <div className="mobileCardHeader">
+                                                    <div>
+                                                        <h4 className="mobileCardTitle">{name}</h4>
+                                                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{company}</span>
+                                                    </div>
+                                                    <select
+                                                        className="tableSelect"
+                                                        value={status}
+                                                        onChange={(e) => handleLeadStatus(id, e.target.value)}
+                                                        style={{
+                                                            width: "auto",
+                                                            minWidth: "110px",
+                                                            padding: "4px 8px",
+                                                            borderRadius: "4px",
+                                                            fontSize: "12px",
+                                                            fontWeight: "600",
+                                                            border: "1px solid #cbd5e1",
+                                                            background: status === "Qualified" ? "#d1fae5" : status === "Lost" ? "#fee2e2" : status === "Contacted" ? "#dbeafe" : "#fef3c7",
+                                                            color: status === "Qualified" ? "#065f46" : status === "Lost" ? "#991b1b" : status === "Contacted" ? "#1e40af" : "#92400e"
+                                                        }}
+                                                    >
+                                                        <option value="New">New</option>
+                                                        <option value="Contacted">Contacted</option>
+                                                        <option value="Qualified">Qualified</option>
+                                                        <option value="Lost">Lost</option>
+                                                    </select>
+                                                </div>
+                                                <div className="mobileCardBody">
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Contact</span>
+                                                        <span className="mobileCardValue">{email_or_phone}</span>
+                                                    </div>
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Project Type</span>
+                                                        <span className="mobileCardValue">{project_type}</span>
+                                                    </div>
+                                                    
+                                                    {isExpanded && (
+                                                        <div className="mobileCardDetails">
+                                                            <div style={{ marginBottom: "8px" }}>
+                                                                <strong>Budget:</strong> {budget}
+                                                            </div>
+                                                            <div style={{ marginBottom: "8px" }}>
+                                                                <strong>Timeline:</strong> {timeline}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Requirements:</strong><br />
+                                                                {requirements}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        className="secondaryBtn"
+                                                        onClick={() => toggleExpandItem(id)}
+                                                        style={{ marginTop: "4px", width: "100%" }}
+                                                    >
+                                                        {isExpanded ? "Hide Details ▲" : "Show Details ▼"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -1338,61 +1516,170 @@ function Admin() {
                         {tickets.length === 0 ? (
                             <p>No support tickets logged.</p>
                         ) : (
-                            <div className="tableContainer">
-                                <table className="customTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Client Name</th>
-                                            <th>Contact Details</th>
-                                            <th>Issue Type</th>
-                                            <th>Description Details</th>
-                                            <th>Priority</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {tickets.map((t) => {
-                                            const name = t.name || t.profile?.name || "N/A";
-                                            const email_or_phone = t.email_or_phone || t.profile?.email_or_phone || "N/A";
-                                            const issue_type = t.issue_type || t.profile?.issue_type || "N/A";
-                                            const issue_details = t.issue_details || t.profile?.issue_details || "N/A";
-                                            const priority = t.urgency || t.priority || "Medium";
-                                            const status = t.status || "Open";
-                                            const id = t.id || t._id;
-                                            return (
-                                                <tr key={id}>
-                                                    <td><strong>{name}</strong></td>
-                                                    <td>{email_or_phone}</td>
-                                                    <td><span className="threadCardIntent">{issue_type}</span></td>
-                                                    <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{issue_details}</td>
-                                                    <td>
+                            <>
+                                {/* Desktop View Table */}
+                                <div className="tableContainer desktop-only">
+                                    <table className="customTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Client Name</th>
+                                                <th>Contact Details</th>
+                                                <th>Issue Type</th>
+                                                <th>Description Details</th>
+                                                <th>Priority</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {tickets.map((t) => {
+                                                const name = t.name || t.profile?.name || "N/A";
+                                                const email_or_phone = t.email_or_phone || t.profile?.email_or_phone || "N/A";
+                                                const issue_type = t.issue_type || t.profile?.issue_type || "N/A";
+                                                const issue_details = t.issue_details || t.profile?.issue_details || "N/A";
+                                                const priority = t.urgency || t.priority || "Medium";
+                                                const status = t.status || "Open";
+                                                const id = t.id || t._id;
+                                                return (
+                                                    <tr key={id}>
+                                                        <td><strong>{name}</strong></td>
+                                                        <td>{email_or_phone}</td>
+                                                        <td><span className="threadCardIntent">{issue_type}</span></td>
+                                                        <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{issue_details}</td>
+                                                        <td>
+                                                            <select
+                                                                className="tableSelect"
+                                                                value={priority}
+                                                                onChange={(e) => handleSupportUpdate(id, "priority", e.target.value)}
+                                                                style={{
+                                                                    padding: "4px 8px",
+                                                                    borderRadius: "4px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: "600",
+                                                                    border: "1px solid #cbd5e1",
+                                                                    background: priority === "High" ? "#fee2e2" : priority === "Medium" ? "#fef3c7" : "#f3f4f6",
+                                                                    color: priority === "High" ? "#991b1b" : priority === "Medium" ? "#92400e" : "#374151"
+                                                                }}
+                                                            >
+                                                                <option value="Low">Low</option>
+                                                                <option value="Medium">Medium</option>
+                                                                <option value="High">High</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                className="tableSelect"
+                                                                value={status}
+                                                                onChange={(e) => handleSupportUpdate(id, "status", e.target.value)}
+                                                                style={{
+                                                                    padding: "4px 8px",
+                                                                    borderRadius: "4px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: "600",
+                                                                    border: "1px solid #cbd5e1",
+                                                                    background: status === "Resolved" ? "#d1fae5" : status === "In Progress" ? "#dbeafe" : "#fee2e2",
+                                                                    color: status === "Resolved" ? "#065f46" : status === "In Progress" ? "#1e40af" : "#991b1b"
+                                                                }}
+                                                            >
+                                                                <option value="Open">Open</option>
+                                                                <option value="In Progress">In Progress</option>
+                                                                <option value="Resolved">Resolved</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="responsiveCardsContainer mobile-only">
+                                    {tickets.map((t) => {
+                                        const name = t.name || t.profile?.name || "N/A";
+                                        const email_or_phone = t.email_or_phone || t.profile?.email_or_phone || "N/A";
+                                        const issue_type = t.issue_type || t.profile?.issue_type || "N/A";
+                                        const issue_details = t.issue_details || t.profile?.issue_details || "N/A";
+                                        const priority = t.urgency || t.priority || "Medium";
+                                        const status = t.status || "Open";
+                                        const id = t.id || t._id;
+                                        const isExpanded = !!expandedItems[id];
+
+                                        return (
+                                            <div className="mobileCard" key={id}>
+                                                <div className="mobileCardHeader">
+                                                    <div>
+                                                        <h4 className="mobileCardTitle">{name}</h4>
+                                                        <span className="threadCardIntent" style={{ display: "inline-block", marginTop: "4px" }}>{issue_type}</span>
+                                                    </div>
+                                                    <select
+                                                        className="tableSelect"
+                                                        value={status}
+                                                        onChange={(e) => handleSupportUpdate(id, "status", e.target.value)}
+                                                        style={{
+                                                            width: "auto",
+                                                            minWidth: "115px",
+                                                            padding: "4px 8px",
+                                                            borderRadius: "4px",
+                                                            fontSize: "12px",
+                                                            fontWeight: "600",
+                                                            border: "1px solid #cbd5e1",
+                                                            background: status === "Resolved" ? "#d1fae5" : status === "In Progress" ? "#dbeafe" : "#fee2e2",
+                                                            color: status === "Resolved" ? "#065f46" : status === "In Progress" ? "#1e40af" : "#991b1b"
+                                                        }}
+                                                    >
+                                                        <option value="Open">Open</option>
+                                                        <option value="In Progress">In Progress</option>
+                                                        <option value="Resolved">Resolved</option>
+                                                    </select>
+                                                </div>
+                                                <div className="mobileCardBody">
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Contact</span>
+                                                        <span className="mobileCardValue">{email_or_phone}</span>
+                                                    </div>
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Priority</span>
                                                         <select
                                                             className="tableSelect"
                                                             value={priority}
                                                             onChange={(e) => handleSupportUpdate(id, "priority", e.target.value)}
+                                                            style={{
+                                                                marginTop: "4px",
+                                                                padding: "4px 8px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "12px",
+                                                                fontWeight: "600",
+                                                                border: "1px solid #cbd5e1",
+                                                                background: priority === "High" ? "#fee2e2" : priority === "Medium" ? "#fef3c7" : "#f3f4f6",
+                                                                color: priority === "High" ? "#991b1b" : priority === "Medium" ? "#92400e" : "#374151"
+                                                            }}
                                                         >
                                                             <option value="Low">Low</option>
                                                             <option value="Medium">Medium</option>
                                                             <option value="High">High</option>
                                                         </select>
-                                                    </td>
-                                                    <td>
-                                                        <select
-                                                            className="tableSelect"
-                                                            value={status}
-                                                            onChange={(e) => handleSupportUpdate(id, "status", e.target.value)}
-                                                        >
-                                                            <option value="Open">Open</option>
-                                                            <option value="In Progress">In Progress</option>
-                                                            <option value="Resolved">Resolved</option>
-                                                        </select>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                    </div>
+
+                                                    {isExpanded && (
+                                                        <div className="mobileCardDetails">
+                                                            <strong>Issue Details:</strong><br />
+                                                            {issue_details}
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        className="secondaryBtn"
+                                                        onClick={() => toggleExpandItem(id)}
+                                                        style={{ marginTop: "4px", width: "100%" }}
+                                                    >
+                                                        {isExpanded ? "Hide Details ▲" : "Show Details ▼"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -1427,66 +1714,166 @@ function Admin() {
                         {candidates.length === 0 ? (
                             <p>No job applications received.</p>
                         ) : (
-                            <div className="tableContainer">
-                                <table className="customTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Applicant Name</th>
-                                            <th>Email / Phone</th>
-                                            <th>Role Applied</th>
-                                            <th>Experience</th>
-                                            <th>Skills Snapshot</th>
-                                            <th>Resume</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {candidates.map((c) => {
-                                            const name = c.name || c.profile?.name || "N/A";
-                                            const email = c.email || c.profile?.email || "N/A";
-                                            const phone = c.phone || c.profile?.phone || "N/A";
-                                            const role = c.role || c.profile?.role || "N/A";
-                                            const experience = c.experience || c.profile?.experience || "N/A";
-                                            const skills = c.skills || c.profile?.skills || "N/A";
-                                            const resume_or_portfolio = c.resume_or_portfolio || c.profile?.resume_or_portfolio || "";
-                                            const status = c.status || "Applied";
-                                            const id = c.id || c._id;
-                                            return (
-                                                <tr key={id}>
-                                                    <td><strong>{name}</strong></td>
-                                                    <td>
-                                                        <div>{email}</div>
-                                                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{phone}</div>
-                                                    </td>
-                                                    <td>{role}</td>
-                                                    <td>{experience}</td>
-                                                    <td style={{ maxWidth: "200px" }}>{skills}</td>
-                                                    <td>
-                                                        {resume_or_portfolio ? (
-                                                            <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: "600" }}>
-                                                                Open Link
-                                                            </a>
-                                                        ) : "Not Provided"}
-                                                    </td>
-                                                    <td>
-                                                        <select
-                                                            className="tableSelect"
-                                                            value={status}
-                                                            onChange={(e) => handleHiringStatus(id, e.target.value)}
-                                                        >
-                                                            <option value="Applied">Applied</option>
-                                                            <option value="Reviewed">Reviewed</option>
-                                                            <option value="Interviewed">Interviewed</option>
-                                                            <option value="Hired">Hired</option>
-                                                            <option value="Rejected">Rejected</option>
-                                                        </select>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <>
+                                {/* Desktop View Table */}
+                                <div className="tableContainer desktop-only">
+                                    <table className="customTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Applicant Name</th>
+                                                <th>Email / Phone</th>
+                                                <th>Role Applied</th>
+                                                <th>Experience</th>
+                                                <th>Skills Snapshot</th>
+                                                <th>Resume</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {candidates.map((c) => {
+                                                const name = c.name || c.profile?.name || "N/A";
+                                                const email = c.email || c.profile?.email || "N/A";
+                                                const phone = c.phone || c.profile?.phone || "N/A";
+                                                const role = c.role || c.profile?.role || "N/A";
+                                                const experience = c.experience || c.profile?.experience || "N/A";
+                                                const skills = c.skills || c.profile?.skills || "N/A";
+                                                const resume_or_portfolio = c.resume_or_portfolio || c.profile?.resume_or_portfolio || "";
+                                                const status = c.status || "Applied";
+                                                const id = c.id || c._id;
+                                                return (
+                                                    <tr key={id}>
+                                                        <td><strong>{name}</strong></td>
+                                                        <td>
+                                                            <div>{email}</div>
+                                                            <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{phone}</div>
+                                                        </td>
+                                                        <td>{role}</td>
+                                                        <td>{experience}</td>
+                                                        <td style={{ maxWidth: "200px" }}>{skills}</td>
+                                                        <td>
+                                                            {resume_or_portfolio ? (
+                                                                <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: "600" }}>
+                                                                    Open Link
+                                                                </a>
+                                                            ) : "Not Provided"}
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                className="tableSelect"
+                                                                value={status}
+                                                                onChange={(e) => handleHiringStatus(id, e.target.value)}
+                                                                style={{
+                                                                    padding: "4px 8px",
+                                                                    borderRadius: "4px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: "600",
+                                                                    border: "1px solid #cbd5e1",
+                                                                    background: status === "Hired" ? "#d1fae5" : status === "Rejected" ? "#fee2e2" : status === "Interviewed" ? "#e0f2fe" : status === "Reviewed" ? "#f3e8ff" : "#fef3c7",
+                                                                    color: status === "Hired" ? "#065f46" : status === "Rejected" ? "#991b1b" : status === "Interviewed" ? "#0369a1" : status === "Reviewed" ? "#6b21a8" : "#92400e"
+                                                                }}
+                                                            >
+                                                                <option value="Applied">Applied</option>
+                                                                <option value="Reviewed">Reviewed</option>
+                                                                <option value="Interviewed">Interviewed</option>
+                                                                <option value="Hired">Hired</option>
+                                                                <option value="Rejected">Rejected</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="responsiveCardsContainer mobile-only">
+                                    {candidates.map((c) => {
+                                        const name = c.name || c.profile?.name || "N/A";
+                                        const email = c.email || c.profile?.email || "N/A";
+                                        const phone = c.phone || c.profile?.phone || "N/A";
+                                        const role = c.role || c.profile?.role || "N/A";
+                                        const experience = c.experience || c.profile?.experience || "N/A";
+                                        const skills = c.skills || c.profile?.skills || "N/A";
+                                        const resume_or_portfolio = c.resume_or_portfolio || c.profile?.resume_or_portfolio || "";
+                                        const status = c.status || "Applied";
+                                        const id = c.id || c._id;
+                                        const isExpanded = !!expandedItems[id];
+
+                                        return (
+                                            <div className="mobileCard" key={id}>
+                                                <div className="mobileCardHeader">
+                                                    <div>
+                                                        <h4 className="mobileCardTitle">{name}</h4>
+                                                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Role: {role}</span>
+                                                    </div>
+                                                    <select
+                                                        className="tableSelect"
+                                                        value={status}
+                                                        onChange={(e) => handleHiringStatus(id, e.target.value)}
+                                                        style={{
+                                                            width: "auto",
+                                                            minWidth: "115px",
+                                                            padding: "4px 8px",
+                                                            borderRadius: "4px",
+                                                            fontSize: "12px",
+                                                            fontWeight: "600",
+                                                            border: "1px solid #cbd5e1",
+                                                            background: status === "Hired" ? "#d1fae5" : status === "Rejected" ? "#fee2e2" : status === "Interviewed" ? "#e0f2fe" : status === "Reviewed" ? "#f3e8ff" : "#fef3c7",
+                                                            color: status === "Hired" ? "#065f46" : status === "Rejected" ? "#991b1b" : status === "Interviewed" ? "#0369a1" : status === "Reviewed" ? "#6b21a8" : "#92400e"
+                                                        }}
+                                                    >
+                                                        <option value="Applied">Applied</option>
+                                                        <option value="Reviewed">Reviewed</option>
+                                                        <option value="Interviewed">Interviewed</option>
+                                                        <option value="Hired">Hired</option>
+                                                        <option value="Rejected">Rejected</option>
+                                                    </select>
+                                                </div>
+                                                <div className="mobileCardBody">
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Experience</span>
+                                                        <span className="mobileCardValue">{experience}</span>
+                                                    </div>
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Contact Email</span>
+                                                        <span className="mobileCardValue">{email}</span>
+                                                    </div>
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Contact Phone</span>
+                                                        <span className="mobileCardValue">{phone}</span>
+                                                    </div>
+
+                                                    {isExpanded && (
+                                                        <div className="mobileCardDetails">
+                                                            <div style={{ marginBottom: "8px" }}>
+                                                                <strong>Skills Snapshot:</strong><br />
+                                                                {skills}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Resume / Portfolio:</strong><br />
+                                                                {resume_or_portfolio ? (
+                                                                    <a href={resume_or_portfolio} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: "600", textDecoration: "underline" }}>
+                                                                        Open Link
+                                                                    </a>
+                                                                ) : "Not Provided"}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        className="secondaryBtn"
+                                                        onClick={() => toggleExpandItem(id)}
+                                                        style={{ marginTop: "4px", width: "100%" }}
+                                                    >
+                                                        {isExpanded ? "Hide Details ▲" : "Show Details ▼"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -1496,110 +1883,197 @@ function Admin() {
                         {meetings.length === 0 ? (
                             <p>No booked meetings found.</p>
                         ) : (
-                            <div className="tableContainer">
-                                <table className="customTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Client Name</th>
-                                            <th>Contact Info</th>
-                                            <th>Company Name</th>
-                                            <th>Meeting Mode</th>
-                                            <th>Date & Time Slot</th>
-                                            <th>Topic / Details</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {meetings.map((m) => {
-                                            const id = m.id || m._id;
-                                            const name = m.profile?.name || "N/A";
-                                            const email = m.profile?.email || "N/A";
-                                            const phone = m.profile?.phone || "N/A";
-                                            const company = m.profile?.company || "N/A";
-                                            const mode = m.profile?.meeting_mode || "N/A";
-                                            const date = m.profile?.date || "N/A";
-                                            const slot = m.profile?.time_slot || "N/A";
-                                            const details = m.profile?.work_details || "N/A";
-                                            const status = m.profile?.status || "confirmed";
-                                            return (
-                                                <tr key={id}>
-                                                    <td>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedThreadId(m.thread_id);
-                                                                fetchThreadMessages(m.thread_id);
-                                                                setActiveTab("chats");
-                                                            }}
-                                                            style={{
-                                                                background: "transparent",
-                                                                border: "none",
-                                                                color: "#ff7e21",
-                                                                cursor: "pointer",
-                                                                fontWeight: "700",
-                                                                textDecoration: "underline",
-                                                                padding: 0,
-                                                                textAlign: "left"
-                                                            }}
-                                                            title={`View Chat History`}
-                                                        >
-                                                            {name}
-                                                        </button>
-                                                    </td>
-                                                    <td>
-                                                        <div>📧 {email}</div>
-                                                        <div>📞 {phone}</div>
-                                                    </td>
-                                                    <td>{company}</td>
-                                                    <td>
+                            <>
+                                {/* Desktop View Table */}
+                                <div className="tableContainer desktop-only">
+                                    <table className="customTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Client Name</th>
+                                                <th>Contact Info</th>
+                                                <th>Company Name</th>
+                                                <th>Meeting Mode</th>
+                                                <th>Date & Time Slot</th>
+                                                <th>Topic / Details</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {meetings.map((m) => {
+                                                const id = m.id || m._id;
+                                                const name = m.profile?.name || "N/A";
+                                                const email = m.profile?.email || "N/A";
+                                                const phone = m.profile?.phone || "N/A";
+                                                const company = m.profile?.company || "N/A";
+                                                const mode = m.profile?.meeting_mode || "N/A";
+                                                const date = m.profile?.date || "N/A";
+                                                const slot = m.profile?.time_slot || "N/A";
+                                                const details = m.profile?.work_details || "N/A";
+                                                const status = m.profile?.status || "confirmed";
+                                                return (
+                                                    <tr key={id}>
+                                                        <td>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedThreadId(m.thread_id);
+                                                                    fetchThreadMessages(m.thread_id);
+                                                                    setActiveTab("chats");
+                                                                }}
+                                                                style={{
+                                                                    background: "transparent",
+                                                                    border: "none",
+                                                                    color: "#ff7e21",
+                                                                    cursor: "pointer",
+                                                                    fontWeight: "700",
+                                                                    textDecoration: "underline",
+                                                                    padding: 0,
+                                                                    textAlign: "left"
+                                                                }}
+                                                                title={`View Chat History`}
+                                                            >
+                                                                {name}
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <div>📧 {email}</div>
+                                                            <div>📞 {phone}</div>
+                                                        </td>
+                                                        <td>{company}</td>
+                                                        <td>
+                                                            <span style={{
+                                                                padding: "4px 8px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "12px",
+                                                                fontWeight: "600",
+                                                                background: mode === "google_meet" ? "#e0f2fe" : "#fef3c7",
+                                                                color: mode === "google_meet" ? "#0369a1" : "#b45309"
+                                                            }}>
+                                                                {mode === "google_meet" ? "💻 Google Meet" : "📞 Phone Call"}
+                                                            </span>
+                                                        </td>
+                                                        <td><strong>📅 {date}</strong><br /><span style={{ color: "#94a3b8" }}>⏰ {slot}</span></td>
+                                                        <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{details}</td>
+                                                        <td>
+                                                            <select
+                                                                value={status}
+                                                                onChange={(e) => handleUpdateMeetingStatus(id, e.target.value)}
+                                                                style={{
+                                                                    padding: "4px 8px",
+                                                                    borderRadius: "4px",
+                                                                    border: "1px solid #cbd5e1"
+                                                                }}
+                                                            >
+                                                                <option value="confirmed">Confirmed</option>
+                                                                <option value="completed">Completed</option>
+                                                                <option value="cancelled">Cancelled</option>
+                                                                <option value="needs_reschedule">Needs Reschedule</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="responsiveCardsContainer mobile-only">
+                                    {meetings.map((m) => {
+                                        const id = m.id || m._id;
+                                        const name = m.profile?.name || "N/A";
+                                        const email = m.profile?.email || "N/A";
+                                        const phone = m.profile?.phone || "N/A";
+                                        const company = m.profile?.company || "N/A";
+                                        const mode = m.profile?.meeting_mode || "N/A";
+                                        const date = m.profile?.date || "N/A";
+                                        const slot = m.profile?.time_slot || "N/A";
+                                        const details = m.profile?.work_details || "N/A";
+                                        const status = m.profile?.status || "confirmed";
+                                        const isExpanded = !!expandedItems[id];
+
+                                        return (
+                                            <div className="mobileCard" key={id}>
+                                                <div className="mobileCardHeader">
+                                                    <div>
+                                                        <h4 className="mobileCardTitle">{name}</h4>
+                                                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{company}</span>
+                                                    </div>
+                                                    <select
+                                                        value={status}
+                                                        onChange={(e) => handleUpdateMeetingStatus(id, e.target.value)}
+                                                        style={{
+                                                            padding: "4px 8px",
+                                                            borderRadius: "4px",
+                                                            border: "1px solid #cbd5e1"
+                                                        }}
+                                                    >
+                                                        <option value="confirmed">Confirmed</option>
+                                                        <option value="completed">Completed</option>
+                                                        <option value="cancelled">Cancelled</option>
+                                                        <option value="needs_reschedule">Needs Reschedule</option>
+                                                    </select>
+                                                </div>
+                                                <div className="mobileCardBody">
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Meeting Info</span>
+                                                        <span className="mobileCardValue">
+                                                            <strong>📅 {date}</strong> | ⏰ {slot}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mobileCardField">
+                                                        <span className="mobileCardLabel">Mode</span>
                                                         <span style={{
                                                             padding: "4px 8px",
                                                             borderRadius: "4px",
-                                                            fontSize: "12px",
+                                                            fontSize: "11px",
                                                             fontWeight: "600",
+                                                            alignSelf: "flex-start",
+                                                            marginTop: "4px",
                                                             background: mode === "google_meet" ? "#e0f2fe" : "#fef3c7",
                                                             color: mode === "google_meet" ? "#0369a1" : "#b45309"
                                                         }}>
                                                             {mode === "google_meet" ? "💻 Google Meet" : "📞 Phone Call"}
                                                         </span>
-                                                    </td>
-                                                    <td><strong>📅 {date}</strong><br /><span style={{ color: "#94a3b8" }}>⏰ {slot}</span></td>
-                                                    <td style={{ maxWidth: "250px", wordBreak: "break-word" }}>{details}</td>
-                                                    <td>
-                                                        <select
-                                                            value={status}
-                                                            onChange={(e) => handleUpdateMeetingStatus(id, e.target.value)}
-                                                            style={{
-                                                                padding: "4px 8px",
-                                                                borderRadius: "4px",
-                                                                border: "1px solid #cbd5e1"
-                                                            }}
-                                                        >
-                                                            <option value="confirmed">Confirmed</option>
-                                                            <option value="completed">Completed</option>
-                                                            <option value="cancelled">Cancelled</option>
-                                                            <option value="needs_reschedule">Needs Reschedule</option>
-                                                        </select>
-                                                    </td>
-                                                    <td>
-                                                        <button
-                                                            className="secondaryBtn"
-                                                            style={{ padding: "4px 8px", fontSize: "12px" }}
-                                                            onClick={() => {
-                                                                setSelectedThreadId(m.thread_id);
-                                                                fetchThreadMessages(m.thread_id);
-                                                                setActiveTab("chats");
-                                                            }}
-                                                        >
-                                                            View Chat
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                    </div>
+
+                                                    {isExpanded && (
+                                                        <div className="mobileCardDetails">
+                                                            <div style={{ marginBottom: "8px" }}>
+                                                                <strong>Contact Details:</strong><br />
+                                                                📧 {email}<br />
+                                                                📞 {phone}
+                                                            </div>
+                                                            <div style={{ marginBottom: "8px" }}>
+                                                                <strong>Work details:</strong><br />
+                                                                {details}
+                                                            </div>
+                                                            <button
+                                                                className="secondaryBtn"
+                                                                style={{ width: "100%", marginTop: "8px" }}
+                                                                onClick={() => {
+                                                                    setSelectedThreadId(m.thread_id);
+                                                                    fetchThreadMessages(m.thread_id);
+                                                                    setActiveTab("chats");
+                                                                }}
+                                                            >
+                                                                💬 View Chat Log
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        className="secondaryBtn"
+                                                        onClick={() => toggleExpandItem(id)}
+                                                        style={{ marginTop: "4px", width: "100%" }}
+                                                    >
+                                                        {isExpanded ? "Hide Details ▲" : "Show Details ▼"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -1609,264 +2083,335 @@ function Admin() {
                     ========================================== */}
                 {!loading && activeTab === "knowledge" && (
                     <div>
-                        {/* 30-Second checking banner info */}
-                        <div className="extractedProfilePanel" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                            <div>
-                                📊 <strong>Retriever Sync Status:</strong> Active Sources: <strong>{syncStatus.active_sources}</strong> / Chunks: <strong>{syncStatus.total_chunks}</strong>
+                        {/* Sync status header (Clean and compact) */}
+                        <div className="extractedProfilePanel" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", padding: "12px 18px", borderRadius: "8px" }}>
+                            <div style={{ fontSize: "14px" }}>
+                                📊 <strong>Sync Status:</strong> Active Sources: <strong>{syncStatus.active_sources}</strong> / Chunks: <strong>{syncStatus.total_chunks}</strong>
                             </div>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                                Auto checking sync every 30s | Last sync: {syncStatus.last_updated}
+                            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                                Last sync: {syncStatus.last_updated}
                             </span>
                         </div>
 
-                        <div className="knowledgeTabs">
-                            <button className={`knowledgeTabBtn ${sourceType === "manual" ? "active" : ""}`} onClick={() => setSourceType("manual")}>✍️ Manual Knowledge</button>
-                            <button className={`knowledgeTabBtn ${sourceType === "document" ? "active" : ""}`} onClick={() => setSourceType("document")}>📂 Document Upload</button>
-                            <button className={`knowledgeTabBtn ${sourceType === "database" ? "active" : ""}`} onClick={() => setSourceType("database")}>💾 Database Connection</button>
-                            <button className={`knowledgeTabBtn ${sourceType === "website" ? "active" : ""}`} onClick={() => setSourceType("website")}>🌐 Website crawl</button>
+                        {/* Top Actions & Filters Row */}
+                        <div className="filterRow" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                            <button className="primaryBtn" onClick={() => setIsAddSourceOpen(true)}>
+                                ➕ Add Knowledge Source
+                            </button>
+                            <div className="filterControls" style={{ margin: 0 }}>
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="tableSelect" style={{ margin: 0, minHeight: "38px" }}>
+                                    <option value="">All Source Types</option>
+                                    <option value="manual">Manual Entry</option>
+                                    <option value="document">Document Files</option>
+                                    <option value="database">Database Connections</option>
+                                    <option value="website">Websites</option>
+                                </select>
+                            </div>
                         </div>
 
-                        {/* FORM: Manual Entry */}
-                        {sourceType === "manual" && (
-                            <form className="settingsForm" onSubmit={handleCreateManual} style={{ marginBottom: "36px" }}>
-                                <h4>Add Manual Knowledge</h4>
-                                <div className="formGroup">
-                                    <label>Source Title</label>
-                                    <input
-                                        type="text"
-                                        value={manualForm.title}
-                                        onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
-                                        placeholder="e.g. Services: Web App Pricing"
-                                        required
-                                    />
-                                </div>
-                                <div className="formGroup">
-                                    <label>Category</label>
-                                    <select value={manualForm.category} onChange={(e) => setManualForm({ ...manualForm, category: e.target.value })}>
-                                        <option value="Company Information">Company Information</option>
-                                        <option value="Services">Services</option>
-                                        <option value="Pricing">Pricing</option>
-                                        <option value="Policies">Policies</option>
-                                        <option value="FAQs">FAQs</option>
-                                        <option value="Support Guides">Support Guides</option>
-                                        <option value="Hiring Information">Hiring Information</option>
-                                    </select>
-                                </div>
-                                <div className="formGroup">
-                                    <label>Content Description</label>
-                                    <textarea
-                                        rows="5"
-                                        value={manualForm.content}
-                                        onChange={(e) => setManualForm({ ...manualForm, content: e.target.value })}
-                                        placeholder="Detailed content details to index for retriever search..."
-                                        required
-                                    />
-                                </div>
-                                {renderMetadataFields(manualForm, setManualForm)}
-                                <button className="primaryBtn" type="submit">Index Manual Source</button>
-                            </form>
-                        )}
-
-                        {/* FORM: Document Upload */}
-                        {sourceType === "document" && (
-                            <form className="settingsForm" onSubmit={handleUploadDoc} style={{ marginBottom: "36px" }}>
-                                <h4>Add Document Source (PDF, DOCX, TXT, CSV, JSON, MD, XLSX)</h4>
-                                <div className="formGroup">
-                                    <label>Choose File</label>
-                                    <input
-                                        type="file"
-                                        accept=".txt,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls,.md"
-                                        onChange={(e) => setDocFile(e.target.files[0])}
-                                        required
-                                    />
-                                </div>
-                                <div className="formGroup">
-                                    <label>Category</label>
-                                    <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
-                                        <option value="Company Information">Company Information</option>
-                                        <option value="Services">Services</option>
-                                        <option value="Pricing">Pricing</option>
-                                        <option value="Policies">Policies</option>
-                                        <option value="FAQs">FAQs</option>
-                                        <option value="Support Guides">Support Guides</option>
-                                        <option value="Hiring Information">Hiring Information</option>
-                                    </select>
-                                </div>
-                                {renderMetadataFields(docMetadata, setDocMetadata)}
-                                <button className="primaryBtn" type="submit">Upload & Chunk File</button>
-                            </form>
-                        )}
-
-                        {/* FORM: Database Connection */}
-                        {sourceType === "database" && (
-                            <form className="settingsForm" onSubmit={handleConnectDb} style={{ marginBottom: "36px" }}>
-                                <h4>Connect Corporate Database Source</h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                                    <div className="formGroup">
-                                        <label>Connection Name</label>
-                                        <input
-                                            type="text"
-                                            value={dbForm.connection_name}
-                                            onChange={(e) => setDbForm({ ...dbForm, connection_name: e.target.value })}
-                                            placeholder="e.g. Products MongoDB"
-                                            required
-                                        />
+                        {/* ADD SOURCE MODAL OVERLAY */}
+                        {isAddSourceOpen && (
+                            <div className="modalOverlay">
+                                <div className="modalContent">
+                                    <div className="modalHeader">
+                                        <h3>Add Knowledge Source</h3>
+                                        <button className="modalCloseBtn" onClick={() => setIsAddSourceOpen(false)}>×</button>
                                     </div>
-                                    <div className="formGroup">
-                                        <label>Database Type</label>
-                                        <select value={dbForm.db_type} onChange={(e) => setDbForm({ ...dbForm, db_type: e.target.value })}>
-                                            <option value="mongodb">MongoDB</option>
-                                            <option value="mysql">MySQL</option>
-                                            <option value="postgresql">PostgreSQL</option>
-                                            <option value="sqlserver">SQL Server</option>
-                                        </select>
+                                    <div className="modalBody">
+                                        <div className="knowledgeTabs" style={{ marginBottom: "20px" }}>
+                                            <button className={`knowledgeTabBtn ${sourceType === "manual" ? "active" : ""}`} onClick={() => setSourceType("manual")} type="button">✍️ Manual</button>
+                                            <button className={`knowledgeTabBtn ${sourceType === "document" ? "active" : ""}`} onClick={() => setSourceType("document")} type="button">📂 Document</button>
+                                            <button className={`knowledgeTabBtn ${sourceType === "database" ? "active" : ""}`} onClick={() => setSourceType("database")} type="button">💾 Database</button>
+                                            <button className={`knowledgeTabBtn ${sourceType === "website" ? "active" : ""}`} onClick={() => setSourceType("website")} type="button">🌐 Website</button>
+                                        </div>
+
+                                        {/* FORM: Manual Entry */}
+                                        {sourceType === "manual" && (
+                                            <form className="settingsForm" onSubmit={(e) => { handleCreateManual(e); setIsAddSourceOpen(false); }}>
+                                                <div className="formGroup">
+                                                    <label>Source Title</label>
+                                                    <input
+                                                        type="text"
+                                                        value={manualForm.title}
+                                                        onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
+                                                        placeholder="e.g. Services: Web App Pricing"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Category</label>
+                                                    <select value={manualForm.category} onChange={(e) => setManualForm({ ...manualForm, category: e.target.value })}>
+                                                        <option value="Company Information">Company Information</option>
+                                                        <option value="Services">Services</option>
+                                                        <option value="Pricing">Pricing</option>
+                                                        <option value="Policies">Policies</option>
+                                                        <option value="FAQs">FAQs</option>
+                                                        <option value="Support Guides">Support Guides</option>
+                                                        <option value="Hiring Information">Hiring Information</option>
+                                                    </select>
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Content Description</label>
+                                                    <textarea
+                                                        rows="4"
+                                                        value={manualForm.content}
+                                                        onChange={(e) => setManualForm({ ...manualForm, content: e.target.value })}
+                                                        placeholder="Detailed content details to index for retriever search..."
+                                                        required
+                                                    />
+                                                </div>
+                                                {renderMetadataFields(manualForm, setManualForm)}
+                                                <button className="primaryBtn formSubmitBtn" type="submit">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                                    </svg>
+                                                    Index Manual Source
+                                                </button>
+                                            </form>
+                                        )}
+
+                                        {/* FORM: Document Upload */}
+                                        {sourceType === "document" && (
+                                            <form className="settingsForm" onSubmit={(e) => { handleUploadDoc(e); setIsAddSourceOpen(false); }}>
+                                                <div className="formGroup">
+                                                    <label>Choose File</label>
+                                                    <label 
+                                                        htmlFor="cq-file-upload-input" 
+                                                        className="fileUploadContainer"
+                                                    >
+                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', marginBottom: '8px' }}>
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                            <polyline points="17 8 12 3 7 8" />
+                                                            <line x1="12" y1="3" x2="12" y2="15" />
+                                                        </svg>
+                                                        <span className="fileUploadTitle">
+                                                            {docFile ? docFile.name : "Click to select a document"}
+                                                        </span>
+                                                        <span className="fileUploadSub">
+                                                            Supported: PDF, DOCX, TXT, CSV, JSON, MD, XLSX
+                                                        </span>
+                                                    </label>
+                                                    <input
+                                                        id="cq-file-upload-input"
+                                                        type="file"
+                                                        accept=".txt,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls,.md"
+                                                        style={{ display: "none" }}
+                                                        onChange={(e) => setDocFile(e.target.files[0])}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Category</label>
+                                                    <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
+                                                        <option value="Company Information">Company Information</option>
+                                                        <option value="Services">Services</option>
+                                                        <option value="Pricing">Pricing</option>
+                                                        <option value="Policies">Policies</option>
+                                                        <option value="FAQs">FAQs</option>
+                                                        <option value="Support Guides">Support Guides</option>
+                                                        <option value="Hiring Information">Hiring Information</option>
+                                                    </select>
+                                                </div>
+                                                {renderMetadataFields(docMetadata, setDocMetadata)}
+                                                <button className="primaryBtn formSubmitBtn" type="submit">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                        <polyline points="17 8 12 3 7 8"/>
+                                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                                    </svg>
+                                                    Upload &amp; Chunk File
+                                                </button>
+                                            </form>
+                                        )}
+
+                                        {/* FORM: Database Connection */}
+                                        {sourceType === "database" && (
+                                            <form className="settingsForm" onSubmit={(e) => { handleConnectDb(e); setIsAddSourceOpen(false); }}>
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                                    <div className="formGroup">
+                                                        <label>Connection Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={dbForm.connection_name}
+                                                            onChange={(e) => setDbForm({ ...dbForm, connection_name: e.target.value })}
+                                                            placeholder="e.g. Products MongoDB"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="formGroup">
+                                                        <label>Database Type</label>
+                                                        <select value={dbForm.db_type} onChange={(e) => setDbForm({ ...dbForm, db_type: e.target.value })}>
+                                                            <option value="mongodb">MongoDB</option>
+                                                            <option value="mysql">MySQL</option>
+                                                            <option value="postgresql">PostgreSQL</option>
+                                                            <option value="sqlserver">SQL Server</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Connection String</label>
+                                                    <input
+                                                        type="password"
+                                                        value={dbForm.connection_string}
+                                                        onChange={(e) => setDbForm({ ...dbForm, connection_string: e.target.value })}
+                                                        placeholder="mongodb://username:password@host:port"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                                                    <div className="formGroup">
+                                                        <label>Database Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={dbForm.db_name}
+                                                            onChange={(e) => setDbForm({ ...dbForm, db_name: e.target.value })}
+                                                            placeholder="company_inventory"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="formGroup">
+                                                        <label>Target Table / Collection</label>
+                                                        <input
+                                                            type="text"
+                                                            value={dbForm.target_collection}
+                                                            onChange={(e) => setDbForm({ ...dbForm, target_collection: e.target.value })}
+                                                            placeholder="products"
+                                                            required
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Category</label>
+                                                    <select value={dbForm.category} onChange={(e) => setDbForm({ ...dbForm, category: e.target.value })}>
+                                                        <option value="Company Information">Company Information</option>
+                                                        <option value="Services">Services</option>
+                                                        <option value="Pricing">Pricing</option>
+                                                        <option value="Policies">Policies</option>
+                                                        <option value="FAQs">FAQs</option>
+                                                        <option value="Support Guides">Support Guides</option>
+                                                        <option value="Hiring Information">Hiring Information</option>
+                                                    </select>
+                                                </div>
+                                                {renderMetadataFields(dbForm, setDbForm)}
+                                                <button className="primaryBtn formSubmitBtn" type="submit">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                                                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                                                    </svg>
+                                                    Establish &amp; Chunk Connection
+                                                </button>
+                                            </form>
+                                        )}
+
+                                        {/* FORM: Website Crawling */}
+                                        {sourceType === "website" && (
+                                            <form className="settingsForm" onSubmit={(e) => { handleConnectWeb(e); setIsAddSourceOpen(false); }}>
+                                                <div className="formGroup">
+                                                    <label>Page URL</label>
+                                                    <input
+                                                        type="url"
+                                                        value={webForm.url}
+                                                        onChange={(e) => setWebForm({ ...webForm, url: e.target.value })}
+                                                        placeholder="https://codeqlik.com/about"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="formGroup">
+                                                    <label>Category</label>
+                                                    <select value={webForm.category} onChange={(e) => setWebForm({ ...webForm, category: e.target.value })}>
+                                                        <option value="Company Information">Company Information</option>
+                                                        <option value="Services">Services</option>
+                                                        <option value="Pricing">Pricing</option>
+                                                        <option value="Policies">Policies</option>
+                                                        <option value="FAQs">FAQs</option>
+                                                        <option value="Support Guides">Support Guides</option>
+                                                        <option value="Hiring Information">Hiring Information</option>
+                                                    </select>
+                                                </div>
+                                                {renderMetadataFields(webForm, setWebForm)}
+                                                <button className="primaryBtn formSubmitBtn" type="submit">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="11" cy="11" r="8"/>
+                                                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                                    </svg>
+                                                    Crawl &amp; Index URL
+                                                </button>
+                                            </form>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="formGroup">
-                                    <label>Connection String</label>
-                                    <input
-                                        type="password"
-                                        value={dbForm.connection_string}
-                                        onChange={(e) => setDbForm({ ...dbForm, connection_string: e.target.value })}
-                                        placeholder="mongodb://username:password@host:port"
-                                        required
-                                    />
-                                </div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                                    <div className="formGroup">
-                                        <label>Database Name</label>
-                                        <input
-                                            type="text"
-                                            value={dbForm.db_name}
-                                            onChange={(e) => setDbForm({ ...dbForm, db_name: e.target.value })}
-                                            placeholder="company_inventory"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="formGroup">
-                                        <label>Target Table / Collection</label>
-                                        <input
-                                            type="text"
-                                            value={dbForm.target_collection}
-                                            onChange={(e) => setDbForm({ ...dbForm, target_collection: e.target.value })}
-                                            placeholder="products"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="formGroup">
-                                    <label>Category</label>
-                                    <select value={dbForm.category} onChange={(e) => setDbForm({ ...dbForm, category: e.target.value })}>
-                                        <option value="Company Information">Company Information</option>
-                                        <option value="Services">Services</option>
-                                        <option value="Pricing">Pricing</option>
-                                        <option value="Policies">Policies</option>
-                                        <option value="FAQs">FAQs</option>
-                                        <option value="Support Guides">Support Guides</option>
-                                        <option value="Hiring Information">Hiring Information</option>
-                                    </select>
-                                </div>
-                                {renderMetadataFields(dbForm, setDbForm)}
-                                <button className="primaryBtn" type="submit">Establish & Chunk Connection</button>
-                            </form>
+                            </div>
                         )}
-
-                        {/* FORM: Website Crawling */}
-                        {sourceType === "website" && (
-                            <form className="settingsForm" onSubmit={handleConnectWeb} style={{ marginBottom: "36px" }}>
-                                <h4>Connect Website Crawler</h4>
-                                <div className="formGroup">
-                                    <label>Page URL</label>
-                                    <input
-                                        type="url"
-                                        value={webForm.url}
-                                        onChange={(e) => setWebForm({ ...webForm, url: e.target.value })}
-                                        placeholder="https://codeqlik.com/about"
-                                        required
-                                    />
-                                </div>
-                                <div className="formGroup">
-                                    <label>Category</label>
-                                    <select value={webForm.category} onChange={(e) => setWebForm({ ...webForm, category: e.target.value })}>
-                                        <option value="Company Information">Company Information</option>
-                                        <option value="Services">Services</option>
-                                        <option value="Pricing">Pricing</option>
-                                        <option value="Policies">Policies</option>
-                                        <option value="FAQs">FAQs</option>
-                                        <option value="Support Guides">Support Guides</option>
-                                        <option value="Hiring Information">Hiring Information</option>
-                                    </select>
-                                </div>
-                                {renderMetadataFields(webForm, setWebForm)}
-                                <button className="primaryBtn" type="submit">Crawl & Index URL</button>
-                            </form>
-                        )}
-
-                        <hr style={{ borderColor: "rgba(255,255,255,0.05)", margin: "40px 0" }} />
-
-                        {/* FILTER BY TYPE */}
-                        <div className="filterRow">
-                            <h4>Active Chatbot Knowledge Sources</h4>
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="tableSelect">
-                                <option value="">All Source Types</option>
-                                <option value="manual">Manual Entry</option>
-                                <option value="document">Document Files</option>
-                                <option value="database">Database Connections</option>
-                                <option value="website">Websites</option>
-                            </select>
-                        </div>
 
                         {/* SOURCE CARDS LIST */}
                         {knowledgeSources.length === 0 ? (
                             <p>No knowledge sources active in system catalog.</p>
                         ) : (
                             <div className="sourceGrid">
-                                {knowledgeSources.map((source) => (
-                                    <div className="sourceCard" key={source._id}>
-                                        <div>
-                                            <div className="sourceCardHeader">
-                                                <span className={`sourceCardBadge ${source.type}`}>{source.type}</span>
-                                                {/* Enable / Disable Slider Switch */}
-                                                <label className="switch">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={source.enabled}
-                                                        onChange={() => handleToggleSource(source._id, source.enabled)}
-                                                    />
-                                                    <span className="slider"></span>
-                                                </label>
-                                            </div>
-                                            <h3 className="sourceCardTitle">{source.title}</h3>
-                                            <p className="sourceCardDesc">{source.content}</p>
-                                        </div>
-                                        <div>
-                                            <div className="sourceCardMeta">
-                                                <span>Category: <strong>{source.category}</strong></span>
-                                                <span>Index: <strong>{source.num_chunks || 0} chunks</strong></span>
-                                            </div>
-                                            <div className="sourceCardFooter">
-                                                <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                                                    Last Indexed: {new Date(source.updated_at || source.created_at).toLocaleString()}
-                                                </span>
-                                                <div className="sourceActions">
-                                                    <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => handleReindexSource(source._id)}>
-                                                        Re-index
-                                                    </button>
-                                                    <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => openEditModal(source)}>
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        className="secondaryBtn"
-                                                        style={{ padding: "4px 10px", fontSize: "12px", color: "var(--danger)", borderColor: "rgba(239,68,68,0.2)" }}
-                                                        onClick={() => handleDeleteSource(source._id)}
+                                {knowledgeSources.map((source) => {
+                                    const isExpanded = !!expandedItems[source._id];
+                                    const contentText = source.content || "";
+                                    const shouldTruncate = contentText.length > 100;
+                                    const displayText = (shouldTruncate && !isExpanded) 
+                                        ? contentText.slice(0, 100) + "..." 
+                                        : contentText;
+
+                                    return (
+                                        <div className="sourceCard" key={source._id}>
+                                            <div>
+                                                <div className="sourceCardHeader">
+                                                    <span className={`sourceCardBadge ${source.type}`}>{source.type}</span>
+                                                    {/* Enable / Disable Slider Switch */}
+                                                    <label className="switch">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={source.enabled}
+                                                            onChange={() => handleToggleSource(source._id, source.enabled)}
+                                                        />
+                                                        <span className="slider"></span>
+                                                    </label>
+                                                </div>
+                                                <h3 className="sourceCardTitle">{source.title}</h3>
+                                                <p className="sourceCardDesc">{displayText}</p>
+                                                {shouldTruncate && (
+                                                    <button 
+                                                        onClick={() => toggleExpandItem(source._id)}
+                                                        style={{ background: "transparent", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: "12px", padding: 0, marginBottom: "12px", fontWeight: "600" }}
                                                     >
-                                                        Delete
+                                                        {isExpanded ? "Show Less" : "Show More"}
                                                     </button>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="sourceCardMeta">
+                                                    <span>Category: <strong>{source.category}</strong></span>
+                                                    <span>Index: <strong>{source.num_chunks || 0} chunks</strong></span>
+                                                </div>
+                                                <div className="sourceCardFooter">
+                                                    <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                                                        Last Indexed: {new Date(source.updated_at || source.created_at).toLocaleString()}
+                                                    </span>
+                                                    <div className="sourceActions">
+                                                        <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => handleReindexSource(source._id)}>
+                                                            Re-index
+                                                        </button>
+                                                        <button className="secondaryBtn" style={{ padding: "4px 10px", fontSize: "12px" }} onClick={() => openEditModal(source)}>
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            className="secondaryBtn"
+                                                            style={{ padding: "4px 10px", fontSize: "12px", color: "var(--danger)", borderColor: "rgba(239,68,68,0.2)" }}
+                                                            onClick={() => handleDeleteSource(source._id)}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -2249,165 +2794,6 @@ function Admin() {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.8fr", gap: "16px", marginTop: "12px" }}>
-                                            <div className="formGroup">
-                                                <label>Launcher Greeting</label>
-                                                <input
-                                                    type="text"
-                                                    value={settings.launcherGreeting ?? "Hello! Welcome to CodeQlik"}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreeting: e.target.value })}
-                                                    placeholder="Hello! Welcome to CodeQlik"
-                                                />
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Launcher Greeting Color</label>
-                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                                    <input
-                                                        type="color"
-                                                        value={launcherGreetingColor}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingColor: e.target.value })}
-                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={settings.launcherGreetingColor || ""}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingColor: e.target.value })}
-                                                        placeholder={launcherGreetingColor}
-                                                        style={{ flex: 1 }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Launcher Text Size</label>
-                                                <input
-                                                    type="number"
-                                                    min="7"
-                                                    max="18"
-                                                    step="0.5"
-                                                    value={launcherGreetingFontSize}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingFontSize: Number(e.target.value) })}
-                                                    placeholder="9.5"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                            <div className="formGroup">
-                                                <label>Greeting BG Start</label>
-                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                                    <input
-                                                        type="color"
-                                                        value={launcherGreetingBgStart}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgStart: e.target.value })}
-                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={settings.launcherGreetingBgStart || ""}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgStart: e.target.value })}
-                                                        placeholder="#ff7e21"
-                                                        style={{ flex: 1 }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Greeting BG End</label>
-                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                                    <input
-                                                        type="color"
-                                                        value={launcherGreetingBgEnd}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgEnd: e.target.value })}
-                                                        style={{ width: "45px", height: "35px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px", cursor: "pointer", background: "none" }}
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={settings.launcherGreetingBgEnd || ""}
-                                                        onChange={(e) => setSettings({ ...settings, launcherGreetingBgEnd: e.target.value })}
-                                                        placeholder="#ff477e"
-                                                        style={{ flex: 1 }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Greeting Width</label>
-                                                <input
-                                                    type="number"
-                                                    min="72"
-                                                    max="180"
-                                                    step="1"
-                                                    value={launcherGreetingWidth}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingWidth: Number(e.target.value) })}
-                                                    placeholder="112"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                            <div className="formGroup">
-                                                <label>Greeting Radius</label>
-                                                <input
-                                                    type="number"
-                                                    min="6"
-                                                    max="40"
-                                                    step="1"
-                                                    value={launcherGreetingBorderRadius}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingBorderRadius: Number(e.target.value) })}
-                                                    placeholder="20"
-                                                />
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Greeting Offset X</label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="180"
-                                                    step="1"
-                                                    value={launcherGreetingOffsetX}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingOffsetX: Number(e.target.value) })}
-                                                    placeholder="52"
-                                                />
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Greeting Offset Y</label>
-                                                <input
-                                                    type="number"
-                                                    min="24"
-                                                    max="140"
-                                                    step="1"
-                                                    value={launcherGreetingOffsetY}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingOffsetY: Number(e.target.value) })}
-                                                    placeholder="54"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
-                                            <div className="formGroup">
-                                                <label>Greeting Text Style / Design</label>
-                                                <select
-                                                    value={settings.launcherGreetingDesign || "bubble"}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingDesign: e.target.value })}
-                                                >
-                                                    <option value="bubble">Standard Bubble</option>
-                                                    <option value="glassmorphism">Modern Glassmorphic</option>
-                                                    <option value="flat">Minimal Flat</option>
-                                                    <option value="tooltip">Clean Border Glow</option>
-                                                </select>
-                                            </div>
-                                            <div className="formGroup">
-                                                <label>Greeting Text Animation</label>
-                                                <select
-                                                    value={settings.launcherGreetingAnimation || "shimmer"}
-                                                    onChange={(e) => setSettings({ ...settings, launcherGreetingAnimation: e.target.value })}
-                                                >
-                                                    <option value="shimmer">Soft Shimmer Glow (Recommended)</option>
-                                                    <option value="bounce">Bounce & Float</option>
-                                                    <option value="pulse">Pulse / Fade</option>
-                                                    <option value="none">None (Static)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                                             <div className="formGroup">
                                                 <label>Primary Color</label>
@@ -2529,45 +2915,159 @@ function Admin() {
                                             <small className="fieldHint">Short description shown below the title</small>
                                         </div>
 
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginTop: "12px", marginBottom: "16px" }}>
+                                            <div className="formGroup">
+                                                <label>Card Background Style</label>
+                                                <select
+                                                    value={settings.launcherCardBackground || "glassmorphism"}
+                                                    onChange={(e) => setSettings({ ...settings, launcherCardBackground: e.target.value })}
+                                                >
+                                                    <option value="glassmorphism">Modern Glassmorphic</option>
+                                                    <option value="gradient">Vibrant Gradient</option>
+                                                    <option value="dark">Solid Dark</option>
+                                                    <option value="light">Solid Light</option>
+                                                </select>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Card Text Color</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input
+                                                        type="color"
+                                                        value={settings.launcherCardTextColor || "#ffffff"}
+                                                        onChange={(e) => setSettings({ ...settings, launcherCardTextColor: e.target.value })}
+                                                        style={{ width: "40px", height: "36px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherCardTextColor || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherCardTextColor: e.target.value })}
+                                                        placeholder="#ffffff"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="formGroup">
+                                                <label>Card Accent/CTA Color</label>
+                                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                    <input
+                                                        type="color"
+                                                        value={settings.launcherCardAccentColor || (settings.primaryColor || "#ff7e21")}
+                                                        onChange={(e) => setSettings({ ...settings, launcherCardAccentColor: e.target.value })}
+                                                        style={{ width: "40px", height: "36px", padding: "2px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", cursor: "pointer", background: "none" }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={settings.launcherCardAccentColor || ""}
+                                                        onChange={(e) => setSettings({ ...settings, launcherCardAccentColor: e.target.value })}
+                                                        placeholder={settings.primaryColor || "#ff7e21"}
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         {/* Live Preview of Card */}
                                         <div style={{
                                             marginTop: "20px",
-                                            background: "linear-gradient(135deg, rgba(30,30,40,0.95) 0%, rgba(20,20,35,0.98) 100%)",
-                                            border: "1px solid rgba(255,126,33,0.25)",
+                                            background: settings.launcherCardBackground === "gradient" 
+                                                ? `linear-gradient(135deg, ${settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21"}dd 0%, #ff477edd 100%)`
+                                                : settings.launcherCardBackground === "dark"
+                                                ? "#0f172a"
+                                                : settings.launcherCardBackground === "light"
+                                                ? "#ffffff"
+                                                : "linear-gradient(135deg, rgba(30,30,40,0.92) 0%, rgba(20,20,35,0.95) 100%)",
+                                            backdropFilter: settings.launcherCardBackground === "glassmorphism" ? "blur(12px)" : "none",
+                                            border: `1px solid ${settings.launcherCardBackground === "light" ? "rgba(0,0,0,0.08)" : (settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21") + "44"}`,
                                             borderRadius: "16px",
                                             padding: "18px 20px",
                                             maxWidth: "320px",
                                             position: "relative",
-                                            boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+                                            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+                                            color: settings.launcherCardTextColor || (settings.launcherCardBackground === "light" ? "#1e293b" : "#ffffff")
                                         }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-                                                <div style={{
-                                                    width: "28px", height: "28px", borderRadius: "50%",
-                                                    background: "linear-gradient(135deg, #ff7e21, #ff477e)",
-                                                    display: "flex", alignItems: "center", justifyContent: "center"
-                                                }}>
-                                                    <span style={{ fontSize: "14px" }}>Q</span>
+                                            {/* Top border beam */}
+                                            <div style={{
+                                                position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
+                                                background: `linear-gradient(90deg, transparent, ${settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21"}, transparent)`
+                                            }}></div>
+
+                                            {/* Close Button x */}
+                                            <div style={{
+                                                position: "absolute", top: "10px", right: "10px", width: "20px", height: "20px",
+                                                borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                                                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                                                cursor: "pointer", color: settings.launcherCardTextColor || "#ffffff", fontSize: "11px", fontWeight: "600",
+                                                opacity: 0.6
+                                            }}>✕</div>
+
+                                            <div style={{ display: "flex", flexDirection: "row", gap: "12px", alignItems: "flex-start", textAlign: "left", width: "100%" }}>
+                                                {/* Left Column: AI Core logo */}
+                                                <div style={{ flexShrink: 0, width: "44px", height: "44px", position: "relative" }}>
+                                                     <div style={{
+                                                         width: "44px", height: "44px", borderRadius: "50%",
+                                                         background: "#0f121d", border: `1px solid ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}3b`,
+                                                         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
+                                                     }}>
+                                                         <img src={activeWidgetLogo} alt="AI Core logo" style={{ width: "80%", height: "80%", objectFit: "contain", borderRadius: "50%" }} />
+                                                     </div>
+                                                     {/* Outer Ring */}
+                                                     <div style={{
+                                                         position: "absolute", top: "-2px", left: "-2px", right: "-2px", bottom: "-2px",
+                                                         border: `1.5px solid ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}66`,
+                                                         borderRadius: "50%"
+                                                     }}></div>
                                                 </div>
-                                                <span style={{
-                                                    fontSize: "10px", fontWeight: "700", letterSpacing: "1.5px",
-                                                    color: "#ff7e21", textTransform: "uppercase"
-                                                }}>
-                                                    {settings.launcherCardLabel || "CODEQLIK AI"}
-                                                </span>
+
+                                                {/* Divider line */}
+                                                <div style={{
+                                                    width: "1px", alignSelf: "stretch",
+                                                    background: `linear-gradient(to bottom, transparent, ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}44, transparent)`
+                                                }}></div>
+
+                                                {/* Right Column: Content */}
+                                                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                                                    {/* Status dot + label */}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                                                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }}></span>
+                                                        <span style={{
+                                                            fontSize: "9.5px", fontWeight: "700", letterSpacing: "1.2px",
+                                                            color: settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21", textTransform: "uppercase"
+                                                        }}>
+                                                            {settings.launcherCardLabel || "CODEQLIK AI"}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Heading / Title */}
+                                                    <div style={{ fontSize: "14px", fontWeight: "700", lineHeight: "1.3", marginBottom: "4px" }}>
+                                                        {(() => {
+                                                            const titleText = settings.launcherCardTitle || "Let's build something powerful.";
+                                                            const accentColor = settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21";
+                                                            const lower = titleText.toLowerCase();
+                                                            if (lower.includes("powerful")) {
+                                                                const parts = titleText.split(/powerful/i);
+                                                                 return (
+                                                                     <>
+                                                                         {parts[0]}
+                                                                         <span style={{ color: accentColor }}>powerful</span>
+                                                                         {parts[1]}
+                                                                     </>
+                                                                 );
+                                                            }
+                                                            return titleText;
+                                                        })()}
+                                                    </div>
+
+                                                    {/* Description */}
+                                                    <div style={{ fontSize: "11px", opacity: 0.8, lineHeight: "1.45", marginBottom: "8px" }}>
+                                                        {settings.launcherCardDescription || "Tell us what you're planning, and our AI assistant will guide you."}
+                                                    </div>
+
+                                                    {/* CTA button */}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "4px", fontWeight: "600", fontSize: "12px", color: settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21", cursor: "pointer" }}>
+                                                        <span>{settings.launcherCardCTA || "Start Conversation →"}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize: "15px", fontWeight: "700", color: "#fff", lineHeight: "1.35", marginBottom: "8px" }}>
-                                                {settings.launcherCardTitle || "Let's build something powerful."}
-                                            </div>
-                                            <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)", lineHeight: "1.5", marginBottom: "14px" }}>
-                                                {settings.launcherCardDescription || "Tell us what you're planning, and our AI assistant will guide you."}
-                                            </div>
-                                            <button style={{
-                                                background: "transparent", border: "none", color: "#ff7e21",
-                                                fontWeight: "600", fontSize: "13px", cursor: "pointer", padding: "0",
-                                                display: "flex", alignItems: "center", gap: "4px"
-                                            }}>
-                                                {settings.launcherCardCTA || "Start Conversation →"}
-                                            </button>
                                         </div>
                                     </div>
                                             </div>
@@ -2595,8 +3095,8 @@ function Admin() {
                                         </div>
                                         <div className="formGroup">
                                             <label>Greeting Examples (e.g., Hello!, Hi there!, Greetings!)</label>
-                                            <input
-                                                type="text"
+                                            <textarea
+                                                rows="4"
                                                 value={settings.promptGreetingExamples || settings.prompt_greeting_examples || ""}
                                                 onChange={(e) => setSettings({ ...settings, promptGreetingExamples: e.target.value, prompt_greeting_examples: e.target.value })}
                                             />
@@ -2615,8 +3115,6 @@ function Admin() {
                                             />
                                         </div>
                                     </div>
-
-                                    <button className="primaryBtn" type="submit">Save Configurations</button>
                                             </div>
                                         )}
                                     </div>
@@ -2631,115 +3129,343 @@ function Admin() {
                                 <div className="previewPanel">
                                     <h3>Widget Preview Look</h3>
                                     <p className="previewSubtitle">Interactive Mockup aligned to current customizing parameters</p>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+                                        <div className="previewModeSelector" style={{ display: "flex", gap: "8px", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "8px", width: "fit-content" }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewMode("desktop")}
+                                                style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "desktop" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                            >
+                                                Desktop
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewMode("tablet")}
+                                                style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "tablet" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                            >
+                                                Tablet
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewMode("mobile")}
+                                                style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "mobile" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                            >
+                                                Mobile
+                                            </button>
+                                        </div>
 
-                                    <div className="previewModeSelector" style={{ display: "flex", gap: "8px", marginBottom: "16px", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "8px", width: "fit-content" }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPreviewMode("desktop")}
-                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "desktop" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
-                                        >
-                                            Desktop
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPreviewMode("tablet")}
-                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "tablet" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
-                                        >
-                                            Tablet
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPreviewMode("mobile")}
-                                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewMode === "mobile" ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
-                                        >
-                                            Mobile
-                                        </button>
+                                        <div className="previewStateSelector" style={{ display: "flex", gap: "8px", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "8px", width: "fit-content" }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewWidgetOpen(false)}
+                                                style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: !previewWidgetOpen ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                            >
+                                                Closed (Launcher)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewWidgetOpen(true)}
+                                                style={{ padding: "6px 12px", borderRadius: "6px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: previewWidgetOpen ? (settings.primaryColor || "#ff7e21") : "transparent", color: "#fff", transition: "all 0.2s" }}
+                                            >
+                                                Open (Chat)
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} style={{ height: "450px", width: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : "100%", maxWidth: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : "400px", transition: "all 0.3s ease" }}>
-                                        <div className="mockHeader" style={{ backgroundColor: settings.theme === "dark" ? "#0f172a" : (settings.primaryColor || "#ff7e21") }}>
-                                            <div className="mockLogo">
-                                                <img
-                                                    src={activeWidgetLogo}
-                                                    alt="Logo"
-                                                />
-                                            </div>
-                                            <div className="mockHeaderText">
-                                                <div className="mockTitle">{settings.title || "CodeQlik Assistant"}</div>
-                                                <div className="mockSubtitle">{settings.subtitle || "Usually replies instantly"}</div>
-                                            </div>
-                                            {settings.showNewChat && <button className="mockNewBtn" type="button">New</button>}
-                                        </div>
+                                    <div 
+                                         className={`previewWidgetMock ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`} 
+                                         style={{ 
+                                             display: previewWidgetOpen ? "flex" : "none",
+                                             height: settings.height || "450px", 
+                                             maxHeight: "520px",
+                                             width: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : (settings.width || "100%"), 
+                                             maxWidth: previewMode === "mobile" ? "320px" : previewMode === "tablet" ? "370px" : (settings.width ? `min(${settings.width}, 100%)` : "400px"), 
+                                             transition: "all 0.3s ease",
+                                             background: settings.theme === "dark" ? "linear-gradient(180deg, #0d0a1b 0%, #06050a 100%)" : "rgba(255, 255, 255, 0.98)",
+                                             borderColor: settings.theme === "dark" ? "rgba(255, 126, 33, 0.25)" : "rgba(0, 0, 0, 0.08)",
+                                             color: settings.theme === "dark" ? "#f3f4f6" : "#111827"
+                                         }}
+                                     >
+                                         <div 
+                                             className="mockHeader" 
+                                             style={{ 
+                                                 backgroundColor: settings.theme === "dark" ? "rgba(255, 255, 255, 0.02)" : (settings.primaryColor || "#ff7e21"),
+                                                 borderBottom: settings.theme === "dark" ? `1px solid ${settings.primaryColor || "#ff7e21"}33` : "1px solid rgba(0, 0, 0, 0.08)",
+                                                 color: "#ffffff"
+                                             }}
+                                         >
+                                             <div className="mockLogo">
+                                                 <img
+                                                     src={activeWidgetLogo}
+                                                     alt="Logo"
+                                                 />
+                                             </div>
+                                             <div className="mockHeaderText">
+                                                 <div className="mockTitle">{settings.title || "CodeQlik Assistant"}</div>
+                                                 <div className="mockSubtitle">{settings.subtitle || "Usually replies instantly"}</div>
+                                             </div>
+                                             {settings.showNewChat && <button className="mockNewBtn" type="button">New</button>}
+                                         </div>
 
-                                        <div className="mockMsgs">
-                                            <div className="mockMsgRow mockBotRow">
-                                                <div className="mockMsgAvatar">
-                                                    <img src={activeWidgetLogo} alt="Bot avatar" />
-                                                </div>
-                                                <div className="mockMsg mockBot">{settings.welcomeMessage || settings.chatbot_greeting || "Hi! How can we help you today?"}</div>
-                                            </div>
-                                        </div>
+                                         <div className="mockMsgs">
+                                             <div className="mockMsgRow mockBotRow">
+                                                 <div className="mockMsgAvatar">
+                                                     <img src={activeWidgetLogo} alt="Bot avatar" />
+                                                 </div>
+                                                 <div 
+                                                     className="mockMsg mockBot" 
+                                                     style={{ 
+                                                         background: settings.theme === "dark" ? "rgba(255, 255, 255, 0.06)" : "#f3f4f6",
+                                                         color: settings.theme === "dark" ? "#f3f4f6" : "#111827",
+                                                         border: settings.theme === "dark" ? `1px solid ${settings.primaryColor || "#ff7e21"}33` : "1px solid rgba(0, 0, 0, 0.08)"
+                                                     }}
+                                                 >
+                                                     {settings.welcomeMessage || settings.chatbot_greeting || "Hi! How can we help you today?"}
+                                                 </div>
+                                             </div>
+                                             <div className="mockMsgRow mockUserRow" style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+                                                 <div 
+                                                     className="mockMsg mockUser" 
+                                                     style={{
+                                                         background: settings.theme === "dark" ? "linear-gradient(135deg, #ff7e21 0%, #ff477e 100%)" : (settings.primaryColor || "#ff7e21"),
+                                                         color: "#ffffff",
+                                                         padding: "10px 12px",
+                                                         borderRadius: "16px 16px 4px 16px",
+                                                         fontSize: "13px",
+                                                         maxWidth: "75%"
+                                                     }}
+                                                 >
+                                                     Can you tell me about your custom software development services?
+                                                 </div>
+                                             </div>
+                                         </div>
 
-                                        {settings.suggestions && settings.suggestions.length > 0 && (
-                                            <div className="mockSuggestions">
-                                                {settings.suggestions.slice(0, 3).map((suggestion, idx) => (
-                                                    <span className="mockSuggestionBtn" key={idx}>{suggestion}</span>
-                                                ))}
-                                            </div>
-                                        )}
+                                         {settings.suggestions && settings.suggestions.length > 0 && (
+                                             <div className="mockSuggestions" style={{ overflowX: "auto", display: "flex", gap: "6px", flexWrap: "nowrap", padding: "0 14px 8px" }}>
+                                                 {settings.suggestions.slice(0, 4).map((suggestion, idx) => (
+                                                     <span 
+                                                         className="mockSuggestionBtn" 
+                                                         key={idx}
+                                                         style={{
+                                                             borderColor: settings.theme === "dark" ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)",
+                                                             background: settings.theme === "dark" ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)",
+                                                             color: settings.theme === "dark" ? "#f3f4f6" : "#4b5563"
+                                                         }}
+                                                     >
+                                                         {suggestion}
+                                                     </span>
+                                                 ))}
+                                             </div>
+                                         )}
 
-                                        <div className="mockForm">
-                                            <input className="mockInput" type="text" placeholder={settings.placeholder || "Type your message..."} readOnly />
-                                            <button className="mockSendBtn" type="button" style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}>Send</button>
-                                        </div>
+                                         <div className="mockForm" style={{ borderTop: settings.theme === "dark" ? "1px solid rgba(255, 126, 33, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
+                                             <input 
+                                                 className="mockInput" 
+                                                 type="text" 
+                                                 placeholder={settings.placeholder || "Type your message..."} 
+                                                 readOnly 
+                                                 style={{
+                                                     background: settings.theme === "dark" ? "rgba(255, 255, 255, 0.05)" : "#f9fafb",
+                                                     color: settings.theme === "dark" ? "#f3f4f6" : "#111827",
+                                                     borderColor: settings.theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"
+                                                 }}
+                                             />
+                                             <button className="mockSendBtn" type="button" style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}>Send</button>
+                                         </div>
 
-                                        {settings.footerText && (
-                                            <div className="mockFooter">
-                                                {String(settings.footerText).split(/(CodeQlik)/gi).map((part, idx) => (
-                                                    /codeqlik/i.test(part)
-                                                        ? <span className="mockFooterBrand" key={idx}>{part}</span>
-                                                        : <React.Fragment key={idx}>{part}</React.Fragment>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                         {settings.footerText && (
+                                             <div 
+                                                 className="mockFooter" 
+                                                 style={{ 
+                                                     borderTop: settings.theme === "dark" ? "1px solid rgba(255, 126, 33, 0.2)" : "1px solid rgba(0, 0, 0, 0.02)",
+                                                     background: settings.theme === "dark" ? "#0f172a" : "rgba(0, 0, 0, 0.02)",
+                                                     color: settings.theme === "dark" ? "#e5e7eb" : "#374151"
+                                                 }}
+                                             >
+                                                 {String(settings.footerText).split(/(CodeQlik)/gi).map((part, idx) => (
+                                                     /codeqlik/i.test(part)
+                                                         ? <span className="mockFooterBrand" key={idx} style={{ color: settings.primaryColor || "#ff7e21" }}>{part}</span>
+                                                         : <React.Fragment key={idx}>{part}</React.Fragment>
+                                                 ))}
+                                             </div>
+                                         )}
+                                     </div>
 
-                                    <div
-                                        className={`mockLauncherPreview ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`}
-                                        style={{
-                                            "--mock-launcher-greeting-color": launcherGreetingColor,
-                                            "--mock-launcher-greeting-size": `${launcherGreetingFontSize}px`,
-                                            "--mock-launcher-greeting-bg-start": launcherGreetingBgStart,
-                                            "--mock-launcher-greeting-bg-end": launcherGreetingBgEnd,
-                                            "--mock-launcher-greeting-width": `${launcherGreetingWidth}px`,
-                                            "--mock-launcher-greeting-radius": `${launcherGreetingBorderRadius}px`,
-                                            "--mock-launcher-greeting-offset-x": `${launcherGreetingOffsetX}px`,
-                                            "--mock-launcher-greeting-offset-y": `${launcherGreetingOffsetY}px`,
-                                            "--mock-launcher-size": `${launcherSize}px`,
-                                            "--mock-launcher-image-inset": `${launcherImageInset}px`,
-                                            "--mock-launcher-icon-size": launcherIconSize ? `${launcherIconSize}px` : undefined,
-                                            width: `${launcherPreviewWidth}px`,
-                                            height: `${launcherPreviewHeight}px`
+                                    <div 
+                                        style={{ 
+                                            minHeight: previewWidgetOpen ? "auto" : "260px", 
+                                            display: "flex", 
+                                            alignItems: "flex-end", 
+                                            justifyContent: "flex-end", 
+                                            width: "100%", 
+                                            position: "relative", 
+                                            marginTop: "20px" 
                                         }}
                                     >
-                                        {showLauncherGreeting && launcherGreetingText && (
-                                            <div className="mockLauncherGreetingBadge">{launcherGreetingText}</div>
-                                        )}
                                         <div
-                                            className="mockLauncherButton"
-                                            style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}
-                                            title={settings.launcherGreeting || "Hello! Welcome to CodeQlik"}
+                                            className={`mockLauncherPreview ${settings.theme === "dark" ? "theme-dark" : "theme-light"}`}
+                                            style={{
+                                                "--mock-launcher-greeting-color": launcherGreetingColor,
+                                                "--mock-launcher-greeting-size": `${launcherGreetingFontSize}px`,
+                                                "--mock-launcher-greeting-bg-start": launcherGreetingBgStart,
+                                                "--mock-launcher-greeting-bg-end": launcherGreetingBgEnd,
+                                                "--mock-launcher-greeting-width": `${launcherGreetingWidth}px`,
+                                                "--mock-launcher-greeting-radius": `${launcherGreetingBorderRadius}px`,
+                                                "--mock-launcher-greeting-offset-x": `${launcherGreetingOffsetX}px`,
+                                                "--mock-launcher-greeting-offset-y": `${launcherGreetingOffsetY}px`,
+                                                "--mock-launcher-size": `${launcherSize}px`,
+                                                "--mock-launcher-image-inset": `${launcherImageInset}px`,
+                                                "--mock-launcher-icon-size": launcherIconSize ? `${launcherIconSize}px` : undefined,
+                                                width: `${launcherPreviewWidth}px`,
+                                                height: `${launcherPreviewHeight}px`,
+                                                margin: 0
+                                            }}
                                         >
-                                            {launcherIconIsImage ? (
-                                                <img className="mockLauncherIconImage" src={launcherIconImageUrl} alt="Launcher icon preview" style={{ filter: launcherIconWhite ? "brightness(0) invert(1)" : "none" }} />
-                                            ) : !isDefaultLauncherIcon(launcherIconValue) ? (
-                                                <span className="mockLauncherCustomIcon">{launcherIconValue}</span>
-                                            ) : (
-                                                <svg className="mockLauncherChatIcon" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
-                                                    <path d="M14 5.5c-5.5 0-10 3.35-10 7.48 0 2.55 1.72 4.8 4.35 6.15l-.62 3.12 3.42-2.03c.9.16 1.85.25 2.85.25 5.5 0 10-3.35 10-7.49S19.5 5.5 14 5.5Z" fill="#f8fbff" />
-                                                    <path d="M18.4 18.95c-1.28.66-2.78 1.02-4.4 1.02-1 0-1.95-.09-2.85-.25l-3.42 2.03.62-3.12c-1.04-.53-1.94-1.22-2.63-2.03 1.74.92 3.92 1.45 6.26 1.45 2.42 0 4.66-.56 6.42-1.52v2.42Z" fill="#c7d2fe" opacity="0.95" />
-                                                </svg>
+                                             {showLauncherGreeting && !previewWidgetOpen && (
+                                                <div 
+                                                    className="mockLauncherGreetingCard"
+                                                    style={{
+                                                        background: settings.launcherCardBackground === "gradient" 
+                                                            ? `linear-gradient(135deg, ${settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21"}dd 0%, #ff477edd 100%)`
+                                                            : settings.launcherCardBackground === "dark"
+                                                            ? "#0f172a"
+                                                            : settings.launcherCardBackground === "light"
+                                                            ? "#ffffff"
+                                                            : "linear-gradient(135deg, rgba(7, 9, 13, 0.96), rgba(14, 17, 23, 0.94))",
+                                                        backdropFilter: settings.launcherCardBackground === "glassmorphism" ? "blur(12px)" : "none",
+                                                        border: `1px solid ${settings.launcherCardBackground === "light" ? "rgba(0,0,0,0.08)" : (settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21") + "55"}`,
+                                                        borderRadius: "16px",
+                                                        padding: "14px 16px",
+                                                        width: "280px",
+                                                        color: settings.launcherCardTextColor || (settings.launcherCardBackground === "light" ? "#1e293b" : "#ffffff"),
+                                                        position: "absolute",
+                                                        right: `${launcherGreetingOffsetX}px`,
+                                                        bottom: `${launcherGreetingOffsetY}px`,
+                                                        boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+                                                        zIndex: 10
+                                                    }}
+                                                >
+                                                    {/* Top border beam */}
+                                                    <div style={{
+                                                        position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
+                                                        background: `linear-gradient(90deg, transparent, ${settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21"}, transparent)`
+                                                    }}></div>
+
+                                                    {/* Close Button x */}
+                                                    <div style={{
+                                                        position: "absolute", top: "8px", right: "8px", width: "18px", height: "18px",
+                                                        borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                                                        background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                                                        cursor: "pointer", color: settings.launcherCardTextColor || "#ffffff", fontSize: "10px", fontWeight: "600",
+                                                        opacity: 0.6
+                                                    }}>✕</div>
+
+                                                    <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "flex-start", textAlign: "left", width: "100%" }}>
+                                                        {/* Left Column: AI Core logo */}
+                                                        <div style={{ flexShrink: 0, width: "38px", height: "38px", position: "relative" }}>
+                                                            <div style={{
+                                                                width: "38px", height: "38px", borderRadius: "50%",
+                                                                background: "#0f121d", border: `1px solid ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}3b`,
+                                                                display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
+                                                            }}>
+                                                                <img src={activeWidgetLogo} alt="AI Core logo" style={{ width: "80%", height: "80%", objectFit: "contain", borderRadius: "50%" }} />
+                                                            </div>
+                                                            {/* Outer Ring */}
+                                                            <div style={{
+                                                                position: "absolute", top: "-2px", left: "-2px", right: "-2px", bottom: "-2px",
+                                                                border: `1.5px solid ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}66`,
+                                                                borderRadius: "50%"
+                                                            }}></div>
+                                                        </div>
+
+                                                        {/* Divider line */}
+                                                        <div style={{
+                                                            width: "1px", alignSelf: "stretch",
+                                                            background: `linear-gradient(to bottom, transparent, ${(settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")}44, transparent)`
+                                                        }}></div>
+
+                                                        {/* Right Column: Content */}
+                                                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                            {/* Status dot + label */}
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+                                                                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 5px #10b981" }}></span>
+                                                                <span style={{
+                                                                    fontSize: "8.5px", fontWeight: "700", letterSpacing: "1px",
+                                                                    color: settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21", textTransform: "uppercase"
+                                                                }}>
+                                                                    {settings.launcherCardLabel || "CODEQLIK AI"}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Heading / Title */}
+                                                            <div style={{ fontSize: "12px", fontWeight: "700", lineHeight: "1.3", marginBottom: "2px" }}>
+                                                                {(() => {
+                                                                    const titleText = settings.launcherCardTitle || "Let's build something powerful.";
+                                                                    const accentColor = settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21";
+                                                                    const lower = titleText.toLowerCase();
+                                                                    if (lower.includes("powerful")) {
+                                                                        const parts = titleText.split(/powerful/i);
+                                                                        return (
+                                                                            <>
+                                                                                {parts[0]}
+                                                                                <span style={{ color: accentColor }}>powerful</span>
+                                                                                {parts[1]}
+                                                                            </>
+                                                                        );
+                                                                    }
+                                                                    return titleText;
+                                                                })()}
+                                                            </div>
+
+                                                            {/* Description */}
+                                                            <div style={{ fontSize: "10px", opacity: 0.8, lineHeight: "1.4", marginBottom: "6px" }}>
+                                                                {settings.launcherCardDescription || "Tell us what you're planning, and our AI assistant will guide you."}
+                                                            </div>
+
+                                                            {/* CTA button */}
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontWeight: "600", fontSize: "11px", color: settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21", cursor: "pointer" }}>
+                                                                <span>{settings.launcherCardCTA || "Start Conversation →"}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Speech bubble tail pointing towards launcher */}
+                                                    <div style={{
+                                                        position: "absolute",
+                                                        bottom: "-5px",
+                                                        right: "24px",
+                                                        width: "10px",
+                                                        height: "10px",
+                                                        transform: "rotate(45deg)",
+                                                        background: settings.launcherCardBackground === "gradient" 
+                                                            ? (settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21")
+                                                            : settings.launcherCardBackground === "dark"
+                                                            ? "#0f172a"
+                                                            : settings.launcherCardBackground === "light"
+                                                            ? "#ffffff"
+                                                            : "#0d0f14",
+                                                        borderRight: `1px solid ${settings.launcherCardBackground === "light" ? "rgba(0,0,0,0.08)" : (settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21") + "55"}`,
+                                                        borderBottom: `1px solid ${settings.launcherCardBackground === "light" ? "rgba(0,0,0,0.08)" : (settings.launcherCardAccentColor || settings.primaryColor || "#ff7e21") + "55"}`,
+                                                        zIndex: -1
+                                                    }}></div>
+                                                </div>
                                             )}
+                                            <div
+                                                className="mockLauncherButton"
+                                                style={{ backgroundColor: settings.primaryColor || "#ff7e21" }}
+                                                title={settings.launcherGreeting || "Hello! Welcome to CodeQlik"}
+                                            >
+                                                {launcherIconIsImage ? (
+                                                    <img className="mockLauncherIconImage" src={launcherIconImageUrl} alt="Launcher icon preview" style={{ filter: launcherIconWhite ? "brightness(0) invert(1)" : "none", width: launcherIconSize ? `${launcherIconSize}px` : undefined, height: launcherIconSize ? `${launcherIconSize}px` : undefined }} />
+                                                ) : !isDefaultLauncherIcon(launcherIconValue) ? (
+                                                    <span className="mockLauncherCustomIcon" style={{ fontSize: launcherIconSize ? `${launcherIconSize}px` : undefined }}>{launcherIconValue}</span>
+                                                ) : (
+                                                    <svg className="mockLauncherChatIcon" viewBox="0 0 28 28" aria-hidden="true" focusable="false" style={{ width: launcherIconSize ? `${launcherIconSize}px` : undefined, height: launcherIconSize ? `${launcherIconSize}px` : undefined }}>
+                                                        <path d="M14 5.5c-5.5 0-10 3.35-10 7.48 0 2.55 1.72 4.8 4.35 6.15l-.62 3.12 3.42-2.03c.9.16 1.85.25 2.85.25 5.5 0 10-3.35 10-7.49S19.5 5.5 14 5.5Z" fill="#f8fbff" />
+                                                        <path d="M18.4 18.95c-1.28.66-2.78 1.02-4.4 1.02-1 0-1.95-.09-2.85-.25l-3.42 2.03.62-3.12c-1.04-.53-1.94-1.22-2.63-2.03 1.74.92 3.92 1.45 6.26 1.45 2.42 0 4.66-.56 6.42-1.52v2.42Z" fill="#c7d2fe" opacity="0.95" />
+                                                    </svg>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2776,7 +3502,7 @@ function Admin() {
                     AI/LLM USAGE ANALYTICS TAB
                     ========================================== */}
                 {!loading && activeTab === "llm-usage" && (
-                    <div className="llmUsageTabContainer" style={{ display: "flex", flexDirection: "column", gap: "24px", color: "#ffffff", padding: "10px" }}>
+                    <div className="llmUsageTabContainer" style={{ display: "flex", flexDirection: "column", gap: "24px", color: "#ffffff", padding: "10px", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
 
                         {/* Top Cards Grid */}
                         <div className="statsGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
@@ -2813,7 +3539,7 @@ function Admin() {
                         </div>
 
                         {/* Middle: Filters & Cost Calculator */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                        <div className="llmMiddleGrid">
                             {/* Filters */}
                             <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
                                 <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Analytics Filters</h3>
@@ -2923,7 +3649,7 @@ function Admin() {
                         {/* Bottom: Model-wise Usage & Daily Chart */}
                         <div className="llmBottomGrid">
                             {/* Model Usage Table */}
-                            <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
+                            <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
                                 <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Model-wise Breakdown</h3>
                                 <div className="tableContainer">
                                     <table className="customTable" style={{ width: "100%" }}>
@@ -2966,7 +3692,7 @@ function Admin() {
                             {/* Daily Usage Chart (CSS representation) */}
                             <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
                                 <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Daily Token Consumption</h3>
-                                <div style={{ display: "flex", alignItems: "flex-end", height: "180px", gap: "20px", padding: "10px 0", overflowX: "auto" }}>
+                                <div style={{ display: "flex", alignItems: "flex-end", height: "180px", justifyContent: "space-around", padding: "10px 0", width: "100%" }}>
                                     {dailyUsage.length === 0 ? (
                                         <p style={{ color: "#94a3b8", margin: "auto" }}>No log logs available for daily stats.</p>
                                     ) : (
@@ -2974,7 +3700,7 @@ function Admin() {
                                             const maxTokens = Math.max(...dailyUsage.map(d => d.total_tokens), 1);
                                             const heightPercent = Math.min((day.total_tokens / maxTokens) * 100, 100);
                                             return (
-                                                <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "60px", height: "100%", justifyContent: "flex-end" }}>
+                                                <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "1 1 0%", minWidth: "30px", maxWidth: "60px", height: "100%", justifyContent: "flex-end" }}>
                                                     <span style={{ fontSize: "9px", color: "#94a3b8", marginBottom: "4px" }}>
                                                         {day.total_tokens > 1000 ? `${(day.total_tokens / 1000).toFixed(1)}k` : day.total_tokens}
                                                     </span>
@@ -3000,7 +3726,7 @@ function Admin() {
                         </div>
 
                         {/* Recent Thread Usage Table */}
-                        <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px" }}>
+                        <div style={{ background: "rgba(30, 41, 59, 0.2)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "20px", minWidth: 0, width: "100%", boxSizing: "border-box" }}>
                             <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#ff7e21" }}>Recent Thread Usage</h3>
                             <div className="tableContainer">
                                 <table className="customTable" style={{ width: "100%" }}>
@@ -3124,8 +3850,8 @@ function Admin() {
                                         <select value={editForm.db_type} onChange={(e) => setEditForm({ ...editForm, db_type: e.target.value })}>
                                             <option value="mongodb">MongoDB</option>
                                             <option value="mysql">MySQL</option>
-                                            <option value="postgres">PostgreSQL</option>
-                                            <option value="mssql">MSSQL</option>
+                                            <option value="postgresql">PostgreSQL</option>
+                                            <option value="sqlserver">SQL Server</option>
                                         </select>
                                     </div>
                                     <div className="formGroup">
@@ -3206,10 +3932,14 @@ function Admin() {
                                 <label>Service</label>
                                 <select value={editForm.service} onChange={(e) => setEditForm({ ...editForm, service: e.target.value })}>
                                     <option value="Auto">Auto</option>
-                                    <option value="client">client</option>
-                                    <option value="support">support</option>
-                                    <option value="hiring">hiring</option>
-                                    <option value="sales">sales</option>
+                                    <option value="general">general</option>
+                                    <option value="website">website</option>
+                                    <option value="mobile_app">mobile app</option>
+                                    <option value="ecommerce">ecommerce</option>
+                                    <option value="erp">erp</option>
+                                    <option value="crm">crm</option>
+                                    <option value="ai_automation">ai automation</option>
+                                    <option value="software">software</option>
                                 </select>
                             </div>
                             <div className="formGroup">

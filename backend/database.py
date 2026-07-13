@@ -3,6 +3,7 @@ from pymongo.errors import DuplicateKeyError
 from datetime import datetime
 from bson import ObjectId
 import asyncio
+import os
 import threading
 from config import MONGO_URI, MONGO_DB
 from email_body_generator import build_email_content
@@ -262,6 +263,9 @@ DEFAULT_SETTINGS = {
     "fallback_message": "I am the official company support assistant and can assist with company services, support requests, project inquiries, hiring, and company-related information.",
     "support_email": "info@codeqlik.com",
     "support_phone": "+91-8949687368",
+    "prompt_nature": "knowledgeable and helpful human support representative",
+    "prompt_response_feel": "* Warm and natural\n* Clear and confident\n* Concise but complete\n* Professional without sounding formal or robotic",
+    "prompt_greeting_examples": "Hello!, Hi there!, Greetings!",
 
     # CamelCase fields for public/widget settings
     "companyName": "CodeQlik",
@@ -271,6 +275,16 @@ DEFAULT_SETTINGS = {
     "generalPhone": "+91-8949687368",
     "supportEmail": "info@codeqlik.com",
     "supportPhone": "+91-8949687368",
+    "promptNature": "knowledgeable and helpful human support representative",
+    "promptResponseFeel": "* Warm and natural\n* Clear and confident\n* Concise but complete\n* Professional without sounding formal or robotic",
+    "promptGreetingExamples": "Hello!, Hi there!, Greetings!",
+    "launcherCardLabel": "CODEQLIK AI",
+    "launcherCardTitle": "Let's build something powerful.",
+    "launcherCardDescription": "Tell us what you're planning, and our AI assistant will guide you.",
+    "launcherCardCTA": "Start Conversation →",
+    "launcherCardBackground": "glassmorphism",
+    "launcherCardTextColor": "#ffffff",
+    "launcherCardAccentColor": "#ff7e21",
 
     # UI/Widget fields
     "title": "CodeQlik Assistant",
@@ -287,6 +301,8 @@ DEFAULT_SETTINGS = {
     "logoUrlDark": "/uploads/default_logo_dark.jpeg",
     "botAvatar": "CQ",
     "launcherIcon": "\U0001F4AC",
+    "launcherIconWhite": False,
+    "launcherIconSize": 28,
     "launcherSize": 60,
     "launcherText": "",
     "showLauncherGreeting": True,
@@ -372,6 +388,10 @@ def update_chatbot_settings(data: dict):
     logo_dark = data.get("logoUrlDark", settings.get("logoUrlDark") or DEFAULT_SETTINGS["logoUrlDark"])
     legacy_logo = data.get("logoUrl", settings.get("logoUrl") or logo_light or DEFAULT_SETTINGS["logoUrl"])
     
+    p_nature = data.get("promptNature", data.get("prompt_nature", settings.get("prompt_nature")))
+    p_feel = data.get("promptResponseFeel", data.get("prompt_response_feel", settings.get("prompt_response_feel")))
+    p_g_examples = data.get("promptGreetingExamples", data.get("prompt_greeting_examples", settings.get("prompt_greeting_examples")))
+    
     update_data = {
         # Snake_case keys
         "company_name": c_name,
@@ -382,6 +402,9 @@ def update_chatbot_settings(data: dict):
         "fallback_message": fallback,
         "support_email": s_email,
         "support_phone": s_phone,
+        "prompt_nature": p_nature,
+        "prompt_response_feel": p_feel,
+        "prompt_greeting_examples": p_g_examples,
 
         # CamelCase keys
         "companyName": c_name,
@@ -391,6 +414,9 @@ def update_chatbot_settings(data: dict):
         "generalPhone": g_phone,
         "supportEmail": s_email,
         "supportPhone": s_phone,
+        "promptNature": p_nature,
+        "promptResponseFeel": p_feel,
+        "promptGreetingExamples": p_g_examples,
 
         # UI/Widget fields
         "title": data.get("title", settings.get("title")),
@@ -407,6 +433,8 @@ def update_chatbot_settings(data: dict):
         "logoUrlDark": logo_dark,
         "botAvatar": data.get("botAvatar", settings.get("botAvatar")),
         "launcherIcon": data.get("launcherIcon", settings.get("launcherIcon")),
+        "launcherIconWhite": data.get("launcherIconWhite", settings.get("launcherIconWhite", DEFAULT_SETTINGS["launcherIconWhite"])),
+        "launcherIconSize": data.get("launcherIconSize", settings.get("launcherIconSize", DEFAULT_SETTINGS["launcherIconSize"])),
         "launcherSize": data.get("launcherSize", settings.get("launcherSize", DEFAULT_SETTINGS["launcherSize"])),
         "launcherText": data.get("launcherText", settings.get("launcherText", "")),
         "showLauncherGreeting": data.get("showLauncherGreeting", settings.get("showLauncherGreeting", DEFAULT_SETTINGS["showLauncherGreeting"])),
@@ -419,6 +447,13 @@ def update_chatbot_settings(data: dict):
         "launcherGreetingBorderRadius": data.get("launcherGreetingBorderRadius", settings.get("launcherGreetingBorderRadius", DEFAULT_SETTINGS["launcherGreetingBorderRadius"])),
         "launcherGreetingOffsetX": data.get("launcherGreetingOffsetX", settings.get("launcherGreetingOffsetX", DEFAULT_SETTINGS["launcherGreetingOffsetX"])),
         "launcherGreetingOffsetY": data.get("launcherGreetingOffsetY", settings.get("launcherGreetingOffsetY", DEFAULT_SETTINGS["launcherGreetingOffsetY"])),
+        "launcherCardLabel": data.get("launcherCardLabel", settings.get("launcherCardLabel", DEFAULT_SETTINGS["launcherCardLabel"])),
+        "launcherCardTitle": data.get("launcherCardTitle", settings.get("launcherCardTitle", DEFAULT_SETTINGS["launcherCardTitle"])),
+        "launcherCardDescription": data.get("launcherCardDescription", settings.get("launcherCardDescription", DEFAULT_SETTINGS["launcherCardDescription"])),
+        "launcherCardCTA": data.get("launcherCardCTA", settings.get("launcherCardCTA", DEFAULT_SETTINGS["launcherCardCTA"])),
+        "launcherCardBackground": data.get("launcherCardBackground", settings.get("launcherCardBackground", DEFAULT_SETTINGS["launcherCardBackground"])),
+        "launcherCardTextColor": data.get("launcherCardTextColor", settings.get("launcherCardTextColor", DEFAULT_SETTINGS["launcherCardTextColor"])),
+        "launcherCardAccentColor": data.get("launcherCardAccentColor", settings.get("launcherCardAccentColor", DEFAULT_SETTINGS["launcherCardAccentColor"])),
         "showNewChat": data.get("showNewChat", settings.get("showNewChat")),
         "footerText": data.get("footerText", settings.get("footerText")),
         "suggestions": data.get("suggestions", settings.get("suggestions")),
@@ -631,6 +666,94 @@ def save_collection_data(intent, thread_id, profile):
 
 
 # Initialize default settings and default knowledge sources + chunks if empty
+def initialize_knowledge_indexes():
+    """Create the indexes used by the RAG retriever."""
+    try:
+        sources_collection.create_index([("enabled", 1), ("tenant_id", 1)], background=True, name="enabled_tenant_idx")
+    except Exception as exc:
+        print(f"[database] Failed to ensure knowledge source index: {exc}")
+    try:
+        chunks_collection.create_index([("source_id", 1), ("status", 1)], background=True, name="source_id_status_idx")
+    except Exception as exc:
+        print(f"[database] Failed to ensure knowledge chunk index: {exc}")
+
+
+def _source_lookup(source_id: str):
+    try:
+        return sources_collection.find_one({"_id": ObjectId(source_id)})
+    except Exception:
+        return sources_collection.find_one({"_id": source_id})
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except Exception:
+        return default
+
+
+def _reindex_source_doc(source_doc: dict) -> int | None:
+    source_id = str(source_doc.get("_id"))
+    source_type = source_doc.get("type", "manual")
+    content = source_doc.get("full_content") or source_doc.get("content") or ""
+    if not content.strip() or source_type in {"database", "db_mongodb", "db_postgresql", "db_mysql", "db_sqlserver"}:
+        return None
+
+    from rag.source_manager import process_and_chunk_source
+
+    chunk_type = source_type
+    if source_type == "document":
+        title = source_doc.get("title", "")
+        chunk_type = os.path.splitext(title)[1].lower().replace(".", "") or "txt"
+    elif source_type == "website":
+        chunk_type = "website"
+
+    num_chunks = process_and_chunk_source(
+        source_id,
+        source_doc.get("title") or source_doc.get("url") or "Knowledge Source",
+        chunk_type,
+        content,
+        intent_scope=source_doc.get("intent_scope"),
+        topic=source_doc.get("topic"),
+        service=source_doc.get("service"),
+        tags=source_doc.get("tags"),
+    )
+    sources_collection.update_one(
+        {"_id": source_doc.get("_id")},
+        {"$set": {"num_chunks": num_chunks, "updated_at": now_iso()}},
+    )
+    return num_chunks
+
+
+def mark_legacy_knowledge_chunks_for_reindex():
+    """Mark old chunks without importing the heavy RAG pipeline during app startup."""
+    if os.getenv("RAG_MARK_LEGACY_CHUNKS", "true").lower() != "true":
+        return
+
+    legacy_chunks = list(
+        chunks_collection.find(
+            {
+                "$or": [
+                    {"retrieval_text": {"$exists": False}},
+                    {"embedding": {"$exists": False}},
+                    {"status": {"$exists": False}},
+                    {"content": {"$exists": False}},
+                ]
+            },
+            {"source_id": 1},
+        ).limit(_positive_int_env("RAG_LEGACY_REPAIR_SCAN_LIMIT", 50))
+    )
+    source_ids = list(dict.fromkeys(str(chunk.get("source_id")) for chunk in legacy_chunks if chunk.get("source_id")))
+    for source_id in source_ids[: _positive_int_env("RAG_LEGACY_REPAIR_MAX_SOURCES", 10)]:
+        source_doc = _source_lookup(source_id)
+        if not source_doc:
+            continue
+        sources_collection.update_one(
+            {"_id": source_doc.get("_id")},
+            {"$set": {"processing_status": "needs_reindex", "updated_at": now_iso()}},
+        )
+
+
 def initialize_knowledge_sources():
     if sources_collection.count_documents({}) == 0:
         source_doc = {
@@ -644,22 +767,35 @@ def initialize_knowledge_sources():
         }
         res = sources_collection.insert_one(source_doc)
         source_id = str(res.inserted_id)
-        
-        from rag.chunker import split_text
-        text_chunks = split_text(source_doc["content"], chunk_size=800, chunk_overlap=150)
-        chunk_docs = []
-        for idx, chunk in enumerate(text_chunks):
-            chunk_docs.append({
-                "source_id": source_id,
-                "source_name": source_doc["title"],
-                "source_type": source_doc["type"],
-                "chunk_index": idx,
-                "chunk_text": chunk,
-                "upload_date": now_iso()
-            })
-        if chunk_docs:
-            chunks_collection.insert_many(chunk_docs)
+        chunks_collection.insert_one({
+            "source_id": source_id,
+            "source_name": source_doc["title"],
+            "source_type": source_doc["type"],
+            "title": source_doc["title"],
+            "category": source_doc["category"],
+            "chunk_index": 0,
+            "chunk_text": source_doc["content"],
+            "content": source_doc["content"],
+            "retrieval_text": source_doc["content"],
+            "status": "active",
+            "intent_scope": "all",
+            "topic": "services",
+            "service": "software",
+            "priority": 1,
+            "tags": [],
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+            "upload_date": now_iso(),
+        })
+        sources_collection.update_one(
+            {"_id": res.inserted_id},
+            {"$set": {"num_chunks": 1, "processing_status": "completed"}},
+        )
+    else:
+        mark_legacy_knowledge_chunks_for_reindex()
 
+
+initialize_knowledge_indexes()
 initialize_knowledge_sources()
 get_chatbot_settings()
 

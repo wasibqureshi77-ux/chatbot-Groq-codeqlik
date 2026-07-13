@@ -319,10 +319,11 @@ h5 {
 .sidebarBrand h2 {
     margin: 0;
     font-size: 20px;
+    font-weight: 700;
     background: linear-gradient(135deg, var(--text-main) 30%, var(--accent) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    font-weight: 700;
+    background-clip: text;
 }
 
 .sidebarBrand p {
@@ -414,8 +415,8 @@ h5 {
     justify-content: space-between;
     align-items: center;
     padding: 24px 40px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    background: rgba(7, 9, 14, 0.8);
+    border-bottom: 1px solid rgba(255, 126, 33, 0.1);
+    background: linear-gradient(135deg, rgba(7, 9, 14, 0.9), rgba(15, 23, 42, 0.6));
     backdrop-filter: blur(20px);
     position: sticky;
     top: 0;
@@ -432,17 +433,22 @@ h5 {
 
 .adminHeader h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: 24px;
     letter-spacing: -0.02em;
     font-weight: 700;
-    color: #ffffff;
 }
 
 .adminHeaderBreadcrumb {
     font-size: 11px;
-    color: var(--text-muted);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.6), rgba(255, 126, 33, 0.3));
+    color: var(--accent);
     margin: 0;
     margin-top: 2px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
 }
 
 .adminHeaderRight {
@@ -461,53 +467,65 @@ h5 {
 .primaryBtn {
     background: linear-gradient(135deg, var(--accent) 0%, #e85d04 100%);
     color: white;
-    border: none;
+    border: 1.5px solid rgba(255, 126, 33, 0.4);
     padding: 10px 22px;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 13px;
-    box-shadow: 0 4px 16px rgba(255, 126, 33, 0.3);
-    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(255, 126, 33, 0.3), 0 0 20px rgba(255, 126, 33, 0.1);
+    transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .primaryBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(255, 126, 33, 0.4);
+    box-shadow: 0 8px 24px rgba(255, 126, 33, 0.5), 0 0 30px rgba(255, 126, 33, 0.2);
+    background: linear-gradient(135deg, #e85d04, var(--accent));
 }
 
 .secondaryBtn {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-main);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.08), rgba(255, 126, 33, 0.02));
+    color: var(--accent);
+    border: 1.5px solid rgba(255, 126, 33, 0.25);
     padding: 10px 20px;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 13px;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .secondaryBtn:hover {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.14);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.15), rgba(255, 126, 33, 0.08));
+    border-color: var(--accent);
+    box-shadow: 0 4px 16px rgba(255, 126, 33, 0.15);
 }
 
 /* ─── Section Card (generic reusable panel) ─── */
 .sectionCard {
     background: rgba(13, 18, 30, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 126, 33, 0.15);
     border-radius: 18px;
     padding: 28px 32px;
     backdrop-filter: blur(16px);
     margin-bottom: 24px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 0 20px rgba(255, 126, 33, 0.05);
+    transition: all 0.3s ease;
+}
+
+.sectionCard:hover {
+    border-color: rgba(255, 126, 33, 0.25);
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.2), 0 0 30px rgba(255, 126, 33, 0.1);
 }
 
 .sectionCard:last-child {
@@ -520,32 +538,37 @@ h5 {
     gap: 12px;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1.5px solid rgba(255, 126, 33, 0.12);
 }
 
 .sectionCardIcon {
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    background: linear-gradient(135deg, rgba(255, 126, 33, 0.2) 0%, rgba(255, 126, 33, 0.05) 100%);
-    border: 1px solid rgba(255, 126, 33, 0.2);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.3) 0%, rgba(255, 126, 33, 0.1) 100%);
+    border: 1.5px solid rgba(255, 126, 33, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.sectionCard:hover .sectionCardIcon {
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.4) 0%, rgba(255, 126, 33, 0.15) 100%);
+    border-color: rgba(255, 126, 33, 0.5);
+    transform: translateY(-2px);
 }
 
 .sectionCardTitle {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    color: #ffffff;
     margin: 0;
 }
 
 .sectionCardSubtitle {
     font-size: 12px;
-    color: var(--text-muted);
     margin: 2px 0 0;
 }
 
@@ -561,8 +584,8 @@ h5 {
 }
 
 .statCard {
-    background: rgba(13, 18, 30, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(135deg, rgba(13, 18, 30, 0.9), rgba(13, 18, 30, 0.7));
+    border: 1.5px solid rgba(255, 126, 33, 0.12);
     padding: 24px 22px 20px;
     border-radius: 16px;
     backdrop-filter: blur(12px);
@@ -588,8 +611,8 @@ h5 {
 
 .statCard:hover {
     transform: translateY(-3px);
-    border-color: rgba(255, 126, 33, 0.25);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 126, 33, 0.1);
+    border-color: rgba(255, 126, 33, 0.35);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), 0 0 20px rgba(255, 126, 33, 0.1);
 }
 
 .statCard:hover::before {
@@ -598,7 +621,6 @@ h5 {
 
 .statCardTitle {
     font-size: 11px;
-    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
@@ -608,7 +630,6 @@ h5 {
     font-size: 36px;
     font-weight: 800;
     display: block;
-    color: #ffffff;
     font-family: 'Outfit', sans-serif;
     line-height: 1;
     letter-spacing: -0.02em;
@@ -618,7 +639,6 @@ h5 {
     display: block;
     margin-top: 6px;
     font-size: 11.5px;
-    color: rgba(148, 163, 184, 0.7);
     line-height: 1.4;
 }
 
@@ -848,20 +868,19 @@ h5 {
 }
 
 .customTable th {
-    background: rgba(255, 255, 255, 0.02);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.08), rgba(255, 126, 33, 0.02));
     padding: 14px 18px;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: rgba(148, 163, 184, 0.7);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    letter-spacing: 0.08em;
+    border-bottom: 1.5px solid rgba(255, 126, 33, 0.15);
     white-space: nowrap;
 }
 
 .customTable td {
     padding: 15px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 126, 33, 0.08);
     color: var(--text-main);
     vertical-align: middle;
 }
@@ -871,18 +890,27 @@ h5 {
 }
 
 .customTable tbody tr:hover td {
-    background: rgba(255, 126, 33, 0.03);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.08), rgba(255, 126, 33, 0.03));
+    border-left: 3px solid var(--accent);
+    padding-left: 15px;
 }
 
 .tableSelect {
-    background: rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.1), rgba(255, 126, 33, 0.02));
+    border: 1.5px solid rgba(255, 126, 33, 0.2);
     color: var(--text-main);
     padding: 6px 12px;
     border-radius: 8px;
     outline: none;
     font-size: 13px;
     cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tableSelect:hover,
+.tableSelect:focus {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.15), rgba(255, 126, 33, 0.05));
 }
 
 /* ==========================================================================
@@ -897,17 +925,18 @@ h5 {
 }
 
 .threadsPanel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(13, 18, 30, 0.6));
+    border: 1.5px solid rgba(255, 126, 33, 0.12);
     border-radius: 20px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 0 20px rgba(255, 126, 33, 0.05);
 }
 
 .threadsHeader {
     padding: 20px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1.5px solid rgba(255, 126, 33, 0.12);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -972,30 +1001,33 @@ h5 {
 
 .threadCardIntent {
     font-size: 11px;
-    background: rgba(255, 255, 255, 0.05);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.15), rgba(255, 126, 33, 0.05));
     padding: 2px 8px;
     border-radius: 6px;
-    color: #cbd5e1;
+    color: var(--accent);
+    border: 1px solid rgba(255, 126, 33, 0.2);
+    font-weight: 500;
 }
 
 .threadCardCount {
     font-size: 11px;
-    color: var(--text-muted);
+    font-weight: 600;
 }
 
 .conversationPanel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(13, 18, 30, 0.6));
+    border: 1.5px solid rgba(255, 126, 33, 0.12);
     border-radius: 20px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 0 20px rgba(255, 126, 33, 0.05);
 }
 
 .conversationHeader {
     padding: 20px;
-    border-bottom: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.01);
+    border-bottom: 1.5px solid rgba(255, 126, 33, 0.12);
+    background: linear-gradient(135deg, rgba(255, 126, 33, 0.05), rgba(255, 126, 33, 0.01));
 }
 
 .conversationHeader h3 {
@@ -1092,7 +1124,8 @@ h5 {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    height: 280px;
+    height: auto;
+    min-height: 300px;
 }
 
 .sourceCardHeader {
@@ -1162,8 +1195,8 @@ h5 {
 
 .sourceCardFooter {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 12px;
     margin-top: 18px;
     padding-top: 14px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -1172,6 +1205,8 @@ h5 {
 .sourceActions {
     display: flex;
     gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
 }
 
 /* Toggle Switch Styling */
@@ -1247,7 +1282,7 @@ input:checked+.slider:before {
     border: 1px solid rgba(255, 126, 33, 0.3);
     width: min(100%, 680px);
     max-width: 680px;
-    max-height: 92vh;
+    max-height: min(90vh, 90dvh);
     border-radius: 24px;
     padding: 24px;
     backdrop-filter: blur(20px);
@@ -1261,6 +1296,7 @@ input:checked+.slider:before {
     margin-top: 0;
     margin-bottom: 24px;
     font-size: 22px;
+    flex-shrink: 0;
 }
 
 .formGroup {
@@ -1272,10 +1308,9 @@ input:checked+.slider:before {
 
 .formGroup label {
     font-size: 12px;
-    font-weight: 600;
-    color: rgba(148, 163, 184, 0.85);
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
 }
 
 .formGroup input,
@@ -1285,27 +1320,28 @@ input:checked+.slider:before {
     max-width: 100%;
     box-sizing: border-box;
     padding: 11px 15px;
-    background: rgba(7, 9, 14, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: linear-gradient(135deg, rgba(13, 18, 30, 0.9), rgba(13, 18, 30, 0.6));
+    border: 1.5px solid rgba(255, 126, 33, 0.15);
     border-radius: 10px;
     color: var(--text-main);
     outline: none;
     font-size: 13.5px;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     font-family: 'Inter', sans-serif;
+    min-height: 40px;
 }
 
 .formGroup input::placeholder,
 .formGroup textarea::placeholder {
-    color: rgba(148, 163, 184, 0.35);
+    color: rgba(255, 126, 33, 0.35);
 }
 
 .formGroup input:focus,
 .formGroup select:focus,
 .formGroup textarea:focus {
-    border-color: rgba(255, 126, 33, 0.5);
-    box-shadow: 0 0 0 3px rgba(255, 126, 33, 0.08);
-    background: rgba(13, 18, 30, 0.9);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255, 126, 33, 0.15), 0 0 12px rgba(255, 126, 33, 0.1);
+    background: linear-gradient(135deg, rgba(13, 18, 30, 0.95), rgba(13, 18, 30, 0.7));
 }
 
 .formActions {
@@ -1313,6 +1349,7 @@ input:checked+.slider:before {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 18px;
+    flex-shrink: 0;
 }
 
 .modalContent>form {
@@ -1320,6 +1357,8 @@ input:checked+.slider:before {
     flex-direction: column;
     gap: 16px;
     overflow: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .modalContent>form::-webkit-scrollbar {
@@ -1332,27 +1371,46 @@ input:checked+.slider:before {
 }
 
 @media (max-width: 720px) {
+    .modalOverlay {
+        align-items: flex-end;
+        justify-content: center;
+    }
+
     .modalContent {
-        max-width: 92vw;
-        padding: 18px;
-        border-radius: 18px;
+        max-width: 100%;
+        width: 100%;
+        max-height: 90vh;
+        max-height: 90dvh;
+        padding: 16px;
+        border-radius: 20px 20px 0 0;
+        margin-bottom: env(safe-area-inset-bottom);
     }
 
     .modalContent h3 {
-        font-size: 20px;
-        margin-bottom: 18px;
-    }
-
-    .formGroup {
+        font-size: 19px;
         margin-bottom: 16px;
     }
 
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(255, 126, 33, 0.15);
-    border-radius: 24px;
-    padding: 36px;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    .formGroup {
+        margin-bottom: 14px;
+    }
+
+    .formGroup input,
+    .formGroup select,
+    .formGroup textarea {
+        font-size: 16px;
+        padding: 10px 13px;
+        min-height: 44px;
+    }
+
+    .formActions {
+        margin-top: 14px;
+        gap: 10px;
+    }
+
+    .modalContent>form {
+        gap: 12px;
+    }
 }
 
 .settingsSection {
@@ -1471,6 +1529,37 @@ input:checked+.slider:before {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+/* Sticky save button container for settings form */
+.settingsForm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.settingsForm > div:last-of-type,
+.settingsForm > button:last-of-type {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-secondary);
+    padding: 16px;
+    margin: 0 -20px -20px -20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    z-index: 10;
+}
+
+.settingsForm > button:last-of-type {
+    position: sticky;
+    bottom: 0;
+    background: rgba(13, 18, 30, 0.95);
+    backdrop-filter: blur(16px);
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
 }
 
 .settingsRightColumn {
@@ -1934,6 +2023,15 @@ input:checked+.slider:before {
 }
 
 @media (max-width: 1200px) {
+    .sidebar {
+        width: 220px;
+    }
+
+    .sidebarBtn {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+
     .settingsTabContainer {
         grid-template-columns: 1fr;
     }
@@ -2315,8 +2413,8 @@ input:checked+.slider:before {
    ENHANCED RESPONSIVE DESIGN — Admin Panel
    Full-spectrum breakpoints: 1440, 1280, 1024, 768, 480, 360px
    ========================================================================== */
-
-/* ─── LLM Usage bottom grid ─── */
+/* ─── LLM Usage Grids ─── */
+.llmMiddleGrid,
 .llmBottomGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2365,8 +2463,35 @@ input:checked+.slider:before {
     }
 
     .settingsTabContainer {
-        grid-template-columns: 1.1fr 1fr;
-        gap: 24px;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 20px;
+    }
+
+    .settingsLeftColumn {
+        width: 100%;
+    }
+
+    .settingsRightColumn {
+        width: 100%;
+    }
+
+    .settingsForm > div:last-of-type,
+    .settingsForm > button:last-of-type {
+        margin: 0 -16px -20px -16px;
+        padding: 14px 16px;
+        gap: 10px;
+    }
+
+    .formGroup {
+        margin-bottom: 14px;
+    }
+
+    .formGroup input,
+    .formGroup select,
+    .formGroup textarea {
+        min-height: 40px;
+        font-size: 14px;
     }
 
     .dashboardSections {
@@ -2395,7 +2520,8 @@ input:checked+.slider:before {
     }
 
     .settingsTabContainer {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column-reverse;
         gap: 24px;
     }
 
@@ -2448,6 +2574,10 @@ input:checked+.slider:before {
     }
 }
 
+.hamburgerBtn {
+    display: none;
+}
+
 /* ─── 768px: Tablet Portrait ─── */
 @media (max-width: 768px) {
 
@@ -2456,6 +2586,22 @@ input:checked+.slider:before {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 126, 33, 0.08);
+        border: 1.5px solid rgba(255, 126, 33, 0.25);
+        color: var(--accent);
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 0 10px rgba(255, 126, 33, 0.05);
+    }
+    .hamburgerBtn:hover, .hamburgerBtn:active {
+        background: rgba(255, 126, 33, 0.2);
+        border-color: var(--accent);
+        box-shadow: 0 0 15px rgba(255, 126, 33, 0.2);
+        transform: scale(1.05);
     }
 
     /* Admin layout: full-page column with off-canvas sidebar */
@@ -2486,6 +2632,23 @@ input:checked+.slider:before {
 
     .sidebarBrand {
         padding: 16px 14px;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 126, 33, 0.1);
+    }
+
+    .sidebarBrand h2 {
+        font-size: 18px;
+        margin: 0;
+        background: linear-gradient(135deg, var(--text-main) 30%, var(--accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .sidebarBrand p {
+        font-size: 10px;
+        margin: 4px 0 0;
+        color: var(--text-muted);
     }
 
     .sidebarMenu {
@@ -2520,6 +2683,7 @@ input:checked+.slider:before {
         width: 100%;
         padding: 0;
         overflow-y: auto;
+        overflow-x: hidden !important;
         height: 100vh;
         display: flex;
         flex-direction: column;
@@ -2618,31 +2782,135 @@ input:checked+.slider:before {
         min-height: 44px;
     }
 
-    /* Tables */
+    /* Tables - Improved Mobile Layout */
     .tableContainer {
         border-radius: 12px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
     }
 
-    .customTable th,
+    .customTable {
+        min-width: 500px;
+        width: 100%;
+        display: table;
+    }
+
+    .customTable thead {
+        display: table-header-group;
+    }
+
+    .customTable tbody {
+        display: table-row-group;
+    }
+
+    .customTable tbody tr {
+        display: table-row;
+    }
+
+    .customTable th {
+        font-size: 11px;
+        padding: 11px 12px;
+    }
+
     .customTable td {
-        padding: 12px 14px;
-        font-size: 13px;
+        padding: 11px 12px;
+        font-size: 12.5px;
     }
 
-    /* Chats layout */
+    /* Make actionable columns stack on very small screens */
+    .customTable button,
+    .customTable select {
+        width: 100%;
+        padding: 7px 10px;
+        font-size: 11.5px;
+        min-height: 36px;
+    }
+
+    /* Chats layout - Better mobile stacking */
     .chatsLayout {
-        grid-template-columns: 1fr;
-        height: auto;
-        gap: 12px;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 72vh !important;
+        min-height: 520px !important;
+        gap: 0 !important;
+        background: rgba(15, 23, 42, 0.35) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
     }
 
     .threadsPanel {
-        height: 300px;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        width: 100% !important;
+        border-radius: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    .threadsHeader {
+        padding: 16px;
+        gap: 8px;
+    }
+
+    .threadsHeader h4 {
+        font-size: 15px;
+        margin: 0;
+    }
+
+    .threadsList {
+        flex: 1 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+    }
+
+    .threadCard {
+        padding: 14px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .threadCardName {
+        font-size: 13px;
+    }
+
+    .threadCardMessage {
+        font-size: 12px;
+        margin-top: 6px;
     }
 
     .conversationPanel {
-        height: auto;
-        min-height: 350px;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    .conversationHeader {
+        padding: 16px;
+    }
+
+    .conversationHeader h3 {
+        font-size: 15px;
+        margin: 0 0 6px 0;
+    }
+
+    .conversationHeader p {
+        font-size: 11px;
+        margin: 0;
+        color: var(--text-muted);
+    }
+
+    .conversationMessages {
+        flex: 1 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        padding: 16px !important;
     }
 
     /* Knowledge sources */
@@ -2661,7 +2929,7 @@ input:checked+.slider:before {
         grid-template-columns: 1fr;
         gap: 14px;
     }
-
+    .llmMiddleGrid,
     .llmBottomGrid {
         grid-template-columns: 1fr;
         gap: 16px;
@@ -2766,6 +3034,106 @@ input:checked+.slider:before {
         padding: 12px;
     }
 
+    /* Chat layout even tighter on very small phones */
+    .chatsLayout {
+        gap: 8px;
+    }
+
+    .threadsPanel {
+        border-radius: 12px;
+    }
+
+    .threadsHeader {
+        padding: 12px 14px;
+    }
+
+    .threadsHeader h4 {
+        font-size: 13px;
+    }
+
+    .threadsHeader span {
+        font-size: 10px !important;
+    }
+
+    .threadsList {
+        max-height: none;
+    }
+
+    .threadCard {
+        padding: 10px 12px;
+    }
+
+    .threadCardName {
+        font-size: 12px;
+    }
+
+    .threadCardTime {
+        font-size: 10px;
+    }
+
+    .threadCardMessage {
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    .threadCardMeta {
+        font-size: 10px;
+        margin-top: 4px;
+    }
+
+    .conversationPanel {
+        border-radius: 12px;
+    }
+
+    .conversationHeader {
+        padding: 12px 14px;
+        margin-bottom: 8px;
+    }
+
+    .conversationHeader h3 {
+        font-size: 13px;
+        margin: 0 0 4px 0;
+    }
+
+    .conversationHeader p {
+        font-size: 10px;
+        margin: 0;
+    }
+
+    .conversationMessages {
+        padding: 0 12px 12px 12px;
+    }
+
+    .extractedProfilePanel {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .extractedProfilePanel h5 {
+        font-size: 12px;
+        margin: 0 0 8px 0;
+    }
+
+    .profileGrid {
+        gap: 8px;
+    }
+
+    .profileGridItem {
+        padding: 8px 10px;
+    }
+
+    .profileKey {
+        font-size: 10px;
+    }
+
+    .profileValue {
+        font-size: 11px;
+    }
+
+    .adminMainBody {
+        padding: 12px;
+    }
+
     .formGroup input,
     .formGroup select,
     .formGroup textarea {
@@ -2776,6 +3144,33 @@ input:checked+.slider:before {
     .sidebarBtn {
         font-size: 13px;
         padding: 10px 14px;
+    }
+
+    /* Extra tight table layout for small phones */
+    .customTable {
+        min-width: 320px;
+        font-size: 12px;
+    }
+
+    .customTable th {
+        padding: 9px 10px;
+        font-size: 10px;
+    }
+
+    .customTable td {
+        padding: 9px 10px;
+        font-size: 12px;
+    }
+
+    .customTable button,
+    .customTable select {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-height: 34px;
+    }
+
+    .tableContainer {
+        border-radius: 10px;
     }
 
     .chatsLayout {
@@ -2802,6 +3197,33 @@ input:checked+.slider:before {
 
     .chatHeader h2 {
         font-size: 14px;
+    }
+
+    /* Style back button nicely for mobile */
+    .chat-back-btn {
+        padding: 10px 12px !important;
+        min-height: 44px !important;
+        min-width: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: linear-gradient(135deg, rgba(255, 126, 33, 0.12), rgba(255, 126, 33, 0.06)) !important;
+        border: 1.5px solid rgba(255, 126, 33, 0.3) !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .chat-back-btn:hover {
+        background: linear-gradient(135deg, rgba(255, 126, 33, 0.2), rgba(255, 126, 33, 0.12)) !important;
+        border-color: rgba(255, 126, 33, 0.5) !important;
+        transform: translateX(-4px);
+    }
+
+    .chat-back-btn svg {
+        width: 18px !important;
+        height: 18px !important;
+        stroke-width: 2.5 !important;
+        color: var(--accent);
     }
 
     .sourceCard {
@@ -2975,4 +3397,471 @@ input:checked+.slider:before {
     .filterControls select, .searchBox input { min-height: 44px; }
     .tableSelect { min-height: 36px; font-size: 13px; }
     .switch { transform: scale(1.1); }
+}
+
+/* ─── Phase 3 Custom Refactoring Styles ─── */
+@media (min-width: 769px) {
+    .mobile-only {
+        display: none !important;
+    }
+}
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+.responsiveCardsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.mobileCard {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.mobileCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+}
+
+.mobileCardTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.mobileCardBadge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.mobileCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--text-main);
+}
+
+.mobileCardField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mobileCardLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.mobileCardValue {
+    color: #f8fafc;
+}
+
+.mobileCardDetails {
+    background: rgba(7, 9, 14, 0.6);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    margin-top: 4px;
+}
+
+.mobileCardActions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 6px;
+}
+
+/* Modal Styling */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 20px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modalContent {
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 650px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 19px;
+    color: #fff;
+}
+
+.modalCloseBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.modalCloseBtn:hover {
+    color: var(--danger);
+}
+
+.modalBody {
+    padding: 24px;
+}
+
+/* Collapsible Settings Group styling */
+.advancedToggleBtn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 126, 33, 0.3);
+    color: var(--accent);
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13.5px;
+    margin: 16px 0;
+    transition: all 0.2s;
+}
+
+.advancedToggleBtn:hover {
+    background: rgba(255, 126, 33, 0.05);
+}
+
+.advancedSettingsPanel {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    animation: fadeIn 0.25s ease-out;
+}
+
+/* ─── Form Input Focus Glow ─── */
+.settingsForm input:focus,
+.settingsForm textarea:focus,
+.settingsForm select:focus,
+.customTable select:focus,
+.tableSelect:focus {
+    outline: none !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(255, 126, 33, 0.25) !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* ==========================================================================
+   Phase 6: Standardized Design System & Animation Polish
+   ========================================================================== */
+
+/* Motion tokens */
+:root {
+    --transition-premium: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-fast: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Global Transition Standardizations */
+.primaryBtn,
+.secondaryBtn,
+.settingsSubNav button,
+.knowledgeTabBtn,
+.sidebarBtn,
+.mobileCard,
+.sourceCard,
+.tableSelect,
+input,
+textarea,
+select {
+    transition: var(--transition-premium) !important;
+}
+
+/* Typography Consistency */
+h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin-top: 0;
+}
+
+h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+
+h3 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* Standardized Button Sizing & Touch Targets */
+.primaryBtn,
+.secondaryBtn {
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .primaryBtn,
+    .secondaryBtn,
+    .sidebarBtn,
+    .knowledgeTabBtn {
+        min-height: 44px !important; /* Mobile friendly touch targets */
+        font-size: 13px !important;
+    }
+
+    /* Master-Detail mobile viewport toggles for Real-time chat monitor */
+    .chatsLayout.mobile-list .conversationPanel {
+        display: none !important;
+    }
+    .chatsLayout.mobile-chat .threadsPanel {
+        display: none !important;
+    }
+    .chatsLayout.mobile-chat .conversationPanel {
+        display: flex !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100vh - 180px) !important;
+    }
+}
+
+/* Side-by-side search and filters alignment on small viewports */
+@media (max-width: 576px) {
+    .filterRow {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-bottom: 16px !important;
+        width: 100% !important;
+    }
+    .searchBox {
+        flex: 3 !important;
+        width: auto !important;
+    }
+    .filterControls {
+        flex: 2 !important;
+        width: auto !important;
+        display: flex !important;
+    }
+    .filterControls select {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 12px !important;
+        padding: 8px 10px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+    }
+    .searchBox input {
+        font-size: 12px !important;
+        padding: 8px 10px 8px 32px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+    }
+    .searchBoxIcon {
+        left: 10px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* Prevent horizontal overflow on mobile viewports by collapsing inline grids */
+@media (max-width: 768px) {
+    div[style*="grid-template-columns"],
+    div[style*="gridTemplateColumns"] {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    /* settings sub tab navigation horizontal scrolling */
+    .settingsSubNav {
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px !important;
+    }
+    .settingsSubNav button {
+        flex: 0 0 auto !important;
+    }
+
+    /* Keep live widget mockup previews inside the viewport boundaries */
+    .previewWidgetMock,
+    .mockLauncherPreview {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+}
+
+/* ─── Premium Refresh Button & Spinning Animation ─── */
+.refreshBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.refreshBtn:hover .refreshIcon {
+    transform: rotate(180deg);
+}
+.refreshIcon.spinning {
+    animation: premiumSpin 1s linear infinite !important;
+}
+@keyframes premiumSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@media (max-width: 768px) {
+    .refreshBtn {
+        width: 38px;
+        height: 38px;
+        padding: 0 !important;
+        border-radius: 10px !important;
+        min-height: 38px !important;
+    }
+}
+
+/* ─── Premium Logout Button Styles ─── */
+.logoutBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 11px 16px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1.5px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    font-weight: 600;
+    font-size: 13.5px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05);
+}
+.logoutBtn:hover, .logoutBtn:active {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+    transform: translateY(-1px);
+}
+
+/* ─── Global Dropdown Option Text Visibility Fix ─── */
+select option {
+    background-color: #0c101b !important;
+    color: #f8fafc !important;
+}
+
+/* ─── Premium File Upload Selector Container ─── */
+.fileUploadContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: linear-gradient(135deg, rgba(13, 18, 30, 0.9), rgba(13, 18, 30, 0.6));
+    border: 1.5px dashed rgba(255, 126, 33, 0.3);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    width: 100%;
+}
+.fileUploadContainer:hover {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(13, 18, 30, 0.95), rgba(13, 18, 30, 0.85));
+    box-shadow: 0 0 16px rgba(255, 126, 33, 0.1);
+}
+.fileUploadTitle {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+.fileUploadSub {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ─── Premium Form Submit Button ─── */
+.formSubmitBtn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 16px;
+    padding: 14px 24px !important;
+    font-size: 14px !important;
+    letter-spacing: 0.08em;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 24px rgba(255, 126, 33, 0.35) !important;
+    gap: 10px !important;
+}
+.formSubmitBtn:hover {
+    box-shadow: 0 8px 32px rgba(255, 126, 33, 0.55) !important;
+    transform: translateY(-2px) !important;
+}
+.formSubmitBtn svg {
+    flex-shrink: 0;
 }

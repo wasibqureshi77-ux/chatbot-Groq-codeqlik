@@ -1,20 +1,41 @@
+# API server
 fastapi
 uvicorn
+python-multipart
+pydantic
 python-dotenv
-pymongo
-langgraph
-langchain-core
-langchain-groq
-groq
-typing-extensions
+
+# Auth and security
+bcrypt
 passlib[bcrypt]
 python-jose[cryptography]
-python-multipart
+
+# MongoDB
+pymongo[srv]
+dnspython
+
+# LLM / LangChain / tracing
+groq
+langchain-core
+langchain-groq
+langgraph
+langsmith
+typing-extensions
+
+# RAG, embeddings, and retrieval
+sentence-transformers
+numpy
+scikit-learn
+rank-bm25
+
+# Document and source ingestion
 pypdf
 python-docx
 openpyxl
-scikit-learn
-numpy
-rank_bm25
-sentence-transformers
+beautifulsoup4
 bs4
+
+# Optional database knowledge-source connectors
+psycopg2-binary
+pymysql
+pyodbc

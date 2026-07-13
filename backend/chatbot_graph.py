@@ -4335,6 +4335,7 @@ def response_generator_node(state: ChatState) -> dict:
     retrieved_context = state.get("retrieved_context") or state.get("company_context") or ""
     rag_confidence = state.get("rag_confidence", 0.0) or 0.0
     rag_sources = state.get("rag_sources", []) or []
+    needs_company_context = bool(state.get("needs_company_context", False))
     conversation_summary = state.get("conversation_summary", "") or ""
     qualified = state.get("qualified", False)
     is_field_answer = state.get("is_field_answer", False)
@@ -4940,10 +4941,25 @@ Rules:
         )
         return _save_and_return(response, rag_confidence)
 
-    # Optional RAG lookup: Always try retrieving context to utilize knowledge base if match score >= 10%
-    if (
+    # Optional RAG lookup: use the knowledge base for company/service/project
+    # turns, but skip plain field answers so retrieval cannot pollute collection.
+    should_retrieve_context = (
         not retrieved_context
-    ):
+        and primary_intent != "unrelated_query"
+        and not is_small_talk(user_text)
+        and not is_hard_unrelated_or_unsafe(user_text)
+        and (
+            needs_company_context
+            or is_info_question
+            or is_saved_context_followup
+            or has_extra_question_after_field(user_text)
+            or (
+                primary_intent in {"client_lead", "customer_support", "hiring_support"}
+                and not is_field_answer
+            )
+        )
+    )
+    if should_retrieve_context:
         try:
             details = retrieve_company_context_details(user_text, intent=primary_intent)
             retrieved_context = details.get("context_text", "") or ""
@@ -4960,7 +4976,11 @@ Rules:
     except Exception:
         rag_confidence_float = 0.0
 
-    if rag_confidence_float < 0.10:
+    try:
+        minimum_response_rag_confidence = float(os.getenv("RAG_RESPONSE_MIN_CONFIDENCE", "0.10"))
+    except Exception:
+        minimum_response_rag_confidence = 0.10
+    if rag_confidence_float < minimum_response_rag_confidence:
         retrieved_context = ""
 
     print("User question:", current_question)
@@ -5034,7 +5054,7 @@ Your responses should feel:
 
 {prompt_response_feel}
 
-When greeting the user, you can use examples like: {prompt_greeting_examples}.
+When greeting the user, you can use examples like: Hello!, Hi there!, Greetings! .
 
 ## Response Priority
 
@@ -5195,12 +5215,7 @@ For greetings, thanks, or light conversation:
 
 Examples:
 
-User: “Hi”
-Assistant: “Hey! Good to have you here. What would you like to know about {company_name}?”
-
-User: “Thanks”
-Assistant: “You’re welcome! Let me know whenever you’re ready to continue.”
-
+{prompt_greeting_examples}
 ## Avoid Robotic Language
 
 Do not use repetitive or generic lines such as:

@@ -11,9 +11,15 @@ import shutil
 import logging
 import time
 import threading
+import sys
 from collections import defaultdict
 from jose import jwt, JWTError
 import bcrypt
+
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from widget_suggestions import WidgetSuggestionRequest, generate_widget_suggestions
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/login")
@@ -224,6 +230,21 @@ class SettingsUpdate(BaseModel):
     footerText: Optional[str] = None
     suggestions: Optional[List[str]] = None
     storage: Optional[str] = None
+    prompt_nature: Optional[str] = None
+    promptNature: Optional[str] = None
+    prompt_response_feel: Optional[str] = None
+    promptResponseFeel: Optional[str] = None
+    prompt_greeting_examples: Optional[str] = None
+    promptGreetingExamples: Optional[str] = None
+    launcherCardLabel: Optional[str] = None
+    launcherCardTitle: Optional[str] = None
+    launcherCardDescription: Optional[str] = None
+    launcherCardCTA: Optional[str] = None
+    launcherCardBackground: Optional[str] = None
+    launcherCardTextColor: Optional[str] = None
+    launcherCardAccentColor: Optional[str] = None
+    launcherIconWhite: Optional[bool] = None
+    launcherIconSize: Optional[float] = None
 
 
 
@@ -450,7 +471,10 @@ def get_public_settings(response: Response):
         "launcherIcon", "launcherSize", "launcherText", "showLauncherGreeting", "launcherGreeting", "launcherGreetingColor", "launcherGreetingFontSize",
         "launcherGreetingBgStart", "launcherGreetingBgEnd", "launcherGreetingWidth", "launcherGreetingBorderRadius",
         "launcherGreetingOffsetX", "launcherGreetingOffsetY", "showNewChat", "footerText",
-        "suggestions", "storage"
+        "suggestions", "storage",
+        "launcherCardLabel", "launcherCardTitle", "launcherCardDescription", "launcherCardCTA",
+        "launcherCardBackground", "launcherCardTextColor", "launcherCardAccentColor",
+        "launcherIconWhite", "launcherIconSize"
     ]
     # Build safe settings dictionary
     return {k: settings.get(k, DEFAULT_SETTINGS.get(k)) for k in safe_keys}
@@ -957,12 +981,15 @@ def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)
     if "primaryColor" in data:
         if not re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", data["primaryColor"]):
             raise HTTPException(status_code=400, detail="primaryColor must be a valid hex color like #ff7e21")
-    for color_key in ["launcherGreetingColor", "launcherGreetingBgStart", "launcherGreetingBgEnd"]:
+    for color_key in ["launcherGreetingColor", "launcherGreetingBgStart", "launcherGreetingBgEnd", "launcherCardTextColor", "launcherCardAccentColor"]:
         if data.get(color_key):
             if not re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", data[color_key]):
                 raise HTTPException(status_code=400, detail=f"{color_key} must be a valid hex color like #ff7e21")
+    if "launcherCardBackground" in data and data["launcherCardBackground"] not in ["glassmorphism", "gradient", "dark", "light"]:
+        raise HTTPException(status_code=400, detail="launcherCardBackground must be 'glassmorphism', 'gradient', 'dark', or 'light'")
     numeric_ranges = {
         "launcherSize": (44, 96),
+        "launcherIconSize": (14, 80),
         "launcherGreetingFontSize": (7, 18),
         "launcherGreetingWidth": (72, 180),
         "launcherGreetingBorderRadius": (6, 40),
@@ -978,6 +1005,8 @@ def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)
         raise HTTPException(status_code=400, detail="showNewChat must be a boolean")
     if "showLauncherGreeting" in data and not isinstance(data["showLauncherGreeting"], bool):
         raise HTTPException(status_code=400, detail="showLauncherGreeting must be a boolean")
+    if "launcherIconWhite" in data and not isinstance(data["launcherIconWhite"], bool):
+        raise HTTPException(status_code=400, detail="launcherIconWhite must be a boolean")
     if "suggestions" in data:
         if not isinstance(data["suggestions"], list) or not all(isinstance(x, str) for x in data["suggestions"]):
             raise HTTPException(status_code=400, detail="suggestions must be an array of strings")
@@ -1607,7 +1636,7 @@ def create_database_source(payload: DatabaseConnectionRequest, admin: str = Depe
 def create_website_source(payload: WebsiteSourceRequest, admin: str = Depends(require_admin)):
     tags_list = [t.strip() for t in payload.tags.split(",") if t.strip()] if payload.tags else []
 
-    from rag.source_manager import process_website_source, build_website_content
+    from rag.source_manager import process_and_chunk_source, build_website_content
     formatted_content = build_website_content(payload.url)
 
     source_doc = {
@@ -1627,9 +1656,11 @@ def create_website_source(payload: WebsiteSourceRequest, admin: str = Depends(re
     res = sources_collection.insert_one(source_doc)
     source_id = str(res.inserted_id)
 
-    num_chunks = process_website_source(
-        source_id=source_id,
-        url=payload.url,
+    num_chunks = process_and_chunk_source(
+        source_id,
+        payload.url,
+        "website",
+        formatted_content,
         intent_scope=payload.intent_scope,
         topic=payload.topic,
         service=payload.service,
@@ -1700,10 +1731,17 @@ def reindex_knowledge_source(id: str, admin: str = Depends(require_admin)):
             tags=tags
         )
     elif t == "website":
-        num_chunks = process_website_source(
-            id, current.get("url"),
-            intent_scope=intent_scope, topic=topic, service=service, tags=tags
-        )
+        website_content = current.get("content")
+        if website_content:
+            num_chunks = process_and_chunk_source(
+                id, current.get("url"), "website", website_content,
+                intent_scope=intent_scope, topic=topic, service=service, tags=tags
+            )
+        else:
+            num_chunks = process_website_source(
+                id, current.get("url"),
+                intent_scope=intent_scope, topic=topic, service=service, tags=tags
+            )
     elif t == "document":
         title = current.get("title", "")
         ext = os.path.splitext(title)[1].lower().replace(".", "") or "txt"
