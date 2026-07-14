@@ -213,6 +213,8 @@ function Chatbot() {
         flexDirection: "column"
     };
     const headerStyle = {
+        position: "relative",
+        overflow: "hidden",
         background: isDark ? "#0f1013" : (settings.primaryColor || "#ff7e21"),
         borderBottom: `2px solid ${settings.primaryColor || "#ff7e21"}`,
         padding: "16px 24px",
@@ -328,11 +330,25 @@ function Chatbot() {
                 <div className="chatPanelContainer">
                     <div className="chatBox" style={chatBoxStyle}>
                         <div className="chatHeader" style={headerStyle}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                            {isDark && (
+                                <div style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    bottom: 0,
+                                    width: "120px",
+                                    background: `linear-gradient(135deg, ${settings.primaryColor || "#ff8c3a"} 0%, #e65c00 100%)`,
+                                    clipPath: "polygon(0 0, 102px 0, 120px 50%, 102px 100%, 0 100%)",
+                                    filter: "drop-shadow(3px 0 6px rgba(0, 0, 0, 0.35))",
+                                    zIndex: 1,
+                                    pointerEvents: "none"
+                                }} />
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: "14px", position: "relative", zIndex: 2 }}>
                                 <Link to="/" style={{ color: "#94a3b8", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "all 0.2s" }} className="chat-back-btn">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                                 </Link>
-                                <div className="chatAvatar botAvatar" style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", margin: 0, border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
+                                <div className="chatAvatar botAvatar" style={{ width: "36px", height: "36px", background: isDark ? "#000000" : "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", margin: 0, border: isDark ? "2px solid #0f1013" : "1px solid rgba(0, 0, 0, 0.08)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 2 }}>
                                     {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
                                         <img
                                             src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)}
@@ -343,18 +359,18 @@ function Chatbot() {
                                         settings.botAvatar || "CQ"
                                     )}
                                 </div>
-                                <div style={{ textAlign: "left" }}>
+                                <div style={{ textAlign: "left", paddingLeft: "8px" }}>
                                     <h2 style={headerTitleStyle}>{settings.title || "CodeQlik Assistant"}</h2>
                                     <p style={headerSubtitleStyle}>{settings.subtitle || "SaaS Support Channel"}</p>
                                 </div>
                             </div>
-                            <div className="chatHeaderRight" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div className="chatHeaderRight" style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 2 }}>
                                 <div className="statusIndicator" style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--success)" }}>
                                     <span className="statusDot" style={{ background: "var(--success)", boxShadow: "0 0 8px var(--success)" }}></span>
                                     <span>Online</span>
                                 </div>
                                 {settings.showNewChat !== false && (
-                                    <button className="resetChatBtn" onClick={resetChat} style={{ background: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(255, 255, 255, 0.08)", color: "#ffffff", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" }}>
+                                    <button className="resetChatBtn" onClick={resetChat} style={{ background: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(255, 255, 255, 0.08)", color: "#ffffff", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", cursor: "pointer", position: "relative", zIndex: 2 }}>
                                         Clear Chat
                                     </button>
                                 )}

@@ -382,13 +382,13 @@
             max-height: calc(100dvh - 50px);
             border-radius: 999px;
             border: none;
-            background: linear-gradient(135deg, #ff7e21 0%, #ff477e 100%) !important;
+            background: linear-gradient(135deg, ${primary} 0%, ${primary}bb 100%) !important;
             color: #fff;
             font-size: 22px;
             cursor: pointer;
             z-index: 2147483647 !important;
             padding: 0;
-            box-shadow: 0 10px 25px rgba(255, 71, 126, 0.4), 0 4px 10px rgba(15, 23, 42, 0.12) !important;
+            box-shadow: 0 10px 25px ${primary}60, 0 4px 10px rgba(15, 23, 42, 0.12) !important;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -419,7 +419,7 @@
           }
           #cq-btn:hover {
             transform: scale(1.08) translateY(-2px);
-            box-shadow: 0 18px 40px rgba(255, 71, 126, 0.55), 0 8px 18px rgba(15, 23, 42, 0.18) !important;
+            box-shadow: 0 18px 40px ${primary}80, 0 8px 18px rgba(15, 23, 42, 0.18) !important;
           }
 
           /* CodeQlik AI Signal Welcome Card styling */
@@ -1113,6 +1113,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            overscroll-behavior: contain;
             z-index: 2147483647 !important;
             font-family: system-ui, -apple-system, sans-serif;
             
@@ -1131,6 +1132,7 @@
           }
 
           #cq-head {
+            position: relative;
             background: ${isDark ? "#0f1013" : headBg} !important;
             color: ${headText};
             padding: 18px;
@@ -1138,22 +1140,38 @@
             align-items: center;
             gap: 12px;
             border-bottom: 2px solid ${isDark ? primary : "rgba(0, 0, 0, 0.08)"} !important;
+            overflow: hidden;
+          }
+          #cq-head::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 72px;
+            background: ${isDark ? `linear-gradient(135deg, #ff8c3a 0%, #e65c00 100%)` : "transparent"} !important;
+            clip-path: ${isDark ? "polygon(0 0, 56px 0, 72px 50%, 56px 100%, 0 100%)" : "none"} !important;
+            filter: ${isDark ? "drop-shadow(3px 0 6px rgba(0, 0, 0, 0.35))" : "none"} !important;
+            z-index: 1;
+            pointer-events: none;
           }
           #cq-logo {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.1)"} !important;
+            background: ${isDark ? "#000000" : "rgba(255, 255, 255, 0.1)"} !important;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             font-weight: 700;
             color: ${primary} !important;
-            border: 1.5px solid ${isDark ? primary : "rgba(0, 0, 0, 0.05)"} !important;
+            border: ${isDark ? "2px solid #0f1013" : "1.5px solid rgba(0, 0, 0, 0.05)"} !important;
+            position: relative;
+            z-index: 2;
           }
           #cq-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-          #cq-title-container { flex: 1; }
+          #cq-title-container { flex: 1; position: relative; z-index: 2; margin-left: 8px !important; }
           #cq-title {
             font-weight: 800;
             font-size: 16px;
@@ -1191,6 +1209,8 @@
             letter-spacing: 0.5px;
             text-transform: uppercase;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            z-index: 2;
           }
           #cq-new:hover {
             background: ${isDark ? "rgba(255, 126, 33, 0.15)" : "rgba(255, 255, 255, 0.25)"} !important;
@@ -1209,6 +1229,7 @@
             flex-direction: column;
             gap: 12px;
             min-height: 0;
+            overscroll-behavior: contain;
           }
           .cq-msg-row {
             display: flex;
@@ -1494,6 +1515,8 @@
             transition: all 0.2s;
             flex-shrink: 0;
             border-radius: 6px;
+            position: relative;
+            z-index: 2;
           }
           #cq-close:hover {
             opacity: 1;
@@ -1515,20 +1538,7 @@
             }
           }
 
-          @media (max-width: 576px), (max-height: 576px) {
-            #cq-box {
-              width: 100vw !important;
-              max-width: 100vw !important;
-              height: 100dvh !important;
-              max-height: 100dvh !important;
-              min-width: 0 !important;
-              min-height: 0 !important;
-              bottom: 0 !important;
-              right: 0 !important;
-              left: 0 !important;
-              border-radius: 0 !important;
-              border: none !important;
-            }
+          @media (max-width: 576px) {
             #cq-btn {
               bottom: calc(14px + env(safe-area-inset-bottom)) !important;
               ${right ? "right: 14px !important;" : "left: 14px !important;"}
