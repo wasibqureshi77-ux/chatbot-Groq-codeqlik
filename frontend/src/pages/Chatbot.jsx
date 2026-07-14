@@ -6,7 +6,7 @@ const CHAT_API = "/api/chat";
 
 function formatMessageText(text) {
     if (!text) return "";
-    
+
     let formatted = text
         .replace(/\u2011/g, "-")
         .replace(/\u202f/g, " ")
@@ -16,7 +16,7 @@ function formatMessageText(text) {
 
     return paragraphs.map((para, paraIdx) => {
         const lines = para.split("\n");
-        
+
         return (
             <div key={paraIdx} style={{ marginBottom: "12px" }}>
                 {lines.map((line, lineIdx) => {
@@ -30,9 +30,9 @@ function formatMessageText(text) {
                     });
 
                     return (
-                        <div 
-                            key={lineIdx} 
-                            style={{ 
+                        <div
+                            key={lineIdx}
+                            style={{
                                 paddingLeft: isListItem ? "20px" : "0px",
                                 textIndent: isListItem ? "-20px" : "0px",
                                 marginBottom: "4px"
@@ -102,7 +102,7 @@ function Chatbot() {
             {
                 sender: "bot",
                 text: settings.welcomeMessage,
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
         ]);
     }, [threadId, settings.welcomeMessage]);
@@ -124,7 +124,7 @@ function Chatbot() {
             {
                 sender: "bot",
                 text: settings.welcomeMessage,
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
         ]);
     }
@@ -136,10 +136,10 @@ function Chatbot() {
         setFixedOptions([]);
         setMessages((prev) => [
             ...prev,
-            { 
-                sender: "user", 
-                text: userMessage, 
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+            {
+                sender: "user",
+                text: userMessage,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
         ]);
 
@@ -171,7 +171,7 @@ function Chatbot() {
                     sender: "bot",
                     text: data.reply || data.response || data.message || "Sorry, I could not process that.",
                     options: nextFixedOptions,
-                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }
             ]);
             setFixedOptions(nextFixedOptions);
@@ -182,7 +182,7 @@ function Chatbot() {
                 {
                     sender: "bot",
                     text: "Backend connection error. Please verify the API server is online.",
-                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }
             ]);
         }
@@ -193,7 +193,7 @@ function Chatbot() {
     const isDark = settings.theme === "dark";
 
     const chatbotStyle = {
-        background: isDark ? "#06080d" : "#f1f5f9",
+        background: isDark ? "linear-gradient(180deg, #060608 0%, #0c0c0f 100%)" : "#f1f5f9",
         fontFamily: "'Inter', sans-serif",
         height: "100vh",
         display: "flex",
@@ -201,10 +201,10 @@ function Chatbot() {
         justifyContent: "center"
     };
     const chatBoxStyle = {
-        background: isDark ? "#080c12" : "#ffffff",
-        border: isDark ? `1px solid ${settings.primaryColor || "#ff7e21"}26` : "1px solid rgba(0, 0, 0, 0.08)",
+        background: isDark ? "#08080a" : "#ffffff",
+        border: isDark ? `1px solid ${(settings.primaryColor || "#ff7e21")}` : "1px solid rgba(0, 0, 0, 0.08)",
         borderRadius: "16px",
-        boxShadow: isDark ? "0 8px 32px rgba(0, 0, 0, 0.55)" : "0 8px 32px rgba(0, 0, 0, 0.08)",
+        boxShadow: isDark ? `0 0 0 1px ${(settings.primaryColor || "#ff7e21")}, 0 0 30px ${(settings.primaryColor || "#ff7e21")}60, 0 20px 50px rgba(0, 0, 0, 0.9)` : "0 8px 32px rgba(0, 0, 0, 0.08)",
         overflow: "hidden",
         maxWidth: "1150px",
         width: "95%",
@@ -213,7 +213,7 @@ function Chatbot() {
         flexDirection: "column"
     };
     const headerStyle = {
-        background: isDark ? "#0b0f19" : (settings.primaryColor || "#ff7e21"),
+        background: isDark ? "#0f1013" : (settings.primaryColor || "#ff7e21"),
         borderBottom: `2px solid ${settings.primaryColor || "#ff7e21"}`,
         padding: "16px 24px",
         display: "flex",
@@ -228,12 +228,12 @@ function Chatbot() {
         margin: 0
     };
     const headerSubtitleStyle = {
-        color: isDark ? "#94a3b8" : "rgba(255, 255, 255, 0.85)",
+        color: isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.85)",
         fontSize: "12px",
         margin: "2px 0 0"
     };
     const messagesStyle = {
-        background: isDark ? "#090e16" : "#f8fafc",
+        background: isDark ? "#0c0c0e" : "#f8fafc",
         flex: 1,
         padding: "24px",
         overflowY: "auto",
@@ -242,15 +242,15 @@ function Chatbot() {
         gap: "16px"
     };
     const inputAreaStyle = {
-        background: isDark ? "#080c14" : "#ffffff",
-        borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.04)" : "1px solid rgba(0, 0, 0, 0.08)",
+        background: isDark ? "#0f0f12" : "#ffffff",
+        borderTop: isDark ? "1px solid rgba(255, 126, 33, 0.15)" : "1px solid rgba(0, 0, 0, 0.08)",
         padding: "16px 24px",
         display: "flex",
         gap: "12px"
     };
     const inputStyle = {
         background: isDark ? "rgba(255, 255, 255, 0.02)" : "#f8fafc",
-        border: isDark ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid rgba(0, 0, 0, 0.08)",
+        border: isDark ? "1px solid rgba(255, 126, 33, 0.25)" : "1px solid rgba(0, 0, 0, 0.08)",
         borderRadius: "8px",
         padding: "12px 16px",
         color: isDark ? "#ffffff" : "#0f172a",
@@ -265,8 +265,8 @@ function Chatbot() {
         marginTop: "12px"
     };
     const fixedOptionButtonStyle = {
-        border: `1px solid ${settings.primaryColor || "#d96216"}`,
-        background: "rgba(217, 98, 22, 0.12)",
+        border: `1px solid ${settings.primaryColor || "#ff7e21"}`,
+        background: isDark ? "rgba(255, 126, 33, 0.08)" : "rgba(217, 98, 22, 0.12)",
         color: "#ffffff",
         borderRadius: "8px",
         padding: "8px 14px",
@@ -286,9 +286,9 @@ function Chatbot() {
         transition: "background 0.2s"
     };
     const botBubbleStyle = {
-        background: isDark ? "rgba(255, 255, 255, 0.03)" : "#f1f5f9",
+        background: isDark ? "rgba(255, 126, 33, 0.06)" : "#f1f5f9",
         color: isDark ? "#f8fafc" : "#0f172a",
-        border: isDark ? `1px solid ${settings.primaryColor || "#ff7e21"}22` : "1px solid rgba(0, 0, 0, 0.04)",
+        border: isDark ? `1px solid rgba(255, 126, 33, 0.2)` : "1px solid rgba(0, 0, 0, 0.04)",
         borderRadius: "12px",
         padding: "12px 16px",
         fontSize: "14px",
@@ -312,13 +312,14 @@ function Chatbot() {
         boxShadow: "none"
     };
     const userBubbleStyle = {
-        background: settings.primaryColor || "#d96216",
+        background: isDark ? `linear-gradient(135deg, ${settings.primaryColor || "#ff8c3a"} 0%, #e65c00 100%)` : (settings.primaryColor || "#d96216"),
         color: "#ffffff",
         borderRadius: "12px",
         padding: "12px 16px",
         fontSize: "14px",
         maxWidth: "70%",
-        lineHeight: "1.5"
+        lineHeight: "1.5",
+        boxShadow: isDark ? "0 4px 12px rgba(255, 126, 33, 0.2)" : "none"
     };
 
     return (
@@ -333,10 +334,10 @@ function Chatbot() {
                                 </Link>
                                 <div className="chatAvatar botAvatar" style={{ width: "32px", height: "32px", background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", margin: 0, border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
                                     {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
-                                        <img 
-                                            src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
-                                            alt="Bot" 
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                        <img
+                                            src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)}
+                                            alt="Bot"
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                         />
                                     ) : (
                                         settings.botAvatar || "CQ"
@@ -369,10 +370,10 @@ function Chatbot() {
                                     {msg.sender === "bot" && (
                                         <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
                                             {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
-                                                <img 
-                                                    src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
-                                                    alt="Bot" 
-                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                                <img
+                                                    src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)}
+                                                    alt="Bot"
+                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                 />
                                             ) : (
                                                 settings.botAvatar || "CQ"
@@ -407,7 +408,7 @@ function Chatbot() {
                                             </div>
                                         )}
                                         <div className="messageTime" style={{ color: msg.sender === "user" ? "rgba(255, 255, 255, 0.7)" : "var(--text-muted)" }}>
-                                            {msg.timestamp || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            {msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
                                     {msg.sender === "user" && <div className="chatAvatar userAvatar">U</div>}
@@ -418,10 +419,10 @@ function Chatbot() {
                                 <div className="messageRow botRow">
                                     <div className="chatAvatar botAvatar" style={{ background: "rgba(255, 255, 255, 0.1)", color: "#ffffff", overflow: "hidden", border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.08)" }}>
                                         {(isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)) ? (
-                                            <img 
-                                                src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)} 
-                                                alt="Bot" 
-                                                style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                                            <img
+                                                src={isDark ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrlLight || settings.logoUrl)}
+                                                alt="Bot"
+                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                             />
                                         ) : (
                                             settings.botAvatar || "CQ"
@@ -441,22 +442,22 @@ function Chatbot() {
                         </div>
 
                         {settings.suggestions && settings.suggestions.length > 0 && !loading && fixedOptions.length === 0 && (
-                            <div 
-                                className="chatSuggestions" 
-                                style={{ 
-                                    display: "flex", 
-                                    gap: "8px", 
-                                    overflowX: "auto", 
-                                    padding: "10px 24px", 
-                                    background: "#0b0f19", 
+                            <div
+                                className="chatSuggestions"
+                                style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    overflowX: "auto",
+                                    padding: "10px 24px",
+                                    background: "#0b0f19",
                                     borderTop: "1px solid rgba(255, 255, 255, 0.05)",
                                     scrollbarWidth: "none",
                                     msOverflowStyle: "none"
                                 }}
                             >
                                 {settings.suggestions.map((suggestion, idx) => (
-                                    <button 
-                                        key={idx} 
+                                    <button
+                                        key={idx}
                                         onClick={() => {
                                             setInput(suggestion);
                                         }}
@@ -495,9 +496,9 @@ function Chatbot() {
                                     cursor: loading ? "not-allowed" : "text"
                                 }}
                             />
-                            <button 
-                                onClick={sendMessage} 
-                                disabled={loading || input.trim() === ""} 
+                            <button
+                                onClick={sendMessage}
+                                disabled={loading || input.trim() === ""}
                                 style={{
                                     ...buttonStyle,
                                     background: settings.primaryColor || "#d96216",
@@ -511,7 +512,7 @@ function Chatbot() {
                                 title="Send message"
                             >
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                                 </svg>
                             </button>
                         </div>

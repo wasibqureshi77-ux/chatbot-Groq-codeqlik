@@ -214,12 +214,12 @@
         : (cfg.logoUrlLight || cfg.logoUrl || DEFAULT_LOGO_LIGHT);
       const activeLogo = resolveAssetUrl(configuredLogo) || fallbackLogo;
 
-      const bg = isDark ? "linear-gradient(180deg, #0d0a1b 0%, #06050a 100%)" : "rgba(255, 255, 255, 0.98)";
+      const bg = isDark ? "linear-gradient(180deg, #08080a 0%, #0f0f12 100%)" : "rgba(255, 255, 255, 0.98)";
       const text = isDark ? "#f3f4f6" : "#111827";
-      const botBg = isDark ? "rgba(255, 255, 255, 0.06)" : "#f3f4f6";
-      const userBg = isDark ? "linear-gradient(135deg, #ff7e21 0%, #ff477e 100%)" : primary;
-      const borderColor = isDark ? "rgba(255, 126, 33, 0.25)" : "rgba(0, 0, 0, 0.08)";
-      const headBg = isDark ? "rgba(255, 255, 255, 0.02)" : primary;
+      const botBg = isDark ? "rgba(255, 126, 33, 0.06)" : "#f3f4f6";
+      const userBg = isDark ? "linear-gradient(135deg, #ff8c3a 0%, #e65c00 100%)" : primary;
+      const borderColor = isDark ? "rgba(255, 126, 33, 0.2)" : "rgba(0, 0, 0, 0.08)";
+      const headBg = isDark ? "linear-gradient(90deg, #0f0f12 0%, #151519 100%)" : primary;
       const headText = "#ffffff";
 
       function renderLogoImage(altText = "CodeQlik logo") {
@@ -436,15 +436,14 @@
             z-index: 2147483646 !important;
             cursor: pointer;
             
-            background: ${
-              cardBgMode === "gradient" 
-                ? `linear-gradient(135deg, ${cardAccentColor}dd 0%, #ff477edd 100%)`
-                : cardBgMode === "dark"
-                ? "#0f172a"
-                : cardBgMode === "light"
-                ? "#ffffff"
-                : "linear-gradient(135deg, rgba(7, 9, 13, 0.96), rgba(14, 17, 23, 0.94))"
-            } !important;
+            background: ${cardBgMode === "gradient"
+          ? `linear-gradient(135deg, ${cardAccentColor}dd 0%, #ff477edd 100%)`
+          : cardBgMode === "dark"
+            ? "#0f172a"
+            : cardBgMode === "light"
+              ? "#ffffff"
+              : "linear-gradient(135deg, rgba(7, 9, 13, 0.96), rgba(14, 17, 23, 0.94))"
+        } !important;
             border: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`} !important;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55),
                         0 10px 35px ${cardAccentColor}22,
@@ -641,15 +640,14 @@
             width: 10px;
             height: 10px;
             transform: rotate(45deg);
-            background: ${
-              cardBgMode === "gradient"
-                ? cardAccentColor
-                : cardBgMode === "dark"
-                ? "#0f172a"
-                : cardBgMode === "light"
-                ? "#ffffff"
-                : "#0d0f14"
-            };
+            background: ${cardBgMode === "gradient"
+          ? cardAccentColor
+          : cardBgMode === "dark"
+            ? "#0f172a"
+            : cardBgMode === "light"
+              ? "#ffffff"
+              : "#0d0f14"
+        };
             border-right: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`};
             border-bottom: 1px solid ${cardBgMode === "light" ? "rgba(0,0,0,0.08)" : `${cardAccentColor}55`};
             z-index: 1;
@@ -1108,10 +1106,10 @@
             background: ${bg};
             color: ${text};
             border-radius: 20px;
-            border: 1px solid ${borderColor};
+            border: 1px solid ${borderColor} !important;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+            box-shadow: ${isDark ? `0 0 0 1px ${primary}, 0 0 30px ${primary}60, 0 20px 50px rgba(0, 0, 0, 0.9)` : "0 16px 48px rgba(0, 0, 0, 0.1)"} !important;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -1133,37 +1131,44 @@
           }
 
           #cq-head {
-            background: ${headBg};
+            background: ${isDark ? "#0f1013" : headBg} !important;
             color: ${headText};
             padding: 18px;
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid ${isDark ? "rgba(255, 126, 33, 0.25)" : primary};
+            border-bottom: 2px solid ${isDark ? primary : "rgba(0, 0, 0, 0.08)"} !important;
           }
           #cq-logo {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
+            background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.1)"} !important;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             font-weight: 700;
-            color: ${primary};
-            border: 1.5px solid ${isDark ? "rgba(255, 126, 33, 0.55)" : "rgba(0, 0, 0, 0.05)"};
+            color: ${primary} !important;
+            border: 1.5px solid ${isDark ? primary : "rgba(0, 0, 0, 0.05)"} !important;
           }
           #cq-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
           #cq-title-container { flex: 1; }
-          #cq-title { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+          #cq-title {
+            font-weight: 800;
+            font-size: 16px;
+            letter-spacing: -0.01em;
+            text-shadow: ${isDark ? "0 1px 3px rgba(0, 0, 0, 0.25)" : "none"};
+          }
           #cq-subtitle {
             font-size: 12px;
-            opacity: 0.85;
+            opacity: ${isDark ? "0.9" : "0.85"};
             margin-top: 2px;
             display: flex;
             align-items: center;
             gap: 5px;
+            color: ${isDark ? "#ffffff !important" : "inherit"};
+            text-shadow: ${isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "none"};
           }
           #cq-subtitle::before {
             content: "";
@@ -1172,22 +1177,26 @@
             height: 7px;
             background: #10b981;
             border-radius: 50%;
-            box-shadow: 0 0 8px #10b981;
+            box-shadow: ${isDark ? "0 0 8px #ffffff" : "0 0 8px #10b981"};
           }
           #cq-new {
-            background: rgba(255, 255, 255, 0.12);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            padding: 6px 12px;
+            background: ${isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.12)"} !important;
+            color: #fff !important;
+            border: ${isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.2)"} !important;
+            border-radius: 20px;
+            padding: 5px 14px;
             cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           }
           #cq-new:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
+            background: ${isDark ? "rgba(255, 126, 33, 0.15)" : "rgba(255, 255, 255, 0.25)"} !important;
+            border-color: ${isDark ? primary : "rgba(255, 255, 255, 0.35)"} !important;
+            color: ${isDark ? `${primary} !important` : "#fff !important"};
+            box-shadow: ${isDark ? "0 0 10px rgba(255, 126, 33, 0.25)" : "none"} !important;
           }
 
           #cq-msgs {
@@ -1338,7 +1347,7 @@
             flex-wrap: nowrap !important;
             overflow-x: auto !important;
             overflow-y: hidden !important;
-            padding: 0 16px 12px !important;
+            padding: 6px 16px 12px !important;
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
             -webkit-overflow-scrolling: touch !important;
@@ -1489,7 +1498,24 @@
           #cq-close:hover {
             opacity: 1;
             background: rgba(255, 255, 255, 0.15);
-                 @media (max-width: 576px), (max-height: 576px) {
+          }
+
+          @media (max-height: 850px) and (min-width: 577px) and (min-height: 577px) {
+            #cq-box {
+              width: 56vh !important;
+              max-width: ${cfg.width} !important;
+              min-width: 340px !important;
+            }
+          }
+          @media (max-width: 1024px) and (min-width: 577px) and (min-height: 577px) {
+            #cq-box {
+              width: 45vw !important;
+              max-width: ${cfg.width} !important;
+              min-width: 340px !important;
+            }
+          }
+
+          @media (max-width: 576px), (max-height: 576px) {
             #cq-box {
               width: 100vw !important;
               max-width: 100vw !important;
