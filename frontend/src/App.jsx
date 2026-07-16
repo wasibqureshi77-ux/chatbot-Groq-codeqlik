@@ -14,7 +14,7 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/chatbot" element={<Chatbot />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={
+                <Route path="/admin/:section" element={
                     <ProtectedRoute>
                         <Admin />
                     </ProtectedRoute>

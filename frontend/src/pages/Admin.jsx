@@ -1,6 +1,7 @@
 import { apiFetch } from "../api";
 import { useEffect, useState } from "react";
 import React from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
 const API_BASE = "/api/admin";
 // API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
@@ -37,8 +38,11 @@ function isDefaultLauncherIcon(value) {
 }
 
 function Admin() {
+    const { section } = useParams();
+    const navigate = useNavigate();
 
-    const [activeTab, setActiveTab] = useState("dashboard");
+    const allowedTabs = ["dashboard", "chats", "leads", "support", "hiring", "meetings", "knowledge", "llm-usage", "settings"];
+    const activeTab = allowedTabs.includes(section) ? section : "dashboard";
     const [loading, setLoading] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -905,31 +909,31 @@ function Admin() {
                     <p style={{ margin: 0, textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>Chatbot Admin Panel</p>
                 </div>
                 <nav className="sidebarMenu">
-                    <button className={`sidebarBtn ${activeTab === "dashboard" ? "active" : ""}`} onClick={() => { setActiveTab("dashboard"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "dashboard" ? "active" : ""}`} onClick={() => { navigate("/admin/dashboard"); setSidebarOpen(false); }}>
                         📊 Dashboard
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "chats" ? "active" : ""}`} onClick={() => { setActiveTab("chats"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "chats" ? "active" : ""}`} onClick={() => { navigate("/admin/chats"); setSidebarOpen(false); }}>
                         💬 Chats Log
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "leads" ? "active" : ""}`} onClick={() => { setActiveTab("leads"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "leads" ? "active" : ""}`} onClick={() => { navigate("/admin/leads"); setSidebarOpen(false); }}>
                         🤝 Client Leads
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "support" ? "active" : ""}`} onClick={() => { setActiveTab("support"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "support" ? "active" : ""}`} onClick={() => { navigate("/admin/support"); setSidebarOpen(false); }}>
                         🛠️ Support Tickets
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => { setActiveTab("hiring"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "hiring" ? "active" : ""}`} onClick={() => { navigate("/admin/hiring"); setSidebarOpen(false); }}>
                         💼 Hiring Candidates
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "meetings" ? "active" : ""}`} onClick={() => { setActiveTab("meetings"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "meetings" ? "active" : ""}`} onClick={() => { navigate("/admin/meetings"); setSidebarOpen(false); }}>
                         📅 Booked Meetings
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => { setActiveTab("knowledge"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "knowledge" ? "active" : ""}`} onClick={() => { navigate("/admin/knowledge"); setSidebarOpen(false); }}>
                         📚 Knowledge Sources
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "llm-usage" ? "active" : ""}`} onClick={() => { setActiveTab("llm-usage"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "llm-usage" ? "active" : ""}`} onClick={() => { navigate("/admin/llm-usage"); setSidebarOpen(false); }}>
                         📊 AI Usage
                     </button>
-                    <button className={`sidebarBtn ${activeTab === "settings" ? "active" : ""}`} onClick={() => { setActiveTab("settings"); setSidebarOpen(false); }}>
+                    <button className={`sidebarBtn ${activeTab === "settings" ? "active" : ""}`} onClick={() => { navigate("/admin/settings"); setSidebarOpen(false); }}>
                         ⚙️ Settings
                     </button>
                 </nav>
