@@ -155,14 +155,30 @@
     <p>&copy; 2026 CodeQlik. All rights reserved.</p>
   </footer>
 
-  <!-- CodeQlik Chat Widget -->
-<script src="https://chatbot.codeqlik.cloud/dist/widget.js"></script>
-<script>
-  CodeQlikChat.init({
-    apiUrl: "https://chatbot.codeqlik.cloud/api/chat",
-    settingsUrl: "https://chatbot.codeqlik.cloud/api/public/settings"
-  });
-</script>
+  <style>
+    /* Aggressive destructive styles to test Shadow DOM isolation */
+    button {
+      padding: 60px !important;
+      margin: 100px !important;
+      background: red !important;
+      font-size: 5px !important;
+      border: 10px solid purple !important;
+    }
+    div {
+      font-family: "Courier New", monospace !important;
+      color: lime !important;
+      background-color: yellow !important;
+    }
+  </style>
+
+  <!-- CodeQlik Chat Widget (Local Dev URL) -->
+  <script src="http://localhost:5173/dist/widget.js"></script>
+  <script>
+    CodeQlikChat.init({
+      apiUrl: "http://localhost:5173/api/chat",
+      settingsUrl: "http://localhost:5173/api/public/settings"
+    });
+  </script>
 
 </body>
 </html>

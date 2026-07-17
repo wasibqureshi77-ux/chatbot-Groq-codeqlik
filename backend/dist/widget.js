@@ -11,6 +11,26 @@
 
   window.CodeQlikChat = {
     async init(config = {}) {
+      if (document.getElementById("codeqlik-chat-root")) {
+        console.warn("CodeQlik Chatbot already initialized.");
+        return;
+      }
+
+      let backendOrigin = "https://chatbot.codeqlik.cloud";
+      if (config.settingsUrl) {
+        try {
+          backendOrigin = new URL(config.settingsUrl).origin;
+        } catch (e) {}
+      } else if (config.apiUrl) {
+        try {
+          backendOrigin = new URL(config.apiUrl).origin;
+        } catch (e) {}
+      } else if (scriptSrc) {
+        try {
+          backendOrigin = new URL(scriptSrc).origin;
+        } catch (e) {}
+      }
+
       // Clear session storage if URL contains reset params or if testing locally to assist development
       if (window.location.search.includes("reset") || window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
         sessionStorage.removeItem("codeqlik_card_dismissed");
@@ -151,10 +171,13 @@
       function resolveAssetUrl(value) {
         const raw = String(value || "").trim();
         if (!raw) return "";
+        if (/^(https?|data|blob):/i.test(raw)) {
+          return raw;
+        }
         try {
-          return new URL(raw, defaultOrigin).href;
+          return new URL(raw, backendOrigin).href;
         } catch (e) {
-          return "";
+          return raw;
         }
       }
 
@@ -359,8 +382,16 @@
         `;
       }
 
-      document.head.insertAdjacentHTML("beforeend", `
+      const widgetStyles = `
         <style>
+          :host {
+            all: initial;
+            display: block;
+          }
+          :host * {
+            box-sizing: border-box !important;
+            font-family: 'Inter', sans-serif !important;
+          }
           #cq-msgs::-webkit-scrollbar { width: 6px; }
           #cq-msgs::-webkit-scrollbar-track { background: transparent; }
           #cq-msgs::-webkit-scrollbar-thumb {
@@ -1680,9 +1711,18 @@
             }
           }       }
         </style>
-      `);
+      `;
 
-      document.body.insertAdjacentHTML("beforeend", `
+      let host = document.getElementById("codeqlik-chat-root");
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "codeqlik-chat-root";
+        document.body.appendChild(host);
+      }
+      const shadowRoot = host.attachShadow({ mode: "open" });
+
+      shadowRoot.innerHTML = `
+        ${widgetStyles}
         ${renderLauncherGreetingBadge()}
         <button id="cq-btn" title="${escapeAttribute(cfg.launcherGreeting || "Open chat")}" aria-label="${escapeAttribute(cfg.launcherGreeting || "Open chat")}">${renderLauncherIcon()}</button>
         <div id="cq-box">
@@ -1716,9 +1756,9 @@
           </div>
           ${cfg.footerText ? `<div id="cq-footer">${renderFooterText(cfg.footerText)}</div>` : ""}
         </div>
-      `);
+      `;
 
-      const $ = (id) => document.getElementById(id);
+      const $ = (id) => shadowRoot.getElementById(id);
       const box = $("cq-box");
       const msgs = $("cq-msgs");
       const input = $("cq-input");
@@ -1805,8 +1845,8 @@
               spark.style.cssText = `position:fixed; bottom:${bottomOffset}px; right:${rightOffset + rect.width / 2}px; z-index:2147483647;`;
               trail.style.cssText = `position:fixed; bottom:${bottomOffset}px; right:${rightOffset + rect.width / 2}px; z-index:2147483646;`;
 
-              document.body.appendChild(spark);
-              document.body.appendChild(trail);
+              shadowRoot.appendChild(spark);
+              shadowRoot.appendChild(trail);
 
               // Clean up spark/trail and reveal card (Stage 3)
               setTimeout(() => {
