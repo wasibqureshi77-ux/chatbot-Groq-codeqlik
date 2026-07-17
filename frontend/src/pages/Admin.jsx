@@ -7,8 +7,8 @@ const API_BASE = "/api/admin";
 // API_ROOT is derived from API_BASE — change API_BASE and this updates automatically
 const API_ROOT = API_BASE.replace("/api/admin", "");
 const PUBLIC_ROOT = window.location.origin;
-const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
-const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
+const DEFAULT_LOGO_LIGHT = "/api/uploads/default_logo_light.png";
+const DEFAULT_LOGO_DARK = "/api/uploads/default_logo_dark.jpeg";
 const DEFAULT_LAUNCHER_ICON = "\uD83D\uDCAC";
 const LEGACY_CODEQLIK_ASSET_URLS = new Set([
     "http://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
@@ -21,6 +21,9 @@ function normalizePublicAssetValue(value) {
     if (typeof value !== "string") return value;
     const raw = value.trim();
     if (!raw) return raw;
+    if (raw.startsWith("/uploads/")) {
+        return "/api" + raw;
+    }
     const normalized = raw.split("?")[0].replace(/\/+$/, "").toLowerCase();
     return LEGACY_CODEQLIK_ASSET_URLS.has(normalized) ? DEFAULT_LOGO_LIGHT : raw;
 }
@@ -50,6 +53,7 @@ function isImageAssetValue(value) {
     if (!raw) return false;
     return (
         raw.startsWith("/uploads/")
+        || raw.startsWith("/api/uploads/")
         || raw.startsWith("data:image/")
         || /^https?:\/\//i.test(raw)
         || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(raw)
@@ -2789,7 +2793,7 @@ function Admin() {
                                                                         type="text"
                                                                         value={settings.launcherIcon ?? DEFAULT_LAUNCHER_ICON}
                                                                         onChange={(e) => setSettings({ ...settings, launcherIcon: e.target.value })}
-                                                                        placeholder="Emoji, /uploads/icon.png, or https://example.com/icon.png"
+                                                                        placeholder="Emoji, /api/uploads/icon.png, or https://example.com/icon.png"
                                                                         style={{ flex: 1 }}
                                                                     />
                                                                     <button

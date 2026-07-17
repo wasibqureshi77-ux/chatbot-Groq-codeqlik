@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-const BRAND_LOGO = "/uploads/default_logo_light.png";
+const BRAND_LOGO = "/api/uploads/default_logo_light.png";
 
 function Home() {
     return (

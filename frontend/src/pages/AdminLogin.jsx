@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 // import "./Admin.css"; // Reuse styling for simplicity, or create AdminLogin.css
 
-const BRAND_LOGO = "/uploads/default_logo_light.png";
+const BRAND_LOGO = "/api/uploads/default_logo_light.png";
 
 export default function AdminLogin() {
     const [username, setUsername] = useState("");

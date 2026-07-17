@@ -75,8 +75,8 @@
       }
 
       const settingsUrl = config.settingsUrl || (defaultOrigin + "/api/public/settings");
-      const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
-      const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
+      const DEFAULT_LOGO_LIGHT = "/api/uploads/default_logo_light.png";
+      const DEFAULT_LOGO_DARK = "/api/uploads/default_logo_dark.jpeg";
       const LEGACY_CODEQLIK_ASSET_URLS = new Set([
         "http://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
         "https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
@@ -88,6 +88,9 @@
         if (typeof value !== "string") return value;
         const raw = value.trim();
         if (!raw) return raw;
+        if (raw.startsWith("/uploads/")) {
+          return "/api" + raw;
+        }
         const normalized = raw.split("?")[0].replace(/\/+$/, "").toLowerCase();
         return LEGACY_CODEQLIK_ASSET_URLS.has(normalized) ? DEFAULT_LOGO_LIGHT : raw;
       }
@@ -205,6 +208,7 @@
         const raw = String(normalizeAssetValue(value) || "").trim();
         if (!raw) return false;
         return raw.startsWith("/uploads/")
+          || raw.startsWith("/api/uploads/")
           || raw.startsWith("data:image/")
           || /^https?:\/\//i.test(raw)
           || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(raw);

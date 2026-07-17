@@ -160,6 +160,7 @@ def get_widget_js():
     return FileResponse(path=str(WIDGET_DIST_DIR / "widget.js"), headers=headers, media_type="application/javascript")
 
 app.mount("/dist", StaticFiles(directory=str(WIDGET_DIST_DIR)), name="dist")
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="api_uploads")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.on_event("startup")
@@ -955,7 +956,7 @@ def save_uploaded_image(file: UploadFile, prefix: str) -> dict:
     filepath = UPLOAD_DIR / filename
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    return {"url": f"/uploads/{filename}"}
+    return {"url": f"/api/uploads/{filename}"}
 
 
 @app.post("/api/admin/settings/upload-logo")
@@ -976,7 +977,7 @@ def list_uploaded_images(admin: str = Depends(require_admin)):
             if file.is_file() and file.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
                 images.append({
                     "name": file.name,
-                    "url": f"/uploads/{file.name}",
+                    "url": f"/api/uploads/{file.name}",
                     "size": file.stat().st_size,
                     "mtime": file.stat().st_mtime
                 })

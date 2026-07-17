@@ -296,9 +296,9 @@ DEFAULT_SETTINGS = {
     "position": "bottom-right",
     "width": "480px",
     "height": "680px",
-    "logoUrl": "/uploads/default_logo_light.png",
-    "logoUrlLight": "/uploads/default_logo_light.png",
-    "logoUrlDark": "/uploads/default_logo_dark.jpeg",
+    "logoUrl": "/api/uploads/default_logo_light.png",
+    "logoUrlLight": "/api/uploads/default_logo_light.png",
+    "logoUrlDark": "/api/uploads/default_logo_dark.jpeg",
     "botAvatar": "CQ",
     "launcherIcon": "\U0001F4AC",
     "launcherIconWhite": False,
@@ -335,6 +335,8 @@ def normalize_public_asset_value(value, replacement=None):
     raw = value.strip()
     if not raw:
         return raw
+    if raw.startswith("/uploads/"):
+        return "/api" + raw
     normalized = raw.split("?", 1)[0].rstrip("/").lower()
     if normalized in LEGACY_CODEQLIK_ASSET_URLS:
         return replacement or DEFAULT_SETTINGS["logoUrlLight"]
