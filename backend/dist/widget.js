@@ -77,6 +77,20 @@
       const settingsUrl = config.settingsUrl || (defaultOrigin + "/api/public/settings");
       const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
       const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
+      const LEGACY_CODEQLIK_ASSET_URLS = new Set([
+        "http://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+        "https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+        "http://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+        "https://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg"
+      ]);
+
+      function normalizeAssetValue(value) {
+        if (typeof value !== "string") return value;
+        const raw = value.trim();
+        if (!raw) return raw;
+        const normalized = raw.split("?")[0].replace(/\/+$/, "").toLowerCase();
+        return LEGACY_CODEQLIK_ASSET_URLS.has(normalized) ? DEFAULT_LOGO_LIGHT : raw;
+      }
 
       let fetchedSettings = {};
       try {
@@ -149,6 +163,12 @@
         ...config
       };
 
+      ["logoUrl", "logoUrlLight", "logoUrlDark", "launcherIcon"].forEach((keyName) => {
+        if (keyName in cfg) {
+          cfg[keyName] = normalizeAssetValue(cfg[keyName]);
+        }
+      });
+
       const store = cfg.storage === "session" ? sessionStorage : localStorage;
       const key = "codeqlik_thread_id";
 
@@ -169,7 +189,7 @@
       }
 
       function resolveAssetUrl(value) {
-        const raw = String(value || "").trim();
+        const raw = String(normalizeAssetValue(value) || "").trim();
         if (!raw) return "";
         if (/^(https?|data|blob):/i.test(raw)) {
           return raw;
@@ -182,7 +202,7 @@
       }
 
       function isImageAssetValue(value) {
-        const raw = String(value || "").trim();
+        const raw = String(normalizeAssetValue(value) || "").trim();
         if (!raw) return false;
         return raw.startsWith("/uploads/")
           || raw.startsWith("data:image/")

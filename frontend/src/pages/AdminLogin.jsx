@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 // import "./Admin.css"; // Reuse styling for simplicity, or create AdminLogin.css
 
+const BRAND_LOGO = "/uploads/default_logo_light.png";
+
 export default function AdminLogin() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -40,7 +42,7 @@ export default function AdminLogin() {
             <div className="admin-content" style={{ maxWidth: '400px', width: '100%', padding: '2.5rem', backgroundColor: 'rgba(15, 23, 42, 0.45)', borderRadius: '20px', backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 126, 33, 0.15)', position: 'relative' }}>
                 <div className="admin-header" style={{ marginBottom: '2rem', textAlign: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center', marginBottom: '0.75rem' }}>
-                        <img src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '36px', height: '36px', borderRadius: '6px', boxShadow: '0 4px 12px rgba(255, 126, 33, 0.25)' }} />
+                        <img src={BRAND_LOGO} alt="CodeQlik Logo" style={{ width: '36px', height: '36px', borderRadius: '6px', boxShadow: '0 4px 12px rgba(255, 126, 33, 0.25)' }} />
                         <h1 style={{ color: '#ffffff', fontSize: '1.75rem', margin: 0, fontWeight: '700', textShadow: '0 0 12px rgba(255, 126, 33, 0.35)', fontFamily: "'Outfit', sans-serif" }}>Admin Portal</h1>
                     </div>
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Sign in to manage chatbot settings</p>
@@ -98,4 +100,3 @@ export default function AdminLogin() {
         </div>
     );
 }
-

@@ -321,6 +321,25 @@ DEFAULT_SETTINGS = {
     "storage": "local"
 }
 
+LEGACY_CODEQLIK_ASSET_URLS = {
+    "http://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "http://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "https://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+}
+
+
+def normalize_public_asset_value(value, replacement=None):
+    if not isinstance(value, str):
+        return value
+    raw = value.strip()
+    if not raw:
+        return raw
+    normalized = raw.split("?", 1)[0].rstrip("/").lower()
+    if normalized in LEGACY_CODEQLIK_ASSET_URLS:
+        return replacement or DEFAULT_SETTINGS["logoUrlLight"]
+    return raw
+
 
 def now_iso():
     return datetime.utcnow().isoformat()
@@ -363,6 +382,12 @@ def get_chatbot_settings():
             missing_updates["logoUrlDark"] = DEFAULT_SETTINGS["logoUrlDark"]
         if not settings.get("logoUrl"):
             missing_updates["logoUrl"] = missing_updates.get("logoUrlLight", settings.get("logoUrlLight") or DEFAULT_SETTINGS["logoUrl"])
+        for key in ("logoUrl", "logoUrlLight", "logoUrlDark", "launcherIcon"):
+            replacement = DEFAULT_SETTINGS["logoUrlLight"] if key != "logoUrlDark" else DEFAULT_SETTINGS["logoUrlDark"]
+            current_value = missing_updates.get(key, settings.get(key))
+            normalized_value = normalize_public_asset_value(current_value, replacement)
+            if normalized_value != current_value:
+                missing_updates[key] = normalized_value
         if missing_updates:
             settings_collection.update_one({"type": "chatbot_settings"}, {"$set": missing_updates})
             settings.update(missing_updates)
@@ -384,9 +409,22 @@ def update_chatbot_settings(data: dict):
     s_email = data.get("supportEmail", data.get("support_email", settings.get("support_email")))
     s_phone = data.get("supportPhone", data.get("support_phone", settings.get("support_phone")))
     w_msg = data.get("welcomeMessage", data.get("chatbot_greeting", settings.get("chatbot_greeting")))
-    logo_light = data.get("logoUrlLight", settings.get("logoUrlLight") or DEFAULT_SETTINGS["logoUrlLight"])
-    logo_dark = data.get("logoUrlDark", settings.get("logoUrlDark") or DEFAULT_SETTINGS["logoUrlDark"])
-    legacy_logo = data.get("logoUrl", settings.get("logoUrl") or logo_light or DEFAULT_SETTINGS["logoUrl"])
+    logo_light = normalize_public_asset_value(
+        data.get("logoUrlLight", settings.get("logoUrlLight") or DEFAULT_SETTINGS["logoUrlLight"]),
+        DEFAULT_SETTINGS["logoUrlLight"],
+    )
+    logo_dark = normalize_public_asset_value(
+        data.get("logoUrlDark", settings.get("logoUrlDark") or DEFAULT_SETTINGS["logoUrlDark"]),
+        DEFAULT_SETTINGS["logoUrlDark"],
+    )
+    legacy_logo = normalize_public_asset_value(
+        data.get("logoUrl", settings.get("logoUrl") or logo_light or DEFAULT_SETTINGS["logoUrl"]),
+        logo_light or DEFAULT_SETTINGS["logoUrl"],
+    )
+    launcher_icon = normalize_public_asset_value(
+        data.get("launcherIcon", settings.get("launcherIcon")),
+        DEFAULT_SETTINGS["logoUrlLight"],
+    )
     
     p_nature = data.get("promptNature", data.get("prompt_nature", settings.get("prompt_nature")))
     p_feel = data.get("promptResponseFeel", data.get("prompt_response_feel", settings.get("prompt_response_feel")))
@@ -432,7 +470,7 @@ def update_chatbot_settings(data: dict):
         "logoUrlLight": logo_light,
         "logoUrlDark": logo_dark,
         "botAvatar": data.get("botAvatar", settings.get("botAvatar")),
-        "launcherIcon": data.get("launcherIcon", settings.get("launcherIcon")),
+        "launcherIcon": launcher_icon,
         "launcherIconWhite": data.get("launcherIconWhite", settings.get("launcherIconWhite", DEFAULT_SETTINGS["launcherIconWhite"])),
         "launcherIconSize": data.get("launcherIconSize", settings.get("launcherIconSize", DEFAULT_SETTINGS["launcherIconSize"])),
         "launcherSize": data.get("launcherSize", settings.get("launcherSize", DEFAULT_SETTINGS["launcherSize"])),

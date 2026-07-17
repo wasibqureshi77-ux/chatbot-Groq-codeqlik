@@ -10,9 +10,33 @@ const PUBLIC_ROOT = window.location.origin;
 const DEFAULT_LOGO_LIGHT = "/uploads/default_logo_light.png";
 const DEFAULT_LOGO_DARK = "/uploads/default_logo_dark.jpeg";
 const DEFAULT_LAUNCHER_ICON = "\uD83D\uDCAC";
+const LEGACY_CODEQLIK_ASSET_URLS = new Set([
+    "http://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "http://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg",
+    "https://www.codeqlik.com/assets/img/fav-icon-codeqlik.jpeg"
+]);
+
+function normalizePublicAssetValue(value) {
+    if (typeof value !== "string") return value;
+    const raw = value.trim();
+    if (!raw) return raw;
+    const normalized = raw.split("?")[0].replace(/\/+$/, "").toLowerCase();
+    return LEGACY_CODEQLIK_ASSET_URLS.has(normalized) ? DEFAULT_LOGO_LIGHT : raw;
+}
+
+function normalizeSettingsAssetFields(nextSettings) {
+    const normalized = { ...nextSettings };
+    ["logoUrl", "logoUrlLight", "logoUrlDark", "launcherIcon"].forEach((key) => {
+        if (key in normalized) {
+            normalized[key] = normalizePublicAssetValue(normalized[key]);
+        }
+    });
+    return normalized;
+}
 
 function resolvePublicAssetUrl(value) {
-    const raw = String(value || "").trim();
+    const raw = String(normalizePublicAssetValue(value) || "").trim();
     if (!raw) return "";
     try {
         return new URL(raw, PUBLIC_ROOT).href;
@@ -22,7 +46,7 @@ function resolvePublicAssetUrl(value) {
 }
 
 function isImageAssetValue(value) {
-    const raw = String(value || "").trim();
+    const raw = String(normalizePublicAssetValue(value) || "").trim();
     if (!raw) return false;
     return (
         raw.startsWith("/uploads/")
@@ -384,7 +408,7 @@ function Admin() {
                 setSettingsLoading(true);
                 const res = await apiFetch(`${API_ROOT}/api/settings`);
                 if (res.ok) {
-                    setSettings(await res.json());
+                    setSettings(normalizeSettingsAssetFields(await res.json()));
                 }
                 setSettingsLoading(false);
             } else if (activeTab === "llm-usage") {
@@ -552,7 +576,7 @@ function Admin() {
             const res = await apiFetch(`${API_ROOT}/api/settings`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(settings)
+                body: JSON.stringify(normalizeSettingsAssetFields(settings))
             });
             if (res.ok) {
                 alert("Configurations saved!");
@@ -942,7 +966,7 @@ function Admin() {
             <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
                 <div className="sidebarBrand" style={{ padding: '20px 15px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', marginBottom: '6px' }}>
-                        <img src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(255, 126, 33, 0.2)' }} />
+                        <img src={resolvePublicAssetUrl(DEFAULT_LOGO_LIGHT)} alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(255, 126, 33, 0.2)' }} />
                         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>CodeQlik</h2>
                     </div>
                     <p style={{ margin: 0, textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>Chatbot Admin Panel</p>

@@ -1,13 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+const BRAND_LOGO = "/uploads/default_logo_light.png";
+
 function Home() {
     return (
         <div className="cq-landing-container">
             {/* Top Navbar */}
             <nav className="cq-navbar">
                 <div className="cq-nav-logo">
-                    <img className="cq-logo-img" src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '4px' }} />
+                    <img className="cq-logo-img" src={BRAND_LOGO} alt="CodeQlik Logo" style={{ width: '32px', height: '32px', borderRadius: '4px' }} />
                     <span className="cq-logo-text">CodeQlik</span>
                 </div>
                 <div className="cq-nav-right">
@@ -19,7 +21,7 @@ function Home() {
             {/* Central Content */}
             <main className="cq-hero-content">
                 <div className="cq-center-logo-wrapper">
-                    <img className="cq-center-logo-img" src="https://codeqlik.com/assets/img/fav-icon-codeqlik.jpeg" alt="CodeQlik Logo" style={{ width: '80px', height: '80px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(249, 115, 22, 0.25)' }} />
+                    <img className="cq-center-logo-img" src={BRAND_LOGO} alt="CodeQlik Logo" style={{ width: '80px', height: '80px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(249, 115, 22, 0.25)' }} />
                 </div>
                 
                 <h1 className="cq-hero-title">CodeQlik Chatbot Console</h1>
