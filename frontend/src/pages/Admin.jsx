@@ -46,6 +46,45 @@ function Admin() {
     const [loading, setLoading] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // Gallery state variables
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [uploadedImages, setUploadedImages] = useState([]);
+    const [activeGalleryField, setActiveGalleryField] = useState(null); // "logoUrlLight", "logoUrlDark", "launcherIcon"
+    const [gallerySearchQuery, setGallerySearchQuery] = useState("");
+    const [galleryLoading, setGalleryLoading] = useState(false);
+
+    const fetchUploadedImages = async () => {
+        setGalleryLoading(true);
+        try {
+            const res = await apiFetch(`${API_BASE}/settings/uploaded-images`);
+            if (res.ok) {
+                setUploadedImages(await res.json());
+            }
+        } catch (err) {
+            console.error("Error fetching uploaded images:", err);
+        } finally {
+            setGalleryLoading(false);
+        }
+    };
+
+    const handleOpenGallery = (field) => {
+        setActiveGalleryField(field);
+        setGallerySearchQuery("");
+        setIsGalleryOpen(true);
+        fetchUploadedImages();
+    };
+
+    const handleSelectGalleryImage = (imageUrl) => {
+        if (activeGalleryField === "logoUrlLight") {
+            setSettings(prev => ({ ...prev, logoUrlLight: imageUrl, logoUrl: imageUrl }));
+        } else if (activeGalleryField === "logoUrlDark") {
+            setSettings(prev => ({ ...prev, logoUrlDark: imageUrl }));
+        } else if (activeGalleryField === "launcherIcon") {
+            setSettings(prev => ({ ...prev, launcherIcon: imageUrl }));
+        }
+        setIsGalleryOpen(false);
+    };
+
     // Responsive Mobile/Collapsible states
     const [expandedItems, setExpandedItems] = useState({});
     const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
@@ -2646,6 +2685,14 @@ function Admin() {
                                                                         placeholder="https://example.com/logo-light.png"
                                                                         style={{ flex: 1 }}
                                                                     />
+                                                                    <button
+                                                                        type="button"
+                                                                        className="secondaryBtn"
+                                                                        style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}
+                                                                        onClick={() => handleOpenGallery("logoUrlLight")}
+                                                                    >
+                                                                        🖼️ Gallery
+                                                                    </button>
                                                                     <label htmlFor="logo-light-file" className="secondaryBtn" style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}>
                                                                         Upload
                                                                     </label>
@@ -2672,6 +2719,14 @@ function Admin() {
                                                                         placeholder="https://example.com/logo-dark.png"
                                                                         style={{ flex: 1 }}
                                                                     />
+                                                                    <button
+                                                                        type="button"
+                                                                        className="secondaryBtn"
+                                                                        style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}
+                                                                        onClick={() => handleOpenGallery("logoUrlDark")}
+                                                                    >
+                                                                        🖼️ Gallery
+                                                                    </button>
                                                                     <label htmlFor="logo-dark-file" className="secondaryBtn" style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}>
                                                                         Upload
                                                                     </label>
@@ -2713,6 +2768,14 @@ function Admin() {
                                                                         placeholder="Emoji, /uploads/icon.png, or https://example.com/icon.png"
                                                                         style={{ flex: 1 }}
                                                                     />
+                                                                    <button
+                                                                        type="button"
+                                                                        className="secondaryBtn"
+                                                                        style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}
+                                                                        onClick={() => handleOpenGallery("launcherIcon")}
+                                                                    >
+                                                                        🖼️ Gallery
+                                                                    </button>
                                                                     <label htmlFor="launcher-icon-file" className="secondaryBtn" style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", margin: 0, fontSize: "12px", height: "38px" }}>
                                                                         Upload
                                                                     </label>
@@ -3801,6 +3864,99 @@ function Admin() {
             {/* ==========================================
                 KNOWLEDGE SOURCE EDIT MODAL OVERLAY
                 ========================================== */}
+            {isGalleryOpen && (
+                <div className="modalOverlay" style={{ zIndex: 1000 }}>
+                    <style>{`
+                        .galleryItemHover {
+                            transition: all 0.2s ease-in-out !important;
+                        }
+                        .galleryItemHover:hover {
+                            border-color: #ff7e21 !important;
+                            background: rgba(255, 126, 33, 0.08) !important;
+                            transform: scale(1.05) !important;
+                        }
+                    `}</style>
+                    <div className="modalContent" style={{ maxWidth: "600px", width: "90%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                            <h3 style={{ margin: 0 }}>Browse Image Gallery</h3>
+                            <button
+                                type="button"
+                                style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", fontSize: "20px" }}
+                                onClick={() => setIsGalleryOpen(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="🔍 Search images by name..."
+                            value={gallerySearchQuery}
+                            onChange={(e) => setGallerySearchQuery(e.target.value)}
+                            style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", marginBottom: "16px" }}
+                        />
+                        <div style={{ flex: 1, overflowY: "auto", minHeight: "200px", maxHeight: "400px" }}>
+                            {galleryLoading ? (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px" }}>
+                                    <span>Loading images...</span>
+                                </div>
+                            ) : (
+                                (() => {
+                                    const filtered = uploadedImages.filter(img => 
+                                        img.name.toLowerCase().includes(gallerySearchQuery.toLowerCase())
+                                    );
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px", opacity: 0.6 }}>
+                                                <span>No images found</span>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "12px", padding: "4px" }}>
+                                            {filtered.map(img => (
+                                                <div
+                                                    key={img.name}
+                                                    title={img.name}
+                                                    onClick={() => handleSelectGalleryImage(img.url)}
+                                                    style={{
+                                                        aspectRatio: "1",
+                                                        borderRadius: "8px",
+                                                        border: "1px solid rgba(255,255,255,0.1)",
+                                                        background: "rgba(255,255,255,0.02)",
+                                                        cursor: "pointer",
+                                                        overflow: "hidden",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        padding: "8px"
+                                                    }}
+                                                    className="galleryItemHover"
+                                                >
+                                                    <img
+                                                        src={resolvePublicAssetUrl(img.url)}
+                                                        alt={img.name}
+                                                        style={{ maxWidth: "100%", maxHeight: "70%", objectFit: "contain", borderRadius: "4px" }}
+                                                    />
+                                                    <span style={{ fontSize: "10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", textAlign: "center", marginTop: "6px", opacity: 0.8 }}>
+                                                        {img.name.replace(/^(logo|launcher_icon)_[0-9]+_/i, '')}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()
+                            )}
+                        </div>
+                        <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+                            <button className="secondaryBtn" type="button" onClick={() => setIsGalleryOpen(false)}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isEditModalOpen && (
                 <div className="modalOverlay">
                     <div className="modalContent">

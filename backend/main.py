@@ -967,6 +967,22 @@ def upload_logo(file: UploadFile = File(...), admin: str = Depends(require_admin
 def upload_launcher_icon(file: UploadFile = File(...), admin: str = Depends(require_admin)):
     return save_uploaded_image(file, "launcher_icon")
 
+
+@app.get("/api/admin/settings/uploaded-images")
+def list_uploaded_images(admin: str = Depends(require_admin)):
+    images = []
+    if UPLOAD_DIR.exists():
+        for file in UPLOAD_DIR.iterdir():
+            if file.is_file() and file.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
+                images.append({
+                    "name": file.name,
+                    "url": f"/uploads/{file.name}",
+                    "size": file.stat().st_size,
+                    "mtime": file.stat().st_mtime
+                })
+        images.sort(key=lambda x: x["mtime"], reverse=True)
+    return images
+
 @app.put("/api/settings")
 def update_settings(payload: SettingsUpdate, admin: str = Depends(require_admin)):
     data = payload.dict(exclude_unset=True)
